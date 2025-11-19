@@ -1,0 +1,35 @@
+[
+  {
+    "id": "A1001",
+    "customerName": "张先生",
+    "status": "shipped",
+    "statusText": "已发货",
+    "carrier": "顺丰速运",
+    "trackingNo": "SF1234567890",
+    "eta": "明天 18:00 前",
+    "items": ["无线蓝牙耳机"],
+    "paidAmount": 299
+  },
+  {
+    "id": "B2026",
+    "customerName": "李女士",
+    "status": "processing",
+    "statusText": "仓库处理中",
+    "carrier": "",
+    "trackingNo": "",
+    "eta": "预计 24 小时内发货",
+    "items": ["智能保温杯", "替换杯盖"],
+    "paidAmount": 188
+  },
+  {
+    "id": "R3308",
+    "customerName": "王先生",
+    "status": "refund_review",
+    "statusText": "退款审核中",
+    "carrier": "",
+    "trackingNo": "",
+    "eta": "预计 1-3 个工作日完成审核",
+    "items": ["机械键盘"],
+    "paidAmount": 429
+  }
+]
