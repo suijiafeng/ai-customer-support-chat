@@ -2,13 +2,12 @@ const messagesEl = document.querySelector('#messages');
 const form = document.querySelector('#chatForm');
 const input = document.querySelector('#messageInput');
 const statusEl = document.querySelector('#status');
-const customerNameInput = document.querySelector('#customerName');
-const customerContactInput = document.querySelector('#customerContact');
 const visitorCodeEl = document.querySelector('#visitorCode');
+const modeBannerEl = document.querySelector('#modeBanner');
+const modeTextEl = document.querySelector('#modeText');
 const quickButtons = document.querySelectorAll('[data-prompt]');
 const VISITOR_KEY = 'assistflow.customer.visitor';
 const SESSION_KEY = 'assistflow.customer.sessionId';
-const PROFILE_KEY = 'assistflow.customer.profile';
 const HISTORY_PREFIX = 'assistflow.customer.history';
 const visitor = getOrCreateVisitor();
 let sessionId = getOrCreateSessionId();
@@ -16,10 +15,8 @@ const history = loadHistory();
 let sessionEvents = null;
 
 async function boot() {
-  restoreProfile();
   renderVisitorCode();
   renderPersistedHistory();
-  await saveProfile({ skipEmpty: true });
   updateReadyState();
 
   try {
@@ -34,27 +31,80 @@ async function boot() {
   connectSessionEvents();
 }
 
-function appendMessage(role, content) {
+function appendMessage(role, content, opts = {}) {
   const article = document.createElement('article');
   article.className = `message ${role}`;
 
+  if (role === 'bot') {
+    const avatar = document.createElement('div');
+    avatar.className = 'bot-avatar';
+    avatar.textContent = 'AI';
+    article.appendChild(avatar);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'message-body';
+
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.textContent = content;
 
-  article.appendChild(bubble);
+  if (opts.typing) {
+    bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  } else {
+    bubble.textContent = content;
+  }
+
+  body.appendChild(bubble);
+
+  if (!opts.typing) {
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = formatTime(new Date());
+    body.appendChild(meta);
+  }
+
+  article.appendChild(body);
   messagesEl.appendChild(article);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  return article;
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function resolveTyping(typingId, text) {
+  const typingEl = document.querySelector(`[data-typing-id="${typingId}"]`);
+  if (!typingEl) return;
+  const bubble = typingEl.querySelector('.bubble');
+  if (bubble) bubble.textContent = text;
+  const body = typingEl.querySelector('.message-body');
+  if (body && !body.querySelector('.message-meta')) {
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = formatTime(new Date());
+    body.appendChild(meta);
+  }
+}
+
+function setMode(mode) {
+  if (!modeBannerEl) return;
+  modeBannerEl.classList.toggle('human', mode === 'human');
+  modeBannerEl.classList.toggle('typing', mode === 'typing');
+  const labels = {
+    ai: 'AI 自动接管',
+    typing: 'AI 正在回复',
+    human: '人工客服已接入',
+  };
+  modeTextEl.textContent = labels[mode] ?? labels.ai;
 }
 
 function renderMessages(messages) {
   messagesEl.replaceChildren();
 
   if (!messages.length) {
-    appendMessage(
-      'bot',
-      '你好，请直接描述你的问题。如果要查订单，可以输入订单号，例如 A1001。'
-    );
+    appendMessage('bot', '你好！我是 AssistFlow 智能客服，很高兴为您服务。可以帮您查询订单、申请退款、开具发票等，请直接描述您的问题。');
     return;
   }
 
@@ -76,42 +126,38 @@ async function sendMessage(message) {
   input.disabled = true;
 
   const typingId = `typing-${Date.now()}`;
-  appendMessage('bot', '正在为你查询');
-  messagesEl.lastElementChild.dataset.typingId = typingId;
+  const typingEl = appendMessage('bot', '', { typing: true });
+  typingEl.dataset.typingId = typingId;
+  setMode('typing');
 
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, message: cleanMessage, history, profile: getProfile(), visitor }),
+      body: JSON.stringify({ sessionId, message: cleanMessage, history, visitor }),
     });
     const data = await response.json();
-    const typingBubble = document.querySelector(`[data-typing-id="${typingId}"] .bubble`);
 
     if (!response.ok) {
-      if (typingBubble) {
-        typingBubble.textContent = '暂时没有处理成功，请稍后再试。';
-      }
+      resolveTyping(typingId, '暂时没有处理成功，请稍后再试。');
+      setMode('ai');
       return;
     }
 
     if (data.handledByAgent) {
-      if (typingBubble) {
-        typingBubble.textContent = '已发送给人工客服。';
-      }
+      resolveTyping(typingId, '已发送给人工客服。');
+      setMode('human');
       return;
     }
 
-    if (typingBubble) {
-      typingBubble.textContent = data.reply || '暂时没有处理成功，请稍后再试。';
-      history.push({ role: 'assistant', content: data.reply || '' });
-      persistHistory();
-    }
+    const reply = data.reply || '暂时没有处理成功，请稍后再试。';
+    resolveTyping(typingId, reply);
+    setMode('ai');
+    history.push({ role: 'assistant', content: data.reply || '' });
+    persistHistory();
   } catch {
-    const typingBubble = document.querySelector(`[data-typing-id="${typingId}"] .bubble`);
-    if (typingBubble) {
-      typingBubble.textContent = '服务暂时不可用，请稍后再试。';
-    }
+    resolveTyping(typingId, '服务暂时不可用，请稍后再试。');
+    setMode('ai');
   } finally {
     input.disabled = false;
     input.focus();
@@ -204,17 +250,6 @@ function connectSessionEvents() {
   });
 }
 
-function restoreProfile() {
-  try {
-    const profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
-    customerNameInput.value = profile.name || '';
-    customerContactInput.value = profile.contact || '';
-  } catch {
-    customerNameInput.value = '';
-    customerContactInput.value = '';
-  }
-}
-
 function getOrCreateVisitor() {
   try {
     const existing = JSON.parse(localStorage.getItem(VISITOR_KEY) || 'null');
@@ -242,35 +277,6 @@ function updateReadyState() {
   quickButtons.forEach((button) => {
     button.disabled = false;
   });
-  statusEl.textContent = customerNameInput.value.trim()
-    ? `${customerNameInput.value.trim()} · ${visitor.code}`
-    : `访客 ${visitor.code}`;
-}
-
-function getProfile() {
-  return {
-    name: customerNameInput.value.trim(),
-    contact: customerContactInput.value.trim(),
-  };
-}
-
-async function saveProfile(options = {}) {
-  const profile = getProfile();
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-
-  if (options.skipEmpty && !profile.name && !profile.contact) {
-    return;
-  }
-
-  try {
-    await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/profile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profile),
-    });
-  } catch {
-    // Profile is best-effort for the demo; chat still works without it.
-  }
 }
 
 quickButtons.forEach((button) => {
@@ -283,12 +289,6 @@ form.addEventListener('submit', (event) => {
   event.preventDefault();
   sendMessage(input.value);
 });
-
-customerNameInput.addEventListener('change', () => {
-  updateReadyState();
-  saveProfile();
-});
-customerContactInput.addEventListener('change', () => saveProfile());
 
 boot();
 
