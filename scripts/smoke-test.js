@@ -40,7 +40,17 @@ const cases = [
   {
     name: 'agent reply',
     run: () => post(`/api/sessions/${ticketSessionId}/messages`, { content: '您好，人工客服已接入，请提供订单号。' }),
-    assert: (data) => data.session?.status === 'assigned' && data.messages?.at(-1)?.actor === 'agent',
+    assert: (data) => data.session?.status === 'assigned'
+      && data.session?.workflow?.ticket?.status === 'processing'
+      && data.messages?.at(-1)?.actor === 'agent',
+  },
+  {
+    name: 'operations metrics',
+    run: () => get('/api/metrics'),
+    assert: (data) => data.totals?.sessions >= 2
+      && data.queue?.assigned >= 1
+      && data.workload?.activeTickets >= 1
+      && Number.isInteger(data.ai?.automationRate),
   },
   {
     name: 'pause ai after agent assigned',
@@ -50,6 +60,18 @@ const cases = [
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent === true && data.reply === '',
+  },
+  {
+    name: 'resolve session',
+    run: () => post(`/api/sessions/${ticketSessionId}/resolve`, { resolution: '冒烟测试标记解决' }),
+    assert: (data) => data.session?.status === 'closed'
+      && data.session?.needHuman === false
+      && data.tickets?.every((ticket) => ticket.status === 'resolved'),
+  },
+  {
+    name: 'resolved ticket lifecycle',
+    run: () => get('/api/tickets'),
+    assert: (data) => data.tickets?.some((ticket) => ticket.sessionId === ticketSessionId && ticket.status === 'resolved'),
   },
 ];
 

@@ -47,9 +47,29 @@
           </div>
           <div class="topbar-actions">
             <span id="modeBadge" class="badge">MVP</span>
-            <button type="button" class="ghost-button">导出记录</button>
+            <button id="resolveSession" type="button" class="ghost-button">标记解决</button>
+            <button id="exportTranscript" type="button" class="ghost-button">导出记录</button>
           </div>
         </header>
+
+        <section class="ops-strip" aria-label="运营指标">
+          <article>
+            <span>待接入</span>
+            <strong id="metricWaiting">0</strong>
+          </article>
+          <article>
+            <span>高优先级</span>
+            <strong id="metricHigh">0</strong>
+          </article>
+          <article>
+            <span>处理中</span>
+            <strong id="metricAssigned">0</strong>
+          </article>
+          <article>
+            <span>自动处理率</span>
+            <strong id="metricAutomation">100%</strong>
+          </article>
+        </section>
 
         <div id="messages" class="messages">
           <article class="message bot">
@@ -120,7 +140,7 @@
 
         <section class="ticket-panel">
           <div class="panel-heading">
-            <h2>未处理工单</h2>
+            <h2>工单流转</h2>
             <button id="refreshTickets" type="button">刷新</button>
           </div>
           <div id="ticketList" class="ticket-list">暂无工单</div>

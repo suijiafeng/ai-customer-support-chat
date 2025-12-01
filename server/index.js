@@ -66,6 +66,10 @@ app.get('/api/tickets', (req, res) => {
   res.json({ tickets: tickets.slice().reverse() });
 });
 
+app.get('/api/metrics', (req, res) => {
+  res.json(buildMetrics());
+});
+
 app.get('/api/sessions', (req, res) => {
   res.json(getSessionsPayload());
 });
@@ -105,6 +109,43 @@ app.get('/api/sessions/:sessionId/events', (req, res) => {
   });
 });
 
+app.post('/api/sessions/:sessionId/resolve', (req, res) => {
+  const session = sessions.get(req.params.sessionId);
+  const resolution = String(req.body?.resolution || '人工客服已标记解决').trim().slice(0, 120);
+
+  if (!session) {
+    return res.status(404).json({ error: 'session not found' });
+  }
+
+  const resolvedTickets = resolveTicketsForSession(req.params.sessionId, resolution);
+  const updatedSession = {
+    ...session,
+    status: 'closed',
+    needHuman: false,
+    reason: resolution,
+    workflow: session.workflow
+      ? {
+          ...session.workflow,
+          needHuman: false,
+          reason: resolution,
+          ticket: resolvedTickets[0] || session.workflow.ticket || null,
+        }
+      : session.workflow,
+    resolvedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  sessions.set(req.params.sessionId, updatedSession);
+  notifySession(req.params.sessionId);
+  notifyQueue();
+
+  res.json({
+    session: updatedSession,
+    tickets: resolvedTickets,
+    metrics: buildMetrics(),
+  });
+});
+
 app.post('/api/sessions/:sessionId/messages', (req, res) => {
   const session = sessions.get(req.params.sessionId);
   const content = String(req.body?.content || '').trim();
@@ -126,10 +167,18 @@ app.post('/api/sessions/:sessionId/messages', (req, res) => {
       createdAt: new Date().toISOString(),
     },
   ].slice(-12);
+  const linkedTicket = moveOpenTicketToProcessing(req.params.sessionId);
   const updatedSession = {
     ...session,
     status: 'assigned',
     lastMessage: content,
+    ticketId: linkedTicket?.id || session.ticketId,
+    workflow: session.workflow
+      ? {
+          ...session.workflow,
+          ticket: linkedTicket || session.workflow.ticket || null,
+        }
+      : session.workflow,
     updatedAt: new Date().toISOString(),
   };
 
@@ -141,6 +190,42 @@ app.post('/api/sessions/:sessionId/messages', (req, res) => {
   res.json({
     session: updatedSession,
     messages: nextMessages,
+  });
+});
+
+app.patch('/api/tickets/:ticketId', (req, res) => {
+  const ticket = tickets.find((item) => item.id === req.params.ticketId);
+
+  if (!ticket) {
+    return res.status(404).json({ error: 'ticket not found' });
+  }
+
+  const nextStatus = req.body?.status ? String(req.body.status) : ticket.status;
+  const nextPriority = req.body?.priority ? String(req.body.priority) : ticket.priority;
+
+  if (!['open', 'processing', 'resolved'].includes(nextStatus)) {
+    return res.status(400).json({ error: 'invalid ticket status' });
+  }
+  if (!['normal', 'high'].includes(nextPriority)) {
+    return res.status(400).json({ error: 'invalid ticket priority' });
+  }
+
+  const updatedTicket = updateTicket(ticket, {
+    status: nextStatus,
+    priority: nextPriority,
+    resolution: req.body?.resolution,
+  });
+  const session = syncSessionFromTicket(updatedTicket);
+
+  notifyQueue();
+  if (updatedTicket.sessionId) {
+    notifySession(updatedTicket.sessionId);
+  }
+
+  res.json({
+    ticket: updatedTicket,
+    session,
+    metrics: buildMetrics(),
   });
 });
 
@@ -545,6 +630,117 @@ function createTicket({ sessionId, message, intent, reason, order }) {
     tickets.splice(0, tickets.length - MAX_TICKETS);
   }
   return ticket;
+}
+
+function moveOpenTicketToProcessing(sessionId) {
+  const ticket = tickets.find((item) => item.sessionId === sessionId && item.status === 'open');
+
+  if (!ticket) {
+    return null;
+  }
+
+  return updateTicket(ticket, { status: 'processing' });
+}
+
+function resolveTicketsForSession(sessionId, resolution) {
+  return tickets
+    .filter((ticket) => ticket.sessionId === sessionId && ticket.status !== 'resolved')
+    .map((ticket) => updateTicket(ticket, { status: 'resolved', resolution }));
+}
+
+function updateTicket(ticket, updates = {}) {
+  const now = new Date().toISOString();
+
+  if (updates.status) {
+    ticket.status = updates.status;
+  }
+  if (updates.priority) {
+    ticket.priority = updates.priority;
+  }
+  if (typeof updates.resolution === 'string' && updates.resolution.trim()) {
+    ticket.resolution = updates.resolution.trim().slice(0, 120);
+  }
+
+  ticket.updatedAt = now;
+  if (ticket.status === 'processing' && !ticket.acceptedAt) {
+    ticket.acceptedAt = now;
+  }
+  if (ticket.status === 'resolved') {
+    ticket.resolvedAt = ticket.resolvedAt || now;
+  }
+
+  return ticket;
+}
+
+function syncSessionFromTicket(ticket) {
+  const session = sessions.get(ticket.sessionId);
+
+  if (!session) {
+    return null;
+  }
+
+  const isResolved = ticket.status === 'resolved';
+  const nextSession = {
+    ...session,
+    status: isResolved ? 'closed' : ticket.status === 'processing' ? 'assigned' : session.status,
+    priority: ticket.priority,
+    needHuman: isResolved ? false : session.needHuman,
+    reason: ticket.resolution || session.reason,
+    ticketId: ticket.id,
+    workflow: session.workflow
+      ? {
+          ...session.workflow,
+          needHuman: isResolved ? false : session.workflow.needHuman,
+          reason: ticket.resolution || session.workflow.reason,
+          ticket,
+        }
+      : session.workflow,
+    resolvedAt: isResolved ? ticket.resolvedAt : session.resolvedAt,
+    updatedAt: new Date().toISOString(),
+  };
+
+  sessions.set(ticket.sessionId, nextSession);
+  return nextSession;
+}
+
+function buildMetrics() {
+  const sessionList = [...sessions.values()];
+  const messageCount = [...conversations.values()].reduce((total, messages) => total + messages.length, 0);
+  const totalSessions = sessionList.length;
+  const automatedSessions = sessionList.filter((session) => session.status === 'bot' && !session.needHuman).length;
+  const openTicketCount = tickets.filter((ticket) => ticket.status === 'open').length;
+  const processingTicketCount = tickets.filter((ticket) => ticket.status === 'processing').length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    totals: {
+      sessions: totalSessions,
+      messages: messageCount,
+      tickets: tickets.length,
+    },
+    queue: {
+      waitingHuman: sessionList.filter((session) => session.status === 'waiting_human').length,
+      assigned: sessionList.filter((session) => session.status === 'assigned').length,
+      closed: sessionList.filter((session) => session.status === 'closed').length,
+      highPriority: sessionList.filter((session) => session.priority === 'high').length,
+    },
+    tickets: {
+      open: openTicketCount,
+      processing: processingTicketCount,
+      resolved: tickets.filter((ticket) => ticket.status === 'resolved').length,
+      highPriority: tickets.filter((ticket) => ticket.priority === 'high').length,
+    },
+    ai: {
+      automationRate: totalSessions ? Math.round((automatedSessions / totalSessions) * 100) : 100,
+      handoffRate: totalSessions
+        ? Math.round((sessionList.filter((session) => session.needHuman).length / totalSessions) * 100)
+        : 0,
+    },
+    workload: {
+      activeTickets: openTicketCount + processingTicketCount,
+      activeSessions: sessionList.filter((session) => session.status !== 'closed').length,
+    },
+  };
 }
 
 function getSessionsPayload() {
