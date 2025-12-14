@@ -2,6 +2,7 @@ const baseUrl = process.env.SMOKE_BASE_URL || 'http://localhost:3001';
 const runId = `smoke-${Date.now()}`;
 const orderSessionId = `${runId}-order`;
 const ticketSessionId = `${runId}-ticket`;
+let ticketId = null;
 
 const cases = [
   {
@@ -25,7 +26,10 @@ const cases = [
       message: '我要投诉，找人工客服',
       visitor: { code: `${runId}-2` },
     }),
-    assert: (data) => data.needHuman === true && Boolean(data.ticket?.id),
+    assert: (data) => {
+      ticketId = data.ticket?.id || null;
+      return data.needHuman === true && Boolean(ticketId);
+    },
   },
   {
     name: 'session queue',
@@ -59,7 +63,10 @@ const cases = [
       message: '人工接入后这条不需要 AI 自动回复',
       visitor: { code: `${runId}-2` },
     }),
-    assert: (data) => data.handledByAgent === true && data.reply === '',
+    assert: (data) => data.handledByAgent === true
+      && data.reply === ''
+      && data.ticket?.id === ticketId
+      && data.ticket?.status === 'processing',
   },
   {
     name: 'resolve session',
@@ -72,6 +79,25 @@ const cases = [
     name: 'resolved ticket lifecycle',
     run: () => get('/api/tickets'),
     assert: (data) => data.tickets?.some((ticket) => ticket.sessionId === ticketSessionId && ticket.status === 'resolved'),
+  },
+  {
+    name: 'reopen after resolved',
+    run: () => post('/api/chat', {
+      sessionId: ticketSessionId,
+      message: '再帮我查一下订单 A1001',
+      visitor: { code: `${runId}-2` },
+    }),
+    assert: (data) => data.handledByAgent !== true
+      && data.intent === 'order_status'
+      && data.order?.id === 'A1001'
+      && data.needHuman === false,
+  },
+  {
+    name: 'reopened session returns to bot queue',
+    run: () => get(`/api/sessions/${ticketSessionId}`),
+    assert: (data) => data.session?.status === 'bot'
+      && data.session?.priority === 'normal'
+      && data.session?.ticketId === ticketId,
   },
 ];
 

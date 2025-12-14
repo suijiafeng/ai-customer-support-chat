@@ -1198,6 +1198,11 @@ dd {
   width: 30px;
 }
 
+.bot-avatar.human-agent {
+  background: linear-gradient(135deg, #137a4a, #0f5132);
+  box-shadow: 0 2px 8px rgba(19, 122, 74, 0.22);
+}
+
 /* Message Body wrapper */
 .message-body {
   display: flex;
