@@ -22,10 +22,12 @@ const metricAutomationEl = document.querySelector('#metricAutomation');
 const quickButtons = document.querySelectorAll('[data-reply]');
 const sessionListEl = document.querySelector('#sessionList');
 const queueCountEl = document.querySelector('#queueCount');
+const AGENT_KEY = 'assistflow.agent.profile';
 
 let selectedSessionId = null;
 let selectedMessages = [];
 let sessions = [];
+let agentProfile = getAgentProfile();
 let queueEvents = null;
 let sessionEvents = null;
 let queuePollTimer = null;
@@ -35,8 +37,8 @@ async function boot() {
   try {
     const data = await requestJson('/api/health');
     statusEl.textContent = data.aiEnabled
-      ? `${formatProvider(data.aiProvider)} / ${data.model}`
-      : '本地规则模式';
+      ? `${formatProvider(data.aiProvider)} / ${data.model} · ${agentProfile.name}`
+      : `本地规则模式 · ${agentProfile.name}`;
     modeBadgeEl.textContent = `${data.faqCount} FAQ / ${data.orderCount} 订单`;
     selectedSessionId = new URLSearchParams(window.location.search).get('sessionId');
     await refreshSessions();
@@ -70,7 +72,7 @@ function renderMessages(messages) {
   }
 
   messages.forEach((message) => {
-    appendMessage(message.role === 'user' ? 'bot' : 'user', message.content);
+    appendMessage(message.role === 'user' ? 'bot customer' : 'user agent', message.content);
   });
 }
 
@@ -82,7 +84,14 @@ async function sendMessage(message) {
   }
 
   appendMessage('user', cleanMessage);
-  selectedMessages.push({ role: 'user', content: cleanMessage });
+  selectedMessages.push({
+    role: 'assistant',
+    actor: 'agent',
+    content: cleanMessage,
+    agentId: agentProfile.id,
+    agentName: agentProfile.name,
+    createdAt: new Date().toISOString(),
+  });
   input.value = '';
   input.disabled = true;
 
@@ -90,7 +99,7 @@ async function sendMessage(message) {
     const data = await requestJson(`/api/sessions/${encodeURIComponent(selectedSessionId)}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: cleanMessage }),
+      body: JSON.stringify({ content: cleanMessage, agent: agentProfile }),
     });
 
     selectedMessages = data.messages || selectedMessages;
@@ -99,8 +108,8 @@ async function sendMessage(message) {
     await refreshSessions({ keepSelection: true });
     await refreshTickets();
     await refreshMetrics();
-  } catch {
-    appendMessage('bot', '消息发送失败，请稍后再试。');
+  } catch (error) {
+    appendMessage('bot', `消息发送失败：${error.message}`);
   } finally {
     input.disabled = false;
     input.focus();
@@ -473,6 +482,41 @@ function maskContact(contact) {
   return value;
 }
 
+function getAgentProfile() {
+  const params = new URLSearchParams(window.location.search);
+  const urlAgentId = params.get('agentId');
+  const urlAgentName = params.get('agentName');
+
+  if (urlAgentId || urlAgentName) {
+    const profile = {
+      id: sanitizeAgentId(urlAgentId || urlAgentName),
+      name: (urlAgentName || urlAgentId || '本地客服').slice(0, 40),
+    };
+    safeSetItem(AGENT_KEY, JSON.stringify(profile));
+    return profile;
+  }
+
+  const stored = safeParseJson(safeGetItem(AGENT_KEY), null);
+
+  if (stored?.id) {
+    return {
+      id: sanitizeAgentId(stored.id),
+      name: String(stored.name || stored.id).slice(0, 40),
+    };
+  }
+
+  const profile = {
+    id: `agent-${Math.random().toString(16).slice(2, 8)}`,
+    name: '本地客服',
+  };
+  safeSetItem(AGENT_KEY, JSON.stringify(profile));
+  return profile;
+}
+
+function sanitizeAgentId(value) {
+  return String(value || 'agent-local').trim().replace(/[^a-z0-9_-]/gi, '').slice(0, 48) || 'agent-local';
+}
+
 function formatRelativeTime(value) {
   const diff = Date.now() - new Date(value).getTime();
   const minutes = Math.max(0, Math.floor(diff / 60000));
@@ -636,5 +680,21 @@ function safeParseJson(value, fallback) {
     return JSON.parse(value);
   } catch {
     return fallback;
+  }
+}
+
+function safeGetItem(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // The workbench still runs in restricted storage modes.
   }
 }

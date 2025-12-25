@@ -1,30 +1,38 @@
 const messagesEl = document.querySelector('#messages');
 const form = document.querySelector('#chatForm');
 const input = document.querySelector('#messageInput');
-const statusEl = document.querySelector('#status');
+const statusTextEl = document.querySelector('#statusText');
 const visitorCodeEl = document.querySelector('#visitorCode');
 const modeBannerEl = document.querySelector('#modeBanner');
 const modeTextEl = document.querySelector('#modeText');
+const agentLink = document.querySelector('#agentLink');
+const customerNameInput = document.querySelector('#customerName');
+const customerContactInput = document.querySelector('#customerContact');
+const profileStatusEl = document.querySelector('#profileStatus');
 const quickButtons = document.querySelectorAll('[data-prompt]');
 const VISITOR_KEY = 'assistflow.customer.visitor';
 const SESSION_KEY = 'assistflow.customer.sessionId';
 const HISTORY_PREFIX = 'assistflow.customer.history';
+const PROFILE_KEY = 'assistflow.customer.profile';
 const visitor = getOrCreateVisitor();
 let sessionId = getOrCreateSessionId();
 const history = loadHistory();
+let profile = loadProfile();
 let sessionEvents = null;
 let sessionPollTimer = null;
 
 async function boot() {
   renderVisitorCode();
+  renderProfile();
+  updateAgentLink();
   renderPersistedHistory();
   updateReadyState();
 
   try {
     const data = await requestJson('/api/health');
-    statusEl.dataset.aiStatus = data.aiEnabled ? `${formatProvider(data.aiProvider)} 在线` : '客服助手在线';
+    statusTextEl.textContent = data.aiEnabled ? `${formatProvider(data.aiProvider)} 在线` : '客服助手在线';
   } catch {
-    statusEl.dataset.aiStatus = '离线模式';
+    statusTextEl.textContent = '离线模式';
   }
   updateReadyState();
 
@@ -141,10 +149,11 @@ async function sendMessage(message) {
   setMode('typing');
 
   try {
+    const currentProfile = collectProfile();
     const data = await requestJson('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, message: cleanMessage, history, visitor }),
+      body: JSON.stringify({ sessionId, message: cleanMessage, history, visitor, profile: currentProfile }),
     });
 
     if (data.handledByAgent) {
@@ -213,6 +222,14 @@ function writeSessionIdToUrl(nextSessionId) {
   }
 }
 
+function getAgentUrl() {
+  return `/agent.html?sessionId=${encodeURIComponent(sessionId)}`;
+}
+
+function updateAgentLink() {
+  agentLink.href = getAgentUrl();
+}
+
 function loadHistory() {
   try {
     const parsed = JSON.parse(safeGetItem(getHistoryKey()) || '[]');
@@ -236,6 +253,84 @@ function renderPersistedHistory() {
   }
 
   renderMessages(history);
+}
+
+function loadProfile() {
+  try {
+    const parsed = JSON.parse(safeGetItem(PROFILE_KEY) || 'null');
+
+    if (!parsed || typeof parsed !== 'object') {
+      return { name: '', contact: '' };
+    }
+
+    return {
+      name: String(parsed.name || '').slice(0, 24),
+      contact: String(parsed.contact || '').slice(0, 40),
+    };
+  } catch {
+    return { name: '', contact: '' };
+  }
+}
+
+function renderProfile() {
+  customerNameInput.value = profile.name;
+  customerContactInput.value = profile.contact;
+  updateProfileStatus(profile);
+}
+
+function collectProfile() {
+  profile = {
+    name: customerNameInput.value.trim().slice(0, 24),
+    contact: customerContactInput.value.trim().slice(0, 40),
+  };
+  safeSetItem(PROFILE_KEY, JSON.stringify(profile));
+  updateProfileStatus(profile);
+  return profile;
+}
+
+async function syncProfile(options = {}) {
+  const nextProfile = collectProfile();
+
+  if (!options.allowEmpty && !nextProfile.name && !nextProfile.contact) {
+    return;
+  }
+
+  profileStatusEl.textContent = '正在同步客户信息';
+
+  try {
+    await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}/profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextProfile),
+    });
+    profileStatusEl.textContent = '客户信息已同步';
+  } catch {
+    profileStatusEl.textContent = '客户信息暂未同步';
+  }
+}
+
+async function openAgentWorkbench(event) {
+  event.preventDefault();
+  updateAgentLink();
+
+  const url = getAgentUrl();
+  const agentWindow = window.open('', 'assistflow-agent-workbench', 'popup=yes,width=1280,height=860');
+  profileStatusEl.textContent = '正在打开客服工作台';
+
+  try {
+    await syncProfile({ allowEmpty: true });
+  } finally {
+    if (agentWindow) {
+      agentWindow.location.href = url;
+      agentWindow.focus();
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  }
+}
+
+function updateProfileStatus(value) {
+  profileStatusEl.textContent = value.name || value.contact ? '客户信息会同步给客服工作台' : '未填写也可以直接咨询';
 }
 
 function connectSessionEvents() {
@@ -337,6 +432,10 @@ quickButtons.forEach((button) => {
     sendMessage(button.dataset.prompt);
   });
 });
+
+customerNameInput.addEventListener('change', syncProfile);
+customerContactInput.addEventListener('change', syncProfile);
+agentLink.addEventListener('click', openAgentWorkbench);
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();

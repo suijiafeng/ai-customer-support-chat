@@ -49,12 +49,12 @@
             <div class="chat-avatar" aria-hidden="true">AI</div>
             <div>
               <h2>AssistFlow 客服</h2>
-              <p id="status"><span class="status-dot"></span>在线服务中</p>
+              <p><span class="status-dot"></span><span id="statusText">在线服务中</span></p>
             </div>
           </div>
           <div class="customer-header-actions">
             <span id="visitorCode" class="visitor-code">访客码生成中</span>
-            <a href="/agent.html">客服端</a>
+            <a id="agentLink" href="/agent.html" target="_blank" rel="noopener">客服端</a>
           </div>
         </header>
 
@@ -62,6 +62,18 @@
           <span class="mode-dot"></span>
           <span id="modeText">AI 自动接管</span>
         </div>
+
+        <section class="identity-panel" aria-label="客户信息">
+          <div class="field-group">
+            <label for="customerName">称呼</label>
+            <input id="customerName" autocomplete="name" maxlength="24" placeholder="可选" />
+          </div>
+          <div class="field-group">
+            <label for="customerContact">联系方式</label>
+            <input id="customerContact" autocomplete="email tel" maxlength="40" placeholder="手机号或邮箱，可选" />
+          </div>
+          <p id="profileStatus" class="profile-status">未填写也可以直接咨询</p>
+        </section>
 
         <div id="messages" class="messages customer-messages">
           <article class="message bot">

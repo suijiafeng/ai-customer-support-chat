@@ -362,8 +362,10 @@ h2 {
   box-shadow: 0 10px 24px rgba(23, 32, 51, 0.06);
   line-height: 1.6;
   max-width: min(76%, 680px);
+  overflow-wrap: anywhere;
   padding: 13px 15px;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .bot .bubble {
@@ -678,10 +680,6 @@ dd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .ghost-button {
-    display: none;
-  }
-
   .bubble {
     max-width: 90%;
   }
@@ -708,6 +706,19 @@ dd {
   .agent-body .brand,
   .agent-body .nav {
     display: none;
+  }
+
+  .agent-body .topbar-actions {
+    align-items: stretch;
+  }
+
+  .agent-body .ghost-button {
+    align-items: center;
+    display: flex;
+    font-size: 13px;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 10px;
   }
 
   .agent-body .chat-shell {
@@ -854,7 +865,7 @@ dd {
   border-radius: 8px;
   box-shadow: 0 28px 70px rgba(23, 32, 51, 0.14);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
   max-height: calc(100vh - 44px);
   min-height: 0;
   overflow: hidden;
@@ -938,7 +949,7 @@ dd {
   border-bottom: 1px solid var(--line);
   display: grid;
   gap: 12px;
-  grid-template-columns: 0.8fr 1.2fr;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
   padding: 14px 22px;
 }
 
@@ -983,6 +994,13 @@ dd {
   box-shadow: 0 0 0 3px rgba(36, 87, 197, 0.12);
 }
 
+.profile-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+}
+
 .customer-messages {
   background:
     linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(255, 255, 255, 0.96)),
@@ -1024,7 +1042,7 @@ dd {
   }
 
   .customer-chat {
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
     max-height: calc(100vh - 20px);
     min-height: calc(100vh - 20px);
   }
