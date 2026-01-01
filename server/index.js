@@ -21,6 +21,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
+const widgetDir = path.join(rootDir, 'apps', 'widget', 'dist');
+const workstationDir = path.join(rootDir, 'apps', 'workstation', 'dist');
 const faqPath = path.join(rootDir, 'data', 'faqs.json');
 const ordersPath = path.join(rootDir, 'data', 'orders.json');
 
@@ -54,6 +56,10 @@ const MAX_TICKETS = 200;
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(publicDir));
+// 嵌入式客户端 widget（供第三方网站 <script> 引用，跨域已由 cors() 放行）
+app.use('/widget', express.static(widgetDir));
+// Vue 客服工作台构建产物
+app.use('/workstation', express.static(workstationDir));
 
 app.get('/api/health', (req, res) => {
   res.json({

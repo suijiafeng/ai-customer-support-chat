@@ -17,3 +17,4 @@ Thumbs.db
 # Build
 dist/
 build/
+vite.config.js.timestamp-*.mjs

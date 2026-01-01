@@ -11,12 +11,19 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "test": "node --test test/*.test.js",
-    "smoke": "node scripts/smoke-test.js"
+    "smoke": "node scripts/smoke-test.js",
+    "install:all": "npm install && npm install --prefix apps/widget && npm install --prefix apps/workstation",
+    "build:apps": "npm run build --prefix apps/widget && npm run build --prefix apps/workstation",
+    "start:all": "npm run build:apps && node server/index.js",
+    "dev:all": "concurrently -n server,widget,workstation -c green,magenta,cyan \"node --watch server/index.js\" \"npm run dev --prefix apps/widget\" \"npm run dev --prefix apps/workstation\""
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "openai": "^6.9.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }
