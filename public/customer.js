@@ -30,7 +30,7 @@ async function boot() {
 
   try {
     const data = await requestJson('/api/health');
-    statusTextEl.textContent = data.aiEnabled ? `${formatProvider(data.aiProvider)} 在线` : '客服助手在线';
+    statusTextEl.textContent = data.aiEnabled ? `${formatProvider(data.aiProvider)} 在线` : '本地 FAQ 在线';
   } catch {
     statusTextEl.textContent = '离线模式';
   }
@@ -83,7 +83,7 @@ function formatTime(date) {
 }
 
 function formatMessageMeta(opts = {}) {
-  const actorLabel = opts.actor === 'agent' ? '人工客服' : '';
+  const actorLabel = opts.actor === 'agent' ? '开发者本人' : '';
   const timeLabel = opts.createdAt ? formatTime(new Date(opts.createdAt)) : formatTime(new Date());
 
   return [actorLabel, timeLabel].filter(Boolean).join(' · ');
@@ -110,7 +110,7 @@ function setMode(mode) {
   const labels = {
     ai: 'AI 自动接管',
     typing: 'AI 正在回复',
-    human: '人工客服已接入',
+    human: '开发者本人已接入',
   };
   modeTextEl.textContent = labels[mode] ?? labels.ai;
 }
@@ -119,7 +119,7 @@ function renderMessages(messages) {
   messagesEl.replaceChildren();
 
   if (!messages.length) {
-    appendMessage('bot', '你好！我是 AssistFlow 智能客服，很高兴为您服务。可以帮您查询订单、申请退款、开具发票等，请直接描述您的问题。');
+    appendMessage('bot', '你好！我是开发者主页 AI 助手，可以介绍前端开发服务、报价方式、合作流程、技术栈、作品集和项目进展。');
     return;
   }
 
@@ -157,7 +157,7 @@ async function sendMessage(message) {
     });
 
     if (data.handledByAgent) {
-      resolveTyping(typingId, '已发送给人工客服。');
+      resolveTyping(typingId, '已发送给开发者本人。');
       setMode('human');
       return;
     }
@@ -295,7 +295,7 @@ async function syncProfile(options = {}) {
     return;
   }
 
-  profileStatusEl.textContent = '正在同步客户信息';
+  profileStatusEl.textContent = '正在同步访客信息';
 
   try {
     await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}/profile`, {
@@ -303,9 +303,9 @@ async function syncProfile(options = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nextProfile),
     });
-    profileStatusEl.textContent = '客户信息已同步';
+    profileStatusEl.textContent = '访客信息已同步';
   } catch {
-    profileStatusEl.textContent = '客户信息暂未同步';
+    profileStatusEl.textContent = '访客信息暂未同步';
   }
 }
 
@@ -315,7 +315,7 @@ async function openAgentWorkbench(event) {
 
   const url = getAgentUrl();
   const agentWindow = window.open('', 'assistflow-agent-workbench', 'popup=yes,width=1280,height=860');
-  profileStatusEl.textContent = '正在打开客服工作台';
+  profileStatusEl.textContent = '正在打开开发者工作台';
 
   try {
     await syncProfile({ allowEmpty: true });
@@ -330,7 +330,7 @@ async function openAgentWorkbench(event) {
 }
 
 function updateProfileStatus(value) {
-  profileStatusEl.textContent = value.name || value.contact ? '客户信息会同步给客服工作台' : '未填写也可以直接咨询';
+  profileStatusEl.textContent = value.name || value.contact ? '访客信息会同步给开发者工作台' : '未填写也可以直接咨询';
 }
 
 function connectSessionEvents() {

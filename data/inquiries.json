@@ -1,0 +1,29 @@
+[
+  {
+    "id": "P1001",
+    "title": "个人品牌官网改版",
+    "type": "项目",
+    "status": "proposal_sent",
+    "statusText": "方案与报价已发送",
+    "nextStep": "等待确认需求范围和启动时间",
+    "eta": "确认后可安排开发排期"
+  },
+  {
+    "id": "C2026",
+    "title": "SaaS 管理后台前端开发",
+    "type": "项目",
+    "status": "in_progress",
+    "statusText": "开发进行中",
+    "nextStep": "完成数据看板页面并进入接口联调",
+    "eta": "预计本周提供下一次阶段演示"
+  },
+  {
+    "id": "L3308",
+    "title": "长期前端协作咨询",
+    "type": "咨询",
+    "status": "under_review",
+    "statusText": "需求评估中",
+    "nextStep": "开发者将确认合作方式和可用档期",
+    "eta": "预计 1-2 个工作日内更新"
+  }
+]

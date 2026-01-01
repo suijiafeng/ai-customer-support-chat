@@ -33,65 +33,70 @@ export function createFaqSearcher(faqs) {
 export function detectIntent(message, matchedFaqs = []) {
   const normalized = normalize(message);
 
-  if (hasAny(normalized, ['人工', '真人', '投诉', '主管'])) {
+  if (hasAny(normalized, [
+    '联系开发者本人',
+    '找开发者本人',
+    '联系本人',
+    '找本人聊',
+    '本人回复',
+    '转人工',
+    '找人工',
+    '真人沟通',
+  ])) {
     return 'human_handoff';
   }
-  if (hasAny(normalized, ['退款', '退货', '取消订单', '退钱'])) {
-    return 'refund';
+  if (extractInquiryId(message) || hasAny(normalized, ['项目进展', '咨询进展', '项目编号', '咨询编号', '项目状态'])) {
+    return 'inquiry_status';
   }
-  if (hasAny(normalized, ['物流', '快递', '发货', '什么时候到'])) {
-    return 'shipping';
+  if (hasAny(normalized, ['报价', '多少钱', '价格', '费用', '预算', '怎么收费'])) {
+    return 'pricing';
   }
-  if (extractOrderId(message)) {
-    return 'order_status';
+  if (hasAny(normalized, ['合作流程', '怎么合作', '开发流程', '项目流程', '交付时间', '开发周期'])) {
+    return 'collaboration';
   }
-  if (hasAny(normalized, ['发票', '税号', '抬头'])) {
-    return 'invoice';
+  if (hasAny(normalized, ['技术栈', 'react', 'vue', 'next.js', 'typescript', 'javascript'])) {
+    return 'tech_stack';
+  }
+  if (hasAny(normalized, ['作品集', '案例', '过往项目', 'portfolio'])) {
+    return 'portfolio';
+  }
+  if (hasAny(normalized, ['招聘', '全职', '兼职', '长期合作', '工作机会'])) {
+    return 'hiring';
   }
 
   return matchedFaqs[0]?.intent || 'general';
 }
 
-export function shouldHandoff(message, intent, matchedFaqs = [], sentiment, order) {
-  const normalized = normalize(message);
-  const highRiskTerms = ['投诉', '律师', '起诉', '曝光', '赔偿', '主管', '人工'];
-
+export function shouldHandoff(message, intent, matchedFaqs = [], sentiment, inquiry, aiAvailable = false) {
   if (intent === 'human_handoff') {
-    return { needHuman: true, reason: '用户明确要求人工客服' };
+    return { needHuman: true, reason: '访客明确要求联系开发者本人' };
   }
-  if (hasAny(normalized, highRiskTerms)) {
-    return { needHuman: true, reason: '包含投诉、法律或升级处理关键词' };
+  if (inquiry) {
+    return { needHuman: false, reason: '项目或咨询查询已命中' };
   }
-  if (intent === 'refund' && hasAny(normalized, ['大额', '全部订单', '赔偿'])) {
-    return { needHuman: true, reason: '退款请求可能需要人工审核' };
-  }
-  if (sentiment === 'negative') {
-    return { needHuman: true, reason: '用户情绪较强，建议人工接管' };
-  }
-  if (intent === 'order_status' && !order) {
-    return { needHuman: true, reason: '用户提供的订单号未查询到' };
-  }
-  if (order) {
-    return { needHuman: false, reason: '订单查询已命中' };
+  if (intent === 'inquiry_status') {
+    return { needHuman: false, reason: '未查询到项目或咨询编号，继续由助手引导' };
   }
   if (matchedFaqs.length === 0) {
-    return { needHuman: true, reason: '知识库未命中' };
+    return aiAvailable
+      ? { needHuman: false, reason: '知识库未命中，交由 AI 回答' }
+      : { needHuman: false, reason: '知识库未命中，请访客补充问题' };
   }
 
   return { needHuman: false, reason: 'FAQ 可处理' };
 }
 
-export function findOrderByMessage(message, orders) {
-  const orderId = extractOrderId(message);
+export function findInquiryByMessage(message, inquiries) {
+  const inquiryId = extractInquiryId(message);
 
-  if (!orderId) {
+  if (!inquiryId) {
     return null;
   }
 
-  return orders.find((order) => normalize(order.id) === normalize(orderId)) || null;
+  return inquiries.find((inquiry) => normalize(inquiry.id) === normalize(inquiryId)) || null;
 }
 
-export function extractOrderId(message) {
+export function extractInquiryId(message) {
   const match = String(message).match(/\b[A-Z]\d{4,}\b/i);
   return match ? match[0].toUpperCase() : null;
 }

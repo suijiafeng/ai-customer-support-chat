@@ -1332,7 +1332,7 @@ dd {
   background: #a0aec0;
 }
 
-/* Mode Banner — AI 自动接管 / 人工客服接入 */
+/* Mode Banner: AI 自动接管 / 开发者本人接入 */
 .mode-banner {
   align-items: center;
   background: linear-gradient(90deg, #eef3ff 0%, #f8fafc 100%);

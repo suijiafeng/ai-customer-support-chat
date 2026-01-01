@@ -4,63 +4,74 @@ import {
   createFaqSearcher,
   detectIntent,
   detectSentiment,
-  extractOrderId,
-  findOrderByMessage,
+  extractInquiryId,
+  findInquiryByMessage,
   shouldHandoff,
 } from '../server/rules.js';
 
 const faqs = [
   {
-    id: 'shipping_status',
-    intent: 'shipping',
-    question: '订单什么时候发货',
-    answer: '仓库会在 24 小时内处理。',
-    keywords: ['发货', '物流', '快递'],
+    id: 'pricing',
+    intent: 'pricing',
+    question: '项目怎么报价',
+    answer: '请提供需求范围后评估报价。',
+    keywords: ['报价', '价格', '预算'],
   },
 ];
-const orders = [
+const inquiries = [
   {
-    id: 'A1001',
-    statusText: '已发货',
+    id: 'P1001',
+    title: '个人品牌官网改版',
+    statusText: '方案与报价已发送',
   },
 ];
 
-test('extractOrderId normalizes order numbers', () => {
-  assert.equal(extractOrderId('帮我查一下 a1001'), 'A1001');
-  assert.equal(extractOrderId('没有订单号'), null);
+test('extractInquiryId normalizes project and inquiry numbers', () => {
+  assert.equal(extractInquiryId('帮我查一下 p1001'), 'P1001');
+  assert.equal(extractInquiryId('没有咨询编号'), null);
 });
 
-test('FAQ search ranks keyword matches', () => {
+test('FAQ search ranks pricing keyword matches', () => {
   const searchFaqs = createFaqSearcher(faqs);
-  const matches = searchFaqs('快递什么时候到');
+  const matches = searchFaqs('这个项目怎么报价');
 
-  assert.equal(matches[0].id, 'shipping_status');
-  assert.equal(matches[0].intent, 'shipping');
+  assert.equal(matches[0].id, 'pricing');
+  assert.equal(matches[0].intent, 'pricing');
 });
 
-test('detectIntent prefers explicit handoff and order status', () => {
-  assert.equal(detectIntent('我要投诉找人工', []), 'human_handoff');
-  assert.equal(detectIntent('查询订单 A1001', []), 'order_status');
+test('detectIntent recognizes explicit handoff, inquiry lookup and service topics', () => {
+  assert.equal(detectIntent('我想联系开发者本人', []), 'human_handoff');
+  assert.equal(detectIntent('查询项目 P1001', []), 'inquiry_status');
+  assert.equal(detectIntent('项目怎么收费', []), 'pricing');
+  assert.equal(detectIntent('我要投诉', []), 'general');
 });
 
-test('findOrderByMessage returns matching order data', () => {
-  assert.equal(findOrderByMessage('订单 A1001 到哪了', orders)?.statusText, '已发货');
-  assert.equal(findOrderByMessage('订单 Z9999 到哪了', orders), null);
+test('findInquiryByMessage returns matching project data', () => {
+  assert.equal(findInquiryByMessage('项目 P1001 进度怎么样', inquiries)?.statusText, '方案与报价已发送');
+  assert.equal(findInquiryByMessage('项目 Z9999 进度怎么样', inquiries), null);
 });
 
-test('shouldHandoff escalates risk and unknown order cases', () => {
-  assert.deepEqual(shouldHandoff('我要找人工', 'human_handoff', [], 'neutral', null), {
+test('shouldHandoff only escalates explicit requests to contact the developer', () => {
+  assert.deepEqual(shouldHandoff('联系开发者本人', 'human_handoff', [], 'neutral', null), {
     needHuman: true,
-    reason: '用户明确要求人工客服',
+    reason: '访客明确要求联系开发者本人',
   });
-  assert.deepEqual(shouldHandoff('查订单 Z9999', 'order_status', [], 'neutral', null), {
-    needHuman: true,
-    reason: '用户提供的订单号未查询到',
+  assert.deepEqual(shouldHandoff('项目 Z9999 进度怎么样', 'inquiry_status', [], 'neutral', null), {
+    needHuman: false,
+    reason: '未查询到项目或咨询编号，继续由助手引导',
+  });
+  assert.deepEqual(shouldHandoff('这个体验太差了我要投诉', 'general', [], 'negative', null), {
+    needHuman: false,
+    reason: '知识库未命中，请访客补充问题',
+  });
+  assert.deepEqual(shouldHandoff('介绍一下你自己', 'general', [], 'neutral', null, true), {
+    needHuman: false,
+    reason: '知识库未命中，交由 AI 回答',
   });
 });
 
-test('detectSentiment distinguishes negative and positive messages', () => {
+test('detectSentiment remains diagnostic and does not control handoff', () => {
   assert.equal(detectSentiment('这个体验太差了我要投诉'), 'negative');
-  assert.equal(detectSentiment('谢谢，服务很好'), 'positive');
-  assert.equal(detectSentiment('帮我看下物流'), 'neutral');
+  assert.equal(detectSentiment('谢谢，介绍很清楚'), 'positive');
+  assert.equal(detectSentiment('你主要使用什么技术栈'), 'neutral');
 });

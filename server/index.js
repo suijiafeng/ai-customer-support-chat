@@ -6,12 +6,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { parseBooleanEnv } from './config.js';
 import {
   createFaqSearcher,
   detectIntent,
   detectSentiment,
-  extractOrderId,
-  findOrderByMessage,
+  extractInquiryId,
   hasAny,
   normalize,
   shouldHandoff,
@@ -22,12 +22,14 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
 const widgetDir = path.join(rootDir, 'apps', 'widget', 'dist');
+const widgetDemoDir = path.join(rootDir, 'apps', 'widget', 'demo');
 const workstationDir = path.join(rootDir, 'apps', 'workstation', 'dist');
 const faqPath = path.join(rootDir, 'data', 'faqs.json');
-const ordersPath = path.join(rootDir, 'data', 'orders.json');
+const inquiriesPath = path.join(rootDir, 'data', 'inquiries.json');
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
+const aiFeatureEnabled = parseBooleanEnv(process.env.AI_ENABLED, false);
 const aiProvider = process.env.AI_PROVIDER || 'openai';
 const openaiModel = process.env.OPENAI_MODEL || 'gpt-4o';
 const deepseekModel = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
@@ -40,7 +42,8 @@ const deepseekClient = process.env.DEEPSEEK_API_KEY
   : null;
 
 const faqs = JSON.parse(await fs.readFile(faqPath, 'utf8'));
-const orders = JSON.parse(await fs.readFile(ordersPath, 'utf8'));
+const inquiries = JSON.parse(await fs.readFile(inquiriesPath, 'utf8'));
+const inquiryIndex = new Map(inquiries.map((inquiry) => [normalize(inquiry.id), inquiry]));
 const searchFaqs = createFaqSearcher(faqs);
 const conversations = new Map();
 const sessions = new Map();
@@ -54,21 +57,39 @@ const MAX_SESSIONS = 200;
 const MAX_TICKETS = 200;
 
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '12mb' }));
 app.use(express.static(publicDir));
 // 嵌入式客户端 widget（供第三方网站 <script> 引用，跨域已由 cors() 放行）
-app.use('/widget', express.static(widgetDir));
-// Vue 客服工作台构建产物
-app.use('/workstation', express.static(workstationDir));
+// widget.js 文件名固定（无内容哈希），用 no-cache 强制浏览器每次校验，避免更新后被缓存挡住
+app.use('/widget', express.static(widgetDir, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  },
+}));
+app.use('/widget-demo', express.static(widgetDemoDir));
+app.get('/widget-demo', (req, res) => res.sendFile(path.join(widgetDemoDir, 'embed.html')));
+app.get('/widget-demo/', (req, res) => res.sendFile(path.join(widgetDemoDir, 'embed.html')));
+// Vue 客服工作台构建产物（资源带哈希；index.html 用 no-cache 以便总是拉到最新哈希）
+app.use('/workstation', express.static(workstationDir, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  },
+}));
 
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     aiEnabled: Boolean(getActiveAiClient()),
+    aiFeatureEnabled,
+    aiConfigured: Boolean(getConfiguredAiClient()),
     aiProvider,
     model: getActiveModel(),
     faqCount: faqs.length,
-    orderCount: orders.length,
+    inquiryCount: inquiries.length,
     ticketCount: tickets.length,
   });
 });
@@ -128,7 +149,7 @@ app.get('/api/sessions/:sessionId/events', (req, res) => {
 
 app.post('/api/sessions/:sessionId/resolve', (req, res) => {
   const session = sessions.get(req.params.sessionId);
-  const resolution = String(req.body?.resolution || '人工客服已标记解决').trim().slice(0, 120);
+  const resolution = String(req.body?.resolution || '开发者本人已标记解决').trim().slice(0, 120);
 
   if (!session) {
     return res.status(404).json({ error: 'session not found' });
@@ -172,15 +193,20 @@ app.post('/api/sessions/:sessionId/resolve', (req, res) => {
 });
 
 app.post('/api/sessions/:sessionId/messages', (req, res) => {
+  const actor = req.body?.actor === 'customer' ? 'customer' : 'agent';
   const session = sessions.get(req.params.sessionId);
   const content = String(req.body?.content || '').trim();
   const agent = normalizeAgent(req.body?.agent);
+  const attachments = normalizeAttachments(req.body?.attachments);
 
   if (!session) {
     return res.status(404).json({ error: 'session not found' });
   }
-  if (!content) {
-    return res.status(400).json({ error: 'content is required' });
+  if (!content && attachments.length === 0) {
+    return res.status(400).json({ error: 'content or attachments required' });
+  }
+  if (actor === 'customer') {
+    return res.status(400).json({ error: 'customer messages must use /api/chat' });
   }
   if (session.assignedAgentId && session.assignedAgentId !== agent.id) {
     return res.status(409).json({
@@ -197,6 +223,7 @@ app.post('/api/sessions/:sessionId/messages', (req, res) => {
     content,
     agentId: agent.id,
     agentName: agent.name,
+    attachments,
   }));
   const linkedTicket = moveOpenTicketToProcessing(req.params.sessionId);
   const updatedSession = {
@@ -275,7 +302,7 @@ app.post('/api/sessions/:sessionId/profile', (req, res) => {
   const updatedSession = {
     ...(current || createEmptySession(req.params.sessionId)),
     profile,
-    displayName: buildDisplayName(req.params.sessionId, sessions.size + 1, current?.orderId, profile),
+    displayName: buildDisplayName(req.params.sessionId, sessions.size + 1, current?.inquiryId, profile),
     updatedAt: new Date().toISOString(),
   };
 
@@ -293,11 +320,13 @@ app.post('/api/chat', async (req, res) => {
     const sessionId = String(req.body?.sessionId || 'default');
     const profile = req.body?.profile ? normalizeProfile(req.body.profile) : null;
     const visitor = normalizeVisitor(req.body?.visitor);
+    const attachments = normalizeAttachments(req.body?.attachments);
     const storedHistory = conversations.get(sessionId) || [];
     const history = storedHistory.slice(-MAX_AI_HISTORY);
 
-    if (!message) {
-      return res.status(400).json({ error: 'message is required' });
+    // 允许「纯图片」消息：有文字或有图片即可
+    if (!message && attachments.length === 0) {
+      return res.status(400).json({ error: 'message or attachments required' });
     }
 
     if (isHumanAssigned(sessionId)) {
@@ -306,6 +335,7 @@ app.post('/api/chat', async (req, res) => {
         role: 'user',
         actor: 'customer',
         content: message,
+        attachments,
       }));
       const workflow = {
         ai: {
@@ -318,8 +348,8 @@ app.post('/api/chat', async (req, res) => {
         intent: 'agent_conversation',
         sentiment: detectSentiment(message),
         needHuman: false,
-        reason: '人工客服已接入，暂停 AI 自动回复',
-        order: findOrder(message),
+        reason: '开发者本人已接入，暂停 AI 自动回复',
+        inquiry: findInquiry(message),
         ticket: activeTicket,
         sources: [],
       };
@@ -334,21 +364,23 @@ app.post('/api/chat', async (req, res) => {
         sessionId,
         reply: '',
         handledByAgent: true,
+        session: sessions.get(sessionId),
+        messages: nextHistory,
         ...workflow,
       });
     }
 
     const matchedFaqs = searchFaqs(message);
-    const order = findOrder(message);
+    const inquiry = findInquiry(message);
     const intent = detectIntent(message, matchedFaqs);
     const sentiment = detectSentiment(message);
-    const handoff = shouldHandoff(message, intent, matchedFaqs, sentiment, order);
-    const ticket = handoff.needHuman ? createTicket({ sessionId, message, intent, reason: handoff.reason, order }) : null;
-    const replyResult = await buildReply({ message, history, matchedFaqs, intent, handoff, order, ticket });
+    const handoff = shouldHandoff(message, intent, matchedFaqs, sentiment, inquiry, Boolean(getActiveAiClient()));
+    const ticket = handoff.needHuman ? createTicket({ sessionId, message, intent, reason: handoff.reason, inquiry }) : null;
+    const replyResult = await buildReply({ message, history, matchedFaqs, intent, handoff, inquiry, ticket });
     const reply = replyResult.text;
     const nextHistory = appendMessages(
       storedHistory,
-      createMessage({ role: 'user', actor: 'customer', content: message }),
+      createMessage({ role: 'user', actor: 'customer', content: message, attachments }),
       createMessage({ role: 'assistant', actor: 'ai', content: reply })
     );
     const workflow = {
@@ -357,7 +389,7 @@ app.post('/api/chat', async (req, res) => {
       sentiment,
       needHuman: handoff.needHuman,
       reason: handoff.reason,
-      order,
+      inquiry,
       ticket,
       sources: matchedFaqs.map((faq) => ({
         id: faq.id,
@@ -375,16 +407,21 @@ app.post('/api/chat', async (req, res) => {
     res.json({
       sessionId,
       reply,
+      session: sessions.get(sessionId),
+      messages: nextHistory,
       ...workflow,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'chat workflow failed' });
+    console.error('[POST /api/chat] 处理失败:', error);
+    res.status(500).json({
+      error: 'chat workflow failed',
+      detail: process.env.NODE_ENV === 'production' ? undefined : String(error?.message || error),
+    });
   }
 });
 
-async function buildReply({ message, history, matchedFaqs, intent, handoff, order, ticket }) {
-  const fallback = buildFallbackReply(matchedFaqs, handoff, order, ticket);
+async function buildReply({ message, history, matchedFaqs, intent, handoff, inquiry, ticket }) {
+  const fallback = buildFallbackReply(matchedFaqs, handoff, inquiry, ticket);
   const fallbackResult = {
     text: fallback,
     ai: {
@@ -405,7 +442,7 @@ async function buildReply({ message, history, matchedFaqs, intent, handoff, orde
         ...fallbackResult.ai,
         provider: aiProvider,
         model: getActiveModel(),
-        error: 'AI provider is not configured',
+        error: aiFeatureEnabled ? 'AI provider is not configured' : 'AI feature is disabled',
       },
     };
   }
@@ -414,22 +451,25 @@ async function buildReply({ message, history, matchedFaqs, intent, handoff, orde
     .map((faq, index) => `${index + 1}. ${faq.question}\n${faq.answer}`)
     .join('\n\n');
   const compactHistory = history
-    .map((item) => `${item.role === 'user' ? '用户' : '客服'}：${item.content}`)
+    .map((item) => `${item.role === 'user' ? '访客' : '助手或开发者'}：${item.content}`)
     .join('\n');
 
   const instructions = [
-      '你是一个中文电商客服机器人。',
-      '只根据提供的知识库和当前用户消息回答。',
+      '你是独立前端开发者个人主页上的中文 AI 助手。',
+      '优先根据提供的本地 FAQ、项目或咨询信息以及最近对话回答。',
+      '你可以介绍开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和开发者背景。',
+      '知识库未命中时，可以回答与前端开发和合作咨询相关的通用问题；涉及具体报价、档期、未公开案例或承诺时必须说明需要开发者本人确认。',
       '语气简洁、礼貌、可执行。',
-      '如果 needHuman 为 true，不要承诺解决结果，只说明已建议转人工，并询问订单号或联系方式。',
-      '不要编造政策、价格、物流状态或订单信息。',
+      '只有访客明确要求联系开发者本人或转人工时，needHuman 才会为 true。',
+      '如果 needHuman 为 true，不要代替开发者承诺，只说明已建立跟进事项，并请访客留下联系方式和需求摘要。',
+      '不要编造报价、档期、项目经历、合作承诺或项目进展。',
     ].join('\n');
   const prompt = [
       `意图：${intent}`,
       `needHuman：${handoff.needHuman}`,
-      `转人工原因：${handoff.reason}`,
-      `订单信息：\n${order ? JSON.stringify(order, null, 2) : '无'}`,
-      `工单信息：\n${ticket ? JSON.stringify(ticket, null, 2) : '无'}`,
+      `联系开发者本人原因：${handoff.reason}`,
+      `项目或咨询信息：\n${inquiry ? JSON.stringify(inquiry, null, 2) : '无'}`,
+      `跟进事项：\n${ticket ? JSON.stringify(ticket, null, 2) : '无'}`,
       `最近对话：\n${compactHistory || '无'}`,
       `知识库：\n${knowledge || '无命中'}`,
       `用户消息：${message}`,
@@ -510,6 +550,14 @@ function formatAiError(error) {
 }
 
 function getActiveAiClient() {
+  if (!aiFeatureEnabled) {
+    return null;
+  }
+
+  return getConfiguredAiClient();
+}
+
+function getConfiguredAiClient() {
   if (aiProvider === 'deepseek') {
     return deepseekClient;
   }
@@ -525,26 +573,26 @@ function getActiveModel() {
   return openaiModel;
 }
 
-function buildFallbackReply(matchedFaqs, handoff, order, ticket) {
+function buildFallbackReply(matchedFaqs, handoff, inquiry, ticket) {
   if (handoff.needHuman) {
-    const ticketText = ticket ? `已生成工单 ${ticket.id}。` : '';
-    const orderText = order ? `我也查到了订单 ${order.id}，当前状态是：${order.statusText}。` : '';
-    return `这个问题建议转人工处理。${handoff.reason}。${orderText}${ticketText}请提供联系方式，人工客服会继续跟进。`;
+    const ticketText = ticket ? `已建立跟进事项 ${ticket.id}。` : '';
+    const inquiryText = inquiry ? `已关联 ${inquiry.type} ${inquiry.id}（${inquiry.title}）。` : '';
+    return `${handoff.reason}。${inquiryText}${ticketText}请留下联系方式和需求摘要，开发者本人会继续跟进。`;
   }
 
-  if (order) {
-    const tracking = order.trackingNo ? `物流单号：${order.trackingNo}，承运商：${order.carrier}。` : '';
-    return `查到订单 ${order.id} 当前状态是：${order.statusText}。${tracking}预计时间：${order.eta}。`;
+  if (inquiry) {
+    return `查到${inquiry.type} ${inquiry.id}：${inquiry.title}。当前状态：${inquiry.statusText}。下一步：${inquiry.nextStep}。${inquiry.eta}。`;
   }
 
-  return matchedFaqs[0]?.answer || '我暂时没有找到对应答案。请补充订单号或更具体的问题，我会继续帮你处理。';
+  return matchedFaqs[0]?.answer || '我暂时没有在本地知识库中找到对应答案。你可以补充需求范围、预算、期望时间，或明确要求联系开发者本人。';
 }
 
-function findOrder(message) {
-  return findOrderByMessage(message, orders);
+function findInquiry(message) {
+  const inquiryId = extractInquiryId(message);
+  return inquiryId ? inquiryIndex.get(normalize(inquiryId)) || null : null;
 }
 
-function createMessage({ role, actor, content, agentId = null, agentName = null }) {
+function createMessage({ role, actor, content, agentId = null, agentName = null, attachments = [] }) {
   return {
     id: randomUUID(),
     role,
@@ -552,8 +600,26 @@ function createMessage({ role, actor, content, agentId = null, agentName = null 
     content,
     agentId,
     agentName,
+    attachments: normalizeAttachments(attachments),
     createdAt: new Date().toISOString(),
   };
+}
+
+// 图片附件：仅接受 image/* 的 base64 data URL，限制数量与大小（base64 存内存）
+const MAX_ATTACHMENTS = 4;
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024; // 单图约 2MB（base64 原文）
+function normalizeAttachments(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((a) => a && typeof a.dataUrl === 'string' && a.dataUrl.startsWith('data:image/'))
+    .slice(0, MAX_ATTACHMENTS)
+    .filter((a) => a.dataUrl.length <= MAX_ATTACHMENT_BYTES)
+    .map((a) => ({
+      type: 'image',
+      id: typeof a.id === 'string' && a.id ? a.id.slice(0, 64) : randomUUID(),
+      dataUrl: a.dataUrl,
+      name: typeof a.name === 'string' ? a.name.slice(0, 80) : 'image',
+    }));
 }
 
 function appendMessages(currentMessages, ...nextMessages) {
@@ -566,14 +632,17 @@ function normalizeAgent(value = {}) {
 
   return {
     id: id || 'agent-local',
-    name: name || '本地客服',
+    name: name || '开发者本人',
   };
 }
 
-function createTicket({ sessionId, message, intent, reason, order }) {
-  const orderId = order?.id || extractOrderId(message) || null;
+function createTicket({ sessionId, message, intent, reason, inquiry }) {
+  const inquiryId = inquiry?.id || extractInquiryId(message) || null;
   const existingTicket = tickets.find((ticket) => {
-    return ticket.status === 'open' && ticket.sessionId === sessionId && ticket.intent === intent && ticket.orderId === orderId;
+    return ticket.status === 'open'
+      && ticket.sessionId === sessionId
+      && ticket.intent === intent
+      && ticket.inquiryId === inquiryId;
   });
 
   if (existingTicket) {
@@ -583,7 +652,7 @@ function createTicket({ sessionId, message, intent, reason, order }) {
     return existingTicket;
   }
 
-  const priority = reason.includes('投诉') || reason.includes('情绪') || hasAny(normalize(message), ['投诉', '律师', '起诉'])
+  const priority = hasAny(normalize(message), ['紧急', '尽快', '马上', '今天联系'])
     ? 'high'
     : 'normal';
   const ticket = {
@@ -593,7 +662,7 @@ function createTicket({ sessionId, message, intent, reason, order }) {
     priority,
     intent,
     reason,
-    orderId,
+    inquiryId,
     lastMessage: message,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -818,9 +887,9 @@ function upsertSession({ sessionId, message, workflow, profile, visitor, forceSt
   const nextVisitor = visitor || current?.visitor || inferVisitorFromSessionId(sessionId);
   const status = forceStatus || resolveSessionStatus(current, workflow);
   const keepHighPriority = current?.priority === 'high' && current?.status !== 'closed';
-  const priority = keepHighPriority || workflow.sentiment === 'negative' || workflow.needHuman ? 'high' : 'normal';
-  const orderId = workflow.order?.id || current?.orderId || extractOrderId(message) || null;
-  const displayName = buildDisplayName(sessionId, sessions.size + 1, orderId, nextProfile, nextVisitor);
+  const priority = keepHighPriority || workflow.needHuman ? 'high' : 'normal';
+  const inquiryId = workflow.inquiry?.id || current?.inquiryId || extractInquiryId(message) || null;
+  const displayName = buildDisplayName(sessionId, sessions.size + 1, inquiryId, nextProfile, nextVisitor);
   const session = {
     sessionId,
     displayName,
@@ -833,7 +902,7 @@ function upsertSession({ sessionId, message, workflow, profile, visitor, forceSt
     sentiment: workflow.sentiment,
     needHuman: workflow.needHuman,
     reason: workflow.reason,
-    orderId,
+    inquiryId,
     ticketId: workflow.ticket?.id || current?.ticketId || null,
     assignedAgentId: status === 'assigned' ? current?.assignedAgentId || null : null,
     assignedAgentName: status === 'assigned' ? current?.assignedAgentName || null : null,
@@ -874,7 +943,7 @@ function createEmptySession(sessionId) {
     sentiment: 'neutral',
     needHuman: false,
     reason: '',
-    orderId: null,
+    inquiryId: null,
     ticketId: null,
     assignedAgentId: null,
     assignedAgentName: null,
@@ -884,15 +953,15 @@ function createEmptySession(sessionId) {
   };
 }
 
-function buildDisplayName(sessionId, index, orderId, profile, visitor) {
+function buildDisplayName(sessionId, index, inquiryId, profile, visitor) {
   if (profile?.name) {
     return profile.name;
   }
   if (visitor?.code) {
     return `访客 ${visitor.code}`;
   }
-  if (orderId) {
-    return `订单 ${orderId}`;
+  if (inquiryId) {
+    return `咨询 ${inquiryId}`;
   }
 
   const suffix = sessionId.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase() || String(index).padStart(2, '0');
@@ -962,6 +1031,6 @@ function trimMap(map, maxEntries) {
 app.listen(port, () => {
   console.log(`Customer support bot running at http://localhost:${port}`);
   console.log(
-    `AI mode: ${getActiveAiClient() ? `${aiProvider} ${getActiveModel()}` : 'local rules only'}`
+    `AI mode: ${getActiveAiClient() ? `${aiProvider} ${getActiveModel()}` : aiFeatureEnabled ? 'local rules only' : 'disabled'}`
   );
 });

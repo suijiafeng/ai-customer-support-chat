@@ -1,6 +1,7 @@
 const baseUrl = process.env.SMOKE_BASE_URL || 'http://localhost:3001';
 const runId = `smoke-${Date.now()}`;
-const orderSessionId = `${runId}-order`;
+const inquirySessionId = `${runId}-inquiry`;
+const faqMissSessionId = `${runId}-faq-miss`;
 const ticketSessionId = `${runId}-ticket`;
 let ticketId = null;
 
@@ -8,22 +9,43 @@ const cases = [
   {
     name: 'health',
     run: () => get('/api/health'),
-    assert: (data) => data.ok === true && data.faqCount > 0,
+    assert: (data) => data.ok === true
+      && typeof data.aiFeatureEnabled === 'boolean'
+      && typeof data.aiConfigured === 'boolean'
+      && typeof data.aiEnabled === 'boolean'
+      && data.faqCount > 0,
   },
   {
-    name: 'order lookup',
+    name: 'project inquiry lookup',
     run: () => post('/api/chat', {
-      sessionId: orderSessionId,
-      message: '帮我查一下订单 A1001',
+      sessionId: inquirySessionId,
+      message: '帮我查一下项目 P1001',
       visitor: { code: `${runId}-1` },
     }),
-    assert: (data) => data.intent === 'order_status' && data.order?.id === 'A1001' && data.needHuman === false,
+    assert: (data) => data.intent === 'inquiry_status'
+      && data.inquiry?.id === 'P1001'
+      && data.needHuman === false
+      && data.session?.status === 'bot'
+      && data.messages?.at(-2)?.actor === 'customer'
+      && data.messages?.at(-1)?.actor === 'ai'
+      && Boolean(data.messages?.at(-1)?.content),
+  },
+  {
+    name: 'complaint does not implicitly handoff',
+    run: () => post('/api/chat', {
+      sessionId: faqMissSessionId,
+      message: '这个体验太差了，我要投诉',
+      visitor: { code: `${runId}-complaint` },
+    }),
+    assert: (data) => data.needHuman === false
+      && data.ticket === null
+      && data.session?.status === 'bot',
   },
   {
     name: 'handoff ticket',
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
-      message: '我要投诉，找人工客服',
+      message: '我想联系开发者本人',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => {
@@ -44,8 +66,8 @@ const cases = [
   {
     name: 'agent reply',
     run: () => post(`/api/sessions/${ticketSessionId}/messages`, {
-      content: '您好，人工客服已接入，请提供订单号。',
-      agent: { id: `${runId}-agent-1`, name: '测试客服 A' },
+      content: '您好，我是开发者本人，已经接入当前会话。',
+      agent: { id: `${runId}-agent-1`, name: '开发者本人' },
     }),
     assert: (data) => data.session?.status === 'assigned'
       && data.session?.workflow?.ticket?.status === 'processing'
@@ -56,8 +78,8 @@ const cases = [
   {
     name: 'reject competing agent',
     run: () => post(`/api/sessions/${ticketSessionId}/messages`, {
-      content: '另一个客服不应该覆盖接入。',
-      agent: { id: `${runId}-agent-2`, name: '测试客服 B' },
+      content: '另一个协作者不应该覆盖接入。',
+      agent: { id: `${runId}-agent-2`, name: '其他协作者' },
     }),
     assert: (data) => data.error === 'session is assigned to another agent'
       && data.assignedAgentId === `${runId}-agent-1`,
@@ -71,16 +93,17 @@ const cases = [
       && Number.isInteger(data.ai?.automationRate),
   },
   {
-    name: 'pause ai after agent assigned',
+    name: 'pause assistant after developer assigned',
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
-      message: '人工接入后这条不需要 AI 自动回复',
+      message: '开发者接入后这条不需要 AI 自动回复',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent === true
       && data.reply === ''
       && data.ticket?.id === ticketId
-      && data.ticket?.status === 'processing',
+      && data.ticket?.status === 'processing'
+      && data.messages?.at(-1)?.actor === 'customer',
   },
   {
     name: 'resolve session',
@@ -98,12 +121,12 @@ const cases = [
     name: 'reopen after resolved',
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
-      message: '再帮我查一下订单 A1001',
+      message: '再帮我查一下项目 P1001',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent !== true
-      && data.intent === 'order_status'
-      && data.order?.id === 'A1001'
+      && data.intent === 'inquiry_status'
+      && data.inquiry?.id === 'P1001'
       && data.needHuman === false,
   },
   {

@@ -9,7 +9,7 @@ const aiStatusEl = document.querySelector('#aiStatus');
 const handoffEl = document.querySelector('#handoff');
 const reasonEl = document.querySelector('#reason');
 const sourcesEl = document.querySelector('#sources');
-const orderEl = document.querySelector('#order');
+const inquiryEl = document.querySelector('#inquiry');
 const ticketEl = document.querySelector('#ticket');
 const ticketListEl = document.querySelector('#ticketList');
 const refreshTicketsButton = document.querySelector('#refreshTickets');
@@ -39,7 +39,7 @@ async function boot() {
     statusEl.textContent = data.aiEnabled
       ? `${formatProvider(data.aiProvider)} / ${data.model} · ${agentProfile.name}`
       : `本地规则模式 · ${agentProfile.name}`;
-    modeBadgeEl.textContent = `${data.faqCount} FAQ / ${data.orderCount} 订单`;
+    modeBadgeEl.textContent = `${data.faqCount} FAQ / ${data.inquiryCount} 项目咨询`;
     selectedSessionId = new URLSearchParams(window.location.search).get('sessionId');
     await refreshSessions();
     await refreshTickets();
@@ -67,7 +67,7 @@ function renderMessages(messages) {
   messagesEl.replaceChildren();
 
   if (!messages.length) {
-    appendMessage('bot', '从左侧选择一个客户会话，查看聊天记录和 AI 诊断。');
+    appendMessage('bot', '从左侧选择一个访客会话，查看聊天记录和 AI 诊断。');
     return;
   }
 
@@ -153,7 +153,7 @@ async function refreshSessions(options = {}) {
 
 function renderSessions() {
   if (sessions.length === 0) {
-    sessionListEl.innerHTML = '<p class="empty-state">暂无客户会话</p>';
+    sessionListEl.innerHTML = '<p class="empty-state">暂无访客会话</p>';
     return;
   }
 
@@ -311,7 +311,7 @@ async function refreshTickets() {
     const tickets = data.tickets || [];
 
     if (tickets.length === 0) {
-      ticketListEl.textContent = '暂无工单';
+      ticketListEl.textContent = '暂无跟进事项';
       return;
     }
 
@@ -332,7 +332,7 @@ async function refreshTickets() {
       })
     );
   } catch {
-    ticketListEl.textContent = '工单加载失败';
+    ticketListEl.textContent = '跟进事项加载失败';
   }
 }
 
@@ -340,7 +340,7 @@ async function updateTicketStatus(ticketId, status) {
   try {
     const payload = {
       status,
-      resolution: status === 'resolved' ? '客服工作台手动标记解决' : undefined,
+      resolution: status === 'resolved' ? '开发者工作台手动标记解决' : undefined,
     };
     const data = await requestJson(`/api/tickets/${encodeURIComponent(ticketId)}`, {
       method: 'PATCH',
@@ -355,7 +355,7 @@ async function updateTicketStatus(ticketId, status) {
     await refreshTickets();
     await refreshMetrics();
   } catch {
-    ticketListEl.textContent = '工单状态更新失败，请稍后再试。';
+    ticketListEl.textContent = '跟进事项状态更新失败，请稍后再试。';
   }
 }
 
@@ -370,7 +370,7 @@ async function resolveSelectedSession() {
     const data = await requestJson(`/api/sessions/${encodeURIComponent(selectedSessionId)}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resolution: '客服工作台标记当前会话已解决' }),
+      body: JSON.stringify({ resolution: '开发者工作台标记当前会话已解决' }),
     });
 
     updateWorkflowFromSession(data.session);
@@ -420,8 +420,8 @@ function updateWorkflow(data) {
   sourcesEl.textContent = data.sources?.length
     ? data.sources.map((source) => `${source.question} (${source.score})`).join('，')
     : '-';
-  orderEl.textContent = data.order
-    ? `${data.order.id} / ${data.order.statusText} / ${data.order.eta}`
+  inquiryEl.textContent = data.inquiry
+    ? `${data.inquiry.id} / ${data.inquiry.title} / ${data.inquiry.statusText}`
     : '-';
   ticketEl.textContent = data.ticket
     ? `${data.ticket.id} / ${data.ticket.priority} / ${data.ticket.status}`
@@ -457,8 +457,8 @@ function formatSessionSubtitle(session) {
   if (session.profile?.contact) {
     parts.push(maskContact(session.profile.contact));
   }
-  if (session.orderId) {
-    parts.push(session.orderId);
+  if (session.inquiryId) {
+    parts.push(session.inquiryId);
   }
   if (session.lastMessage) {
     parts.push(session.lastMessage);
@@ -490,7 +490,7 @@ function getAgentProfile() {
   if (urlAgentId || urlAgentName) {
     const profile = {
       id: sanitizeAgentId(urlAgentId || urlAgentName),
-      name: (urlAgentName || urlAgentId || '本地客服').slice(0, 40),
+      name: (urlAgentName || urlAgentId || '开发者本人').slice(0, 40),
     };
     safeSetItem(AGENT_KEY, JSON.stringify(profile));
     return profile;
@@ -507,7 +507,7 @@ function getAgentProfile() {
 
   const profile = {
     id: `agent-${Math.random().toString(16).slice(2, 8)}`,
-    name: '本地客服',
+    name: '开发者本人',
   };
   safeSetItem(AGENT_KEY, JSON.stringify(profile));
   return profile;
