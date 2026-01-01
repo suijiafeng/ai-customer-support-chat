@@ -11,19 +11,8 @@ function readConfig() {
   return {
     apiBase: ds.apiBase || ds.api || window.location.origin,
     siteKey: ds.key || 'default',
-    title: ds.title || '在线客服',
+    title: ds.title || '开发者 AI 助手',
   };
-}
-
-function getVisitorId(siteKey) {
-  const k = `assistflow.visitor.${siteKey}`;
-  let id = null;
-  try { id = window.localStorage.getItem(k); } catch (e) {}
-  if (!id) {
-    id = 'v-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-    try { window.localStorage.setItem(k, id); } catch (e) {}
-  }
-  return id;
 }
 
 function mount() {
@@ -43,9 +32,9 @@ function mount() {
     target,
     props: {
       apiBase: cfg.apiBase.replace(/\/$/, ''),
-      siteKey: cfg.siteKey,
       title: cfg.title,
-      sessionId: getVisitorId(cfg.siteKey),
+      // 标识由 widget 在首次发消息时惰性生成并校验，这里只传 siteKey
+      siteKey: cfg.siteKey,
     },
   });
 }
