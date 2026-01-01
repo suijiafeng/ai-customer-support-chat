@@ -1,0 +1,137 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  requestJson, fileToDataUrl, normalizeMessages, MAX_ATTACHMENTS, MAX_IMAGE_BYTES,
+} from '../api.js';
+
+export default function Composer({ sessionId, agent, onSent }) {
+  const [reply, setReply] = useState('');
+  const [pending, setPending] = useState([]); // 待发送图片附件
+  const [loading, setLoading] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+
+  const fileEl = useRef(null);
+  const replyInput = useRef(null);
+  const emojiRef = useRef(null);
+
+  // 切换会话时重置输入区
+  useEffect(() => {
+    setReply(''); setPending([]); setShowEmoji(false);
+    requestAnimationFrame(() => replyInput.current?.focus());
+  }, [sessionId]);
+
+  const addFiles = useCallback(async (files) => {
+    const list = [...files].filter((f) => f && f.type.startsWith('image/') && f.size <= MAX_IMAGE_BYTES);
+    if (!list.length) return;
+    const items = await Promise.all(list.map(fileToDataUrl));
+    setPending((p) => [...p, ...items].slice(0, MAX_ATTACHMENTS));
+  }, []);
+
+  const onPaste = useCallback((e) => {
+    const items = [...(e.clipboardData?.items || [])].filter((i) => i.type.startsWith('image/'));
+    if (items.length) { e.preventDefault(); addFiles(items.map((i) => i.getAsFile()).filter(Boolean)); }
+  }, [addFiles]);
+
+  const onPickFiles = useCallback((e) => { addFiles(e.target.files); e.target.value = ''; }, [addFiles]);
+  const removePending = useCallback((i) => setPending((p) => p.filter((_, idx) => idx !== i)), []);
+
+  // emoji-picker 是 web component，需手动绑事件
+  useEffect(() => {
+    if (!showEmoji) return;
+    const el = emojiRef.current;
+    if (!el) return;
+    const handler = (e) => {
+      setReply((r) => r + (e.detail?.unicode || ''));
+      setShowEmoji(false);
+      requestAnimationFrame(() => replyInput.current?.focus());
+    };
+    el.addEventListener('emoji-click', handler);
+    return () => el.removeEventListener('emoji-click', handler);
+  }, [showEmoji]);
+
+  const send = useCallback(async () => {
+    const content = reply.trim();
+    const attachments = pending;
+    if ((!content && attachments.length === 0) || !sessionId || loading) return;
+    setLoading(true);
+    try {
+      const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, attachments, agent }),
+      });
+      onSent?.(normalizeMessages(data.messages));
+      setReply(''); setPending([]); setShowEmoji(false);
+    } catch {
+      alert('消息发送失败，请重试');
+    } finally {
+      setLoading(false);
+      requestAnimationFrame(() => replyInput.current?.focus());
+    }
+  }, [reply, pending, sessionId, loading, agent, onSent]);
+
+  const onKeyDown = useCallback((e) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    send();
+  }, [send]);
+
+  const canSend = Boolean(reply.trim()) || pending.length > 0;
+
+  return (
+    <>
+      {pending.length > 0 && (
+        <div className="previews">
+          {pending.map((p, i) => (
+            <div key={p.id || i} className="thumb">
+              <img src={p.dataUrl} alt={p.name || '待发送图片'} />
+              <button onClick={() => removePending(i)} aria-label="移除图片">×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showEmoji && (
+        <div className="emoji-pop">
+          <emoji-picker ref={emojiRef}></emoji-picker>
+        </div>
+      )}
+
+      <div className="composer-wrap">
+        <div className="composer">
+          <textarea
+            ref={replyInput}
+            value={reply}
+            rows={2}
+            placeholder="输入回复…"
+            aria-label="开发者回复"
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+          />
+          <div className="composer-foot">
+            <div className="tools">
+              <button
+                type="button"
+                className={`tool${showEmoji ? ' active' : ''}`}
+                title="表情"
+                aria-label="插入表情"
+                aria-pressed={showEmoji}
+                onClick={() => setShowEmoji((v) => !v)}
+              >😊</button>
+              {/* <button type="button" className="tool" title="发送图片/截图" aria-label="发送图片"
+                onClick={() => fileEl.current?.click()}>🖼️</button> */}
+              <input ref={fileEl} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
+              <span className="key-hint">Shift + Enter 换行</span>
+            </div>
+            <button
+              className={`send-btn${loading ? ' loading' : ''}`}
+              disabled={!canSend || loading}
+              aria-busy={loading}
+              onClick={send}
+            >{loading ? '发送中…' : '发送'}</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
