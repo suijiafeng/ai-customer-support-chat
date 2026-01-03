@@ -54,10 +54,10 @@
 
 | 页面 | 本地地址 | 用途 |
 |------|----------|------|
-| 访客对话页 | http://localhost:3001/ | FAQ 咨询、项目查询、联系本人 |
+| 项目首页 | http://localhost:3001/ | 项目能力介绍与新版演示入口 |
 | 开发者工作台 | http://localhost:3001/agent.html | 会话队列、诊断、跟进事项和本人回复 |
 | Widget Demo | http://localhost:3001/widget-demo/ | 嵌入式聊天演示 |
-| 新版工作台 | http://localhost:3001/workstation/ | React 会话工作台 |
+| 新版工作台 | http://localhost:3001/workstation-demo/ | React 会话工作台 |
 | 健康检查 | http://localhost:3001/api/health | 服务、FAQ 和项目咨询数据状态 |
 
 ## 运行

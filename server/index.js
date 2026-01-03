@@ -71,8 +71,8 @@ app.use('/widget', express.static(widgetDir, {
 app.use('/widget-demo', express.static(widgetDemoDir));
 app.get('/widget-demo', (req, res) => res.sendFile(path.join(widgetDemoDir, 'embed.html')));
 app.get('/widget-demo/', (req, res) => res.sendFile(path.join(widgetDemoDir, 'embed.html')));
-// Vue 客服工作台构建产物（资源带哈希；index.html 用 no-cache 以便总是拉到最新哈希）
-app.use('/workstation', express.static(workstationDir, {
+// React 开发者工作台构建产物（资源带哈希；index.html 用 no-cache 以便总是拉到最新哈希）
+app.use('/workstation-demo', express.static(workstationDir, {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache, must-revalidate');
@@ -1029,7 +1029,7 @@ function trimMap(map, maxEntries) {
 }
 
 app.listen(port, () => {
-  console.log(`Customer support bot running at http://localhost:${port}`);
+  console.log(`Developer AI assistant running at http://localhost:${port}`);
   console.log(
     `AI mode: ${getActiveAiClient() ? `${aiProvider} ${getActiveModel()}` : aiFeatureEnabled ? 'local rules only' : 'disabled'}`
   );
