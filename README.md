@@ -1,316 +1,180 @@
 # AssistFlow
 
-一个能跑给你看的 AI 客服系统：AI 自动接管、状态机工单、SSE 实时客服工作台、人工接入后 AI 自动让位。无 API Key 时自动切换本地规则模式，仍然可以完整演示客户咨询、订单查询、转人工、客服回复和工单闭环。
+独立前端开发者个人主页 AI 助手。访客可以了解开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和个人背景，也可以通过项目或咨询编号查询公开进展。
+
+项目默认使用本地 FAQ，不依赖外部模型。只有访客明确要求“联系开发者本人”或“转人工”时，系统才会创建跟进事项并进入本人沟通流程。
 
 [![CI](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml)
 ![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-2f855a)
 ![SSE](https://img.shields.io/badge/realtime-SSE-2457c5)
-![No API Key Required](https://img.shields.io/badge/no%20API%20key-runnable-f59e0b)
+![Local FAQ](https://img.shields.io/badge/default-local%20FAQ-f59e0b)
 
-## 在线体验
+## 核心场景
 
-当前 Demo 已部署到 Render 免费实例。首次访问或长时间未访问后，实例可能需要约 50 秒冷启动。
+- **服务与报价**：服务范围、预算、报价依据、开发周期和维护方式。
+- **合作流程**：需求准备、范围确认、阶段演示、联调验收和交付。
+- **技术栈与作品集**：React、Vue、Next.js、TypeScript、工程能力和公开案例。
+- **联系与机会**：档期、远程合作、全职、兼职和长期协作。
+- **关于开发者**：个人背景、工作方式和协作偏好。
+- **项目 / 咨询查询**：输入编号查询公开进展摘要。
+- **联系本人**：仅在访客明确要求时建立跟进事项，开发者接入后 AI 自动静默。
 
-| 入口 | 地址 | 用途 |
-|------|------|------|
-| 在线预览 | https://ai-customer-support-chat-ns6v.onrender.com | 项目总入口 |
-| 客户入口 | https://ai-customer-support-chat-ns6v.onrender.com/ | 访客发起咨询、订单查询、AI 回复、转人工 |
-| 客服入口 | https://ai-customer-support-chat-ns6v.onrender.com/agent.html | 查看会话队列、AI 诊断、工单和人工回复 |
-| 健康检查 | https://ai-customer-support-chat-ns6v.onrender.com/api/health | 确认服务、FAQ 和示例订单数据可用 |
+## 测试话术
 
-测试账号：当前 Demo 不需要登录。客户页会自动生成访客身份，客服工作台可直接进入。
-
-测试话术：
-
-- `帮我查一下订单 A1001`
-- `我的订单 B2026 什么时候发货`
-- `R3308 退款进度怎么样`
-- `我要投诉，找人工客服`
-
-## 30 秒看懂
-
-1. 客户在客户入口输入 `帮我查一下订单 A1001`，系统直接返回订单状态。
-2. 客户输入 `我要投诉，找人工客服`，系统识别高风险意图，生成高优先级工单并通过 SSE 推送到客服工作台。
-3. 客服在工作台接入会话并回复，客户侧实时收到人工消息，AI 自动停止继续回复该会话。
-4. 客服点击“标记解决”，会话关闭，关联工单同步进入已解决状态。
-
-## 它不是普通 ChatGPT Demo
-
-| 常见 Demo | AssistFlow 的处理 |
-|-----------|-------------------|
-| 没有 Key 就无法演示 | 无 API Key 自动使用本地 FAQ + 规则引擎，核心链路仍可跑通 |
-| 只展示 AI 回复 | 同时覆盖 AI 回复、人工接入、工单创建、工单流转和运营指标 |
-| 页面刷新才看到状态 | 客户页与客服工作台通过 SSE 实时同步，并保留轮询降级 |
-| AI 和人工可能重复回复 | 会话进入人工处理后，`/api/chat` 不再触发 AI 自动回复 |
-| 只能单人演示 | 客服回复带 agent 身份，同一会话被接入后会阻止其他客服覆盖 |
-
-## 架构与流程
-
-```mermaid
-flowchart LR
-  A["客户对话页"] --> B["POST /api/chat"]
-  B --> C["意图 / 情绪 / 订单识别"]
-  C --> D{"需要转人工?"}
-  D -- 否 --> E["AI / 本地规则回复"]
-  D -- 是 --> F["创建工单"]
-  E --> G["保存消息与会话"]
-  F --> G
-  G --> H["SSE: 客户会话同步"]
-  G --> I["SSE: 客服队列同步"]
-  I --> J["客服工作台接入"]
-  J --> K["POST /api/sessions/:id/messages"]
-  K --> L["AI 静默 / 工单处理中"]
-  L --> H
+```text
+项目怎么报价？
+你主要使用什么技术栈？
+在哪里查看作品集？
+最近有档期吗？
+帮我查一下项目 P1001
+我想联系开发者本人
 ```
 
-## 项目定位
+可测试的项目 / 咨询编号：
 
-很多 AI 客服 Demo 依赖外部模型 Key 和理想网络环境，一旦缺少配置就无法完整演示。AssistFlow 的核心目标是：**即使没有 API Key，也能跑通客户咨询、AI 回复、转人工、客服接入和工单生成的完整链路**。
+| 编号 | 类型 | 当前状态 |
+|------|------|----------|
+| `P1001` | 个人品牌官网改版 | 方案与报价已发送 |
+| `C2026` | SaaS 管理后台前端开发 | 开发进行中 |
+| `L3308` | 长期前端协作咨询 | 需求评估中 |
 
-这个项目更关注真实客服场景里的前端与交互问题：
+## 转本人规则
 
-- 客户侧如何快速获得回复，并在复杂问题上顺畅转人工
-- 客服侧如何看到会话队列、历史消息、AI 诊断和处理状态
-- AI 回复、规则兜底、人工接入三种状态如何避免互相冲突
-- 网络、存储、接口异常时，页面如何保持可用
+只有明确请求联系开发者本人才会触发：
 
-## 界面预览
+- `我想联系开发者本人`
+- `找本人聊`
+- `请本人回复`
+- `转人工`
+- `找人工`
 
-### 客户对话页
+负面情绪、投诉、知识库未命中和查询不到编号都不会自动转本人。系统会继续使用 FAQ 回答，或提示访客补充信息。
 
-客户侧入口面向真实业务咨询场景，支持访客识别、快捷问题、AI 自动响应和人工转接。
+## 入口
 
-![客户对话页](docs/images/customer-chat.png)
+| 页面 | 本地地址 | 用途 |
+|------|----------|------|
+| 访客对话页 | http://localhost:3001/ | FAQ 咨询、项目查询、联系本人 |
+| 开发者工作台 | http://localhost:3001/agent.html | 会话队列、诊断、跟进事项和本人回复 |
+| Widget Demo | http://localhost:3001/widget-demo/ | 嵌入式聊天演示 |
+| 新版工作台 | http://localhost:3001/workstation/ | React 会话工作台 |
+| 健康检查 | http://localhost:3001/api/health | 服务、FAQ 和项目咨询数据状态 |
 
-客户侧关键区域：
-
-| 品牌与服务承诺 | 对话处理区 |
-|----------------|------------|
-| ![客户侧品牌区](docs/images/customer-hero-detail.png) | ![客户侧对话区](docs/images/customer-conversation-detail.png) |
-
-### 客服工作台
-
-客服侧工作台提供会话队列、聊天记录、AI 诊断、工单状态和快捷回复，便于人工客服接入处理。
-
-![客服工作台](docs/images/agent-workbench.png)
-
-工作台关键区域：
-
-| 会话队列 | 人工处理区 | 智能诊断 |
-|----------|------------|----------|
-| ![客服会话队列](docs/images/agent-queue-detail.png) | ![客服聊天处理区](docs/images/agent-chat-detail.png) | ![智能诊断面板](docs/images/agent-diagnostics-detail.png) |
-
-## 功能
-
-- **AI 自动接管** — 接入 OpenAI（GPT-4o）或 DeepSeek；无 Key 时降级为本地 FAQ 匹配 + 规则引擎
-- **智能转人工** — 自动检测负面情绪、投诉关键词、未命中意图，触发人工接入流程
-- **实时客服工作台** — SSE 推送会话队列、聊天记录、AI 诊断面板（意图 / 情绪 / 转人工原因）
-- **工单流转闭环** — 高优先级会话自动生成工单，支持待处理、处理中、已解决状态流转
-- **运营指标看板** — 实时统计待接入、高优先级、处理中会话、自动处理率和活跃工单
-- **人工接入后 AI 静默** — 人工客服加入会话后，AI 自动停止回复该会话
-- **业务数据查询** — 内置示例订单数据，可演示订单状态、退款和售后类问答
-- **会话收尾与导出** — 客服可标记会话已解决，并导出当前会话记录用于质检或复盘
-
-## 工程亮点
-
-| 设计点 | 处理方式 | 价值 |
-|--------|----------|------|
-| 无 Key 可演示 | 未配置 OpenAI / DeepSeek 时自动切换本地 FAQ + 规则引擎 | 降低演示门槛，保证核心流程始终可跑 |
-| AI 与人工状态隔离 | 客服回复后会话进入人工处理状态，后续客户消息不再触发 AI 自动回复 | 避免 AI 与人工客服重复回复 |
-| 工单生命周期 | 转人工自动建单，人工回复进入处理中，解决会话同步关闭工单 | 更接近真实客服运营链路 |
-| 会话重开机制 | 已解决会话再次收到客户消息时回到 AI / 转人工判定流程 | 避免历史人工回复导致会话永久锁在人工状态 |
-| 多客服防覆盖 | 客服回复带 agent 身份，已接入会话拒绝其他客服覆盖回复 | 让实时工作台更接近多人协作场景 |
-| 消息与工单 ID | 消息使用 UUID，工单使用随机短 ID，避免时间戳碰撞 | 为已读、审计、质检和导出扩展留出数据基础 |
-| SSE 心跳 | 长连接定时发送 ping，并在断开时释放连接 | 降低部署到代理 / 云平台后长连接静默断开的风险 |
-| 运营指标 API | `/api/metrics` 输出队列、工单、自动处理率和活跃工作量 | 便于接入数据看板、监控和 Demo 讲解 |
-| 实时能力可降级 | 优先使用 SSE 推送，会话页和工作台在不支持 `EventSource` 时自动轮询 | 兼容代理、WebView 和受限浏览器环境 |
-| 前端异常兜底 | 处理非 2xx、非 JSON、网络失败和存储受限场景 | 避免客服工作流被单点异常打断 |
-| 接口边界清晰 | 客户消息、客服回复、会话队列、工单列表拆分为独立 API | 便于后续接入鉴权、数据库和真实业务系统 |
-
-## 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| 服务端 | Node.js + Express 5 |
-| AI 集成 | OpenAI SDK（兼容 GPT-4o / DeepSeek） |
-| 实时推送 | Server-Sent Events (SSE) |
-| 前端 | 原生 JS + CSS，无框架依赖 |
-
-## 项目结构
-
-```
-├── server/
-│   ├── index.js          # Express 服务、AI 调用、会话 / 工单 / SSE
-│   └── rules.js          # 意图识别、情绪判断、FAQ 检索、订单号解析
-├── public/
-│   ├── index.html        # 客户对话页面
-│   ├── agent.html        # 客服工作台
-│   ├── customer.js       # 客户端逻辑
-│   ├── agent.js          # 工作台逻辑
-│   └── styles.css        # 公共样式
-├── data/
-│   ├── faqs.json         # 知识库（可自行扩展）
-│   └── orders.json       # 示例订单数据
-├── docs/
-│   └── images/           # README 项目截图
-├── screenshot/           # 原始截图素材
-├── test/
-│   └── rules.test.js     # 规则引擎单元测试
-├── .github/workflows/
-│   └── ci.yml            # 语法检查、单元测试、冒烟测试
-└── scripts/
-    └── smoke-test.js     # 集成冒烟测试
-```
-
-## 快速开始
+## 运行
 
 需要 Node.js 18+。
 
 ```bash
-git clone https://github.com/suijiafeng/ai-customer-support-chat.git
-cd ai-customer-support-chat
 npm install
-cp .env.example .env   # 按需填入 API Key，不填也能运行
+cp .env.example .env
 npm run dev
 ```
 
-| 页面 | 地址 |
-|------|------|
-| 客户对话 | http://localhost:3001 |
-| 客服工作台 | http://localhost:3001/agent.html |
-
-## 云平台部署
-
-### Render
-
-仓库根目录已经包含 `render.yaml`，可在 Render 中创建 Blueprint 或 Web Service：
-
-- Build Command：`npm ci`
-- Start Command：`npm start`
-- Health Check Path：`/api/health`
-- Node Version：`22.12.0`
-
-不配置 OpenAI / DeepSeek API Key 时，服务会使用本地规则模式，仍然可以完整演示客户咨询、AI 规则回复、转人工、客服接入和工单生成。
-
-### Docker / Railway / Fly.io
-
-也可以使用仓库内的 `Dockerfile` 部署：
+同时开发服务端、Widget 和 React 工作台：
 
 ```bash
-docker build -t ai-customer-support-chat .
-docker run --rm -p 3001:3001 ai-customer-support-chat
+npm run install:all
+npm run dev:all
 ```
 
-服务读取平台注入的 `PORT` 环境变量；没有注入时默认监听 `3001`。
+构建新版前端并启动：
 
-## 演示建议
-
-1. 打开客户对话页，输入 `帮我查一下订单 A1001`。
-2. 客户侧会收到订单相关回复；如果命中转人工条件，会生成待处理工单。
-3. 打开客服工作台，左侧选择新会话，查看聊天记录和 AI 诊断结果。
-4. 使用快捷回复或手动输入内容，客服回复后该会话进入人工接入状态，AI 不再自动回复。
-
-可测试订单：
-
-| 订单号 | 场景 |
-|--------|------|
-| `A1001` | 已发货订单，包含物流信息 |
-| `B2026` | 仓库处理中，适合演示发货咨询 |
-| `R3308` | 退款审核中，适合演示退款进度 |
-
-## 兼容与容错
-
-- **无 API Key 可运行**：未配置 OpenAI 或 DeepSeek Key 时，服务自动使用本地 FAQ 和规则回复。
-- **SSE 降级轮询**：浏览器或代理环境不支持 `EventSource` 时，客户页和客服工作台会自动改用定时轮询。
-- **接口异常兜底**：前端会处理非 2xx 响应、非 JSON 响应和网络失败，避免页面直接中断。
-- **存储受限兜底**：隐私模式或 WebView 禁用 `localStorage` 时，客户页仍可生成访客码并继续聊天。
-- **人工接入保护**：客服回复后，同一会话进入人工处理状态，后续客户消息不再触发 AI 自动回复。
+```bash
+npm run start:all
+```
 
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
+| `AI_ENABLED` | `false` | AI 模型总开关；默认只使用本地 FAQ |
 | `AI_PROVIDER` | `openai` | `openai` 或 `deepseek` |
 | `OPENAI_API_KEY` | — | OpenAI API Key |
-| `OPENAI_MODEL` | `gpt-4o` | 使用的 OpenAI 模型 |
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI 模型 |
 | `DEEPSEEK_API_KEY` | — | DeepSeek API Key |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | 使用的 DeepSeek 模型 |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型 |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek 接口地址 |
 | `PORT` | `3001` | 服务监听端口 |
 
-> 不配置 API Key 时，服务以本地规则模式运行，FAQ 匹配和转人工逻辑完整可用。
+设置 `AI_ENABLED=true` 且配置对应 API Key 后，FAQ 会作为模型回答上下文。模型失败时仍会自动降级到本地 FAQ。
 
-## 工作流程
+## 本地知识库
 
-```
-客户发送消息
-     │
-意图检测 → 情绪分析 → FAQ 匹配
-     │
-是否需要转人工？
-  ├─ 是 → 创建工单 → SSE 推送客服工作台
-  └─ 否 → AI 生成回复（OpenAI / DeepSeek / 本地规则）
-```
-
-## 设计取舍
-
-- **先保证完整流程，再接入更复杂模型能力**：本地 FAQ 和规则引擎不是临时替代品，而是为了让系统在无 Key、限流或模型异常时仍可继续处理常见咨询。
-- **使用 SSE 而不是 WebSocket**：当前场景主要是服务端向客户页和客服工作台推送会话变化，SSE 更轻量，部署和调试成本更低。
-- **前端保持无框架依赖**：项目重点放在客服流程、状态管理和容错逻辑上，避免框架配置掩盖核心业务交互。
-- **会话与工单暂存内存**：当前版本便于本地演示和快速理解链路，后续可替换为数据库持久化。
-
-## API 概览
-
-```
-GET  /api/health                    服务状态、模型信息
-GET  /api/sessions                  客户会话队列
-GET  /api/sessions/events           SSE：队列实时推送
-GET  /api/sessions/:id              单个会话详情
-GET  /api/sessions/:id/events       SSE：会话实时推送
-GET  /api/tickets                   工单列表
-GET  /api/metrics                   运营指标
-
-POST /api/chat                      客户发送消息（触发 AI / 规则回复）
-POST /api/sessions/:id/messages     客服人工回复
-POST /api/sessions/:id/resolve      标记会话已解决
-PATCH /api/tickets/:id              更新工单状态或优先级
-```
-
-## 冒烟测试
-
-```bash
-npm run check    # JS 语法检查
-npm test         # 规则引擎单元测试
-npm run dev &
-npm run smoke    # 13 个集成用例，覆盖咨询、转人工、多客服保护、工单流转、指标和解决闭环
-```
-
-## 自定义知识库
-
-编辑 `data/faqs.json`，每条记录格式：
+FAQ 位于 `data/faqs.json`：
 
 ```json
 {
-  "id": "unique_id",
-  "intent": "意图分类",
-  "question": "问题描述",
-  "answer": "标准回答",
-  "keywords": ["关键词1", "关键词2"]
+  "id": "pricing",
+  "intent": "pricing",
+  "question": "项目怎么报价？",
+  "answer": "请提供需求范围后评估报价。",
+  "keywords": ["报价", "价格", "预算"]
 }
 ```
 
-重启服务后生效。
+项目和咨询的公开进展位于 `data/inquiries.json`：
 
-## 说明
+```json
+{
+  "id": "P1001",
+  "title": "个人品牌官网改版",
+  "type": "项目",
+  "statusText": "方案与报价已发送",
+  "nextStep": "等待确认需求范围和启动时间",
+  "eta": "确认后可安排开发排期"
+}
+```
 
-- 会话、工单存储在进程内存中，服务重启后清空
-- FAQ 使用关键词 + 字符匹配；如需语义检索可替换为向量数据库
-- 鉴权层留作扩展点，可在客服工作台、会话 API 和工单 API 前统一接入
+修改数据后需要重启服务。
 
-## 后续规划
+## 对话流程
 
-- 接入数据库，持久化会话、消息和工单
-- 增加客服登录、角色权限和操作审计
-- 引入向量检索，支持更稳定的知识库问答
-- 增加会话质检、满意度评价和统计看板
-- 补充生产环境监控、日志和数据备份策略
+```mermaid
+flowchart LR
+  A["访客发送消息"] --> B["意图识别 / FAQ 检索 / 项目咨询查询"]
+  B --> C{"明确要求联系本人?"}
+  C -- 否 --> D["本地 FAQ 或可选 AI 回复"]
+  C -- 是 --> E["建立跟进事项"]
+  D --> F["保存消息与会话"]
+  E --> F
+  F --> G["SSE 同步访客页与开发者工作台"]
+  G --> H["开发者本人接入"]
+  H --> I["AI 静默，进入本人沟通"]
+```
+
+## API 概览
+
+```text
+GET  /api/health                    服务、AI、FAQ 和项目咨询数据状态
+GET  /api/faqs                      本地 FAQ
+GET  /api/sessions                  访客会话队列
+GET  /api/sessions/events           SSE：队列实时推送
+GET  /api/sessions/:id              单个会话详情
+GET  /api/sessions/:id/events       SSE：会话实时推送
+GET  /api/tickets                   跟进事项列表
+GET  /api/metrics                   运营指标
+
+POST /api/chat                      访客发送消息
+POST /api/sessions/:id/messages     开发者本人回复
+POST /api/sessions/:id/resolve      标记会话已解决
+PATCH /api/tickets/:id              更新跟进事项
+```
+
+## 验证
+
+```bash
+npm run check
+npm test
+npm run smoke
+```
+
+## 当前限制
+
+- 会话、消息和跟进事项暂存在进程内存中，服务重启后清空。
+- FAQ 使用关键词和字符匹配，不是语义向量检索。
+- 开发者工作台当前没有登录鉴权，只适合 Demo 和本地使用。
+- 图片附件当前使用 Base64 存储，不适合生产环境。
+
+## 部署
+
+仓库包含 `Dockerfile` 和 `render.yaml`。部署时默认使用本地 FAQ；如需启用模型，在平台环境变量中设置 `AI_ENABLED=true` 和对应 API Key。
