@@ -53,9 +53,22 @@
     }
 
     header a {
-      color: #64748b;
-      font-size: 12px;
+      align-items: center;
+      background: #2563eb;
+      border-radius: 8px;
+      color: #fff;
+      display: inline-flex;
+      font-size: 13px;
+      font-weight: 600;
+      gap: 6px;
+      padding: 9px 16px;
       text-decoration: none;
+      transition: background 150ms ease, transform 150ms ease;
+    }
+
+    header a:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
     }
 
     main {
@@ -89,53 +102,49 @@
 
     .steps {
       display: grid;
-      gap: 12px;
+      gap: 32px;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       margin-top: 54px;
     }
 
     .step {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      min-height: 130px;
-      padding: 18px;
+      text-align: center;
     }
 
     .step span {
-      color: #2563eb;
-      font-size: 11px;
-      font-weight: 700;
+      color: #e2e8f0;
+      display: block;
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
     }
 
     .step strong {
       color: #0f172a;
       display: block;
-      font-size: 14px;
-      margin-top: 28px;
+      font-size: 15px;
+      margin-top: 12px;
     }
 
     .step p {
       color: #64748b;
-      font-size: 12px;
+      font-size: 13px;
       line-height: 1.6;
-      margin: 6px 0 0;
+      margin: 4px 0 0;
     }
 
     .float-guide {
       align-items: center;
-      animation: guide-in 350ms ease-out;
-      background: #fff;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      bottom: 20px;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      animation: guide-in 350ms ease-out both,
+                 guide-bob 1.8s ease-in-out 350ms infinite;
+      bottom: 24px;
       display: flex;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 8px;
       pointer-events: none;
       position: fixed;
       right: 82px;
+      text-align: right;
       z-index: 2147482999;
     }
 
@@ -156,8 +165,34 @@
     }
 
     .float-guide b {
+      animation: arrow-nudge 1.2s ease-in-out infinite;
       color: #2563eb;
       font-size: 18px;
+    }
+
+    /* 浮球处的脉冲光圈：独立定位，与浮球(.fab 46px @ right/bottom 20px)同心 */
+    .fab-ping {
+      bottom: 20px;
+      height: 46px;
+      pointer-events: none;
+      position: fixed;
+      right: 20px;
+      width: 46px;
+      z-index: 2147482998;
+    }
+
+    .fab-ping::before,
+    .fab-ping::after {
+      animation: guide-ping 1.8s ease-out infinite;
+      border: 2px solid #2563eb;
+      border-radius: 50%;
+      content: "";
+      inset: 0;
+      position: absolute;
+    }
+
+    .fab-ping::after {
+      animation-delay: 0.9s;
     }
 
     @keyframes guide-in {
@@ -168,6 +203,54 @@
       to {
         opacity: 1;
         transform: translateX(0);
+      }
+    }
+
+    /* 整体轻微左右摆动，吸引注意 */
+    @keyframes guide-bob {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      50% {
+        transform: translateX(-6px);
+      }
+    }
+
+    /* 箭头反复向浮球方向推进 */
+    @keyframes arrow-nudge {
+      0%, 100% {
+        transform: translateX(0);
+        opacity: 0.65;
+      }
+      50% {
+        transform: translateX(5px);
+        opacity: 1;
+      }
+    }
+
+    /* 浮球位置的扩散光圈 */
+    @keyframes guide-ping {
+      0% {
+        opacity: 0.55;
+        transform: scale(0.6);
+      }
+      70%, 100% {
+        opacity: 0;
+        transform: scale(1.6);
+      }
+    }
+
+    /* 尊重系统的减弱动态偏好 */
+    @media (prefers-reduced-motion: reduce) {
+      .float-guide,
+      .float-guide b,
+      .fab-ping::before,
+      .fab-ping::after {
+        animation: none;
+      }
+
+      .fab-ping {
+        display: none;
       }
     }
 
@@ -197,6 +280,10 @@
       .float-guide b {
         display: none;
       }
+
+      .fab-ping {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -206,7 +293,7 @@
       <span class="brand-mark">AF</span>
       <span>模拟宿主网站</span>
     </div>
-    <a href="/">返回演示入口</a>
+    <a href="/">← 返回演示入口</a>
   </header>
 
   <main>
@@ -242,6 +329,8 @@
     </span>
     <b>→</b>
   </aside>
+
+  <div class="fab-ping" aria-hidden="true"></div>
 
   <script src="/widget/widget.js" data-assistflow
           data-key="demo-site" data-api-base="" data-title="AssistFlow AI 客服系统"></script>
