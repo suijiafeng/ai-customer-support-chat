@@ -10,7 +10,7 @@
   const newId = () => crypto.randomUUID();
 
   export let apiBase = "";
-  export let title = "开发者 AI 助手";
+  export let title = "AssistFlow AI 客服系统";
   export let siteKey = "default";
   // 访客标识/会话 ID：首次发送消息后才惰性生成，存于本地并带完整性校验
   export let sessionId = "";
@@ -293,6 +293,12 @@
 
 <div class="afw">
   {#if open}
+    <button
+      class="backdrop"
+      type="button"
+      aria-label="关闭聊天窗口"
+      on:click={toggle}
+    ></button>
     <div
       class="panel"
       class:dragging={pdragging}
@@ -319,7 +325,7 @@
         <div class="list" bind:this={listEl} on:scroll={onListScroll}>
           {#if messages.length === 0}
             <div class="hint">
-              您好，想了解开发服务还是项目进展？<br />试试「项目怎么报价」
+              您好，请问有什么可以帮您？<br />请直接输入您的问题
             </div>
           {/if}
           {#each messages as m (m.id)}

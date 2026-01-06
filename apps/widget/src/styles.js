@@ -6,10 +6,14 @@ export default `
   box-shadow: 0 8px 22px rgba(36,87,197,.4); transition: transform .15s ease, box-shadow .15s ease; }
 .fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 28px rgba(36,87,197,.45); }
 .fab:active { transform: scale(.96); }
+.backdrop { position: fixed; inset: 0; z-index: 2147483001; border: 0; padding: 0; cursor: default;
+  background: rgba(15,23,42,.34); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  animation: afw-fade .18s ease-out; }
+@keyframes afw-fade { from { opacity: 0; } to { opacity: 1; } }
 /* 面板：与悬浮球分离，固定在视口居中（inset+margin auto 居中，避免与弹出动画 transform 冲突） */
 .panel { position: fixed; inset: 0; margin: auto;
   width: min(480px, calc(100vw - 40px)); height: min(720px, calc(100vh - 100px));
-  background: #fff; border-radius: 16px; box-shadow: 0 16px 48px rgba(15,23,42,.24);
+  background: #fff; border-radius: 16px; box-shadow: 0 28px 80px rgba(15,23,42,.38);
   display: flex; flex-direction: column; overflow: hidden; z-index: 2147483002;
   animation: afw-pop .18s cubic-bezier(.2,.8,.2,1); }
 @keyframes afw-pop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }

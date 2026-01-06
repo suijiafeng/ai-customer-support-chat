@@ -1,14 +1,249 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><title>宿主网站嵌入示例</title></head>
-<body style="font-family:sans-serif;padding:40px">
-  <h1>这是任意一个宿主网站</h1>
-  <p>下面这行 script 就是网站方需要粘贴的全部代码：</p>
-  <pre>&lt;script src="/widget/widget.js"
-        data-assistflow data-key="demo-site"
-        data-api-base="" data-title="开发者 AI 助手"&gt;&lt;/script&gt;</pre>
-  <!-- 实际嵌入 -->
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Widget 浮球演示</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f8fafc;
+      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    header,
+    main {
+      margin: 0 auto;
+      max-width: 980px;
+      width: calc(100% - 40px);
+    }
+
+    header {
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      padding: 20px 0;
+    }
+
+    .brand {
+      align-items: center;
+      display: flex;
+      font-size: 15px;
+      font-weight: 700;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      align-items: center;
+      background: #2563eb;
+      border-radius: 8px;
+      color: #fff;
+      display: flex;
+      font-size: 11px;
+      height: 34px;
+      justify-content: center;
+      width: 34px;
+    }
+
+    header a {
+      color: #64748b;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    main {
+      padding: 100px 0 160px;
+    }
+
+    .label {
+      color: #2563eb;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      margin: 0 0 14px;
+    }
+
+    h1 {
+      color: #0f172a;
+      font-size: clamp(38px, 7vw, 62px);
+      letter-spacing: -0.05em;
+      line-height: 1.05;
+      margin: 0;
+      max-width: 680px;
+    }
+
+    .intro {
+      color: #64748b;
+      font-size: 15px;
+      line-height: 1.75;
+      margin: 20px 0 0;
+      max-width: 580px;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 54px;
+    }
+
+    .step {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      min-height: 130px;
+      padding: 18px;
+    }
+
+    .step span {
+      color: #2563eb;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .step strong {
+      color: #0f172a;
+      display: block;
+      font-size: 14px;
+      margin-top: 28px;
+    }
+
+    .step p {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+      margin: 6px 0 0;
+    }
+
+    .float-guide {
+      align-items: center;
+      animation: guide-in 350ms ease-out;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      bottom: 20px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px;
+      pointer-events: none;
+      position: fixed;
+      right: 82px;
+      z-index: 2147482999;
+    }
+
+    .float-guide strong,
+    .float-guide span {
+      display: block;
+    }
+
+    .float-guide strong {
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    .float-guide span {
+      color: #64748b;
+      font-size: 10px;
+      margin-top: 3px;
+    }
+
+    .float-guide b {
+      color: #2563eb;
+      font-size: 18px;
+    }
+
+    @keyframes guide-in {
+      from {
+        opacity: 0;
+        transform: translateX(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @media (max-width: 680px) {
+      main {
+        padding-top: 72px;
+      }
+
+      .steps {
+        grid-template-columns: 1fr;
+        margin-top: 38px;
+      }
+
+      .step {
+        min-height: auto;
+      }
+
+      .step strong {
+        margin-top: 18px;
+      }
+
+      .float-guide {
+        bottom: 78px;
+        right: 14px;
+      }
+
+      .float-guide b {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-mark">AF</span>
+      <span>模拟宿主网站</span>
+    </div>
+    <a href="/">返回演示入口</a>
+  </header>
+
+  <main>
+    <p class="label">WIDGET DEMO</p>
+    <p class="intro">
+      这个页面用于模拟任意网站嵌入 AssistFlow Widget 后的效果。
+      聊天功能不会占用页面主体空间，访客需要时点击浮球即可打开。
+    </p>
+
+    <section class="steps" aria-label="体验步骤">
+      <article class="step">
+        <span>01</span>
+        <strong>点击聊天浮球</strong>
+        <p>浮球固定在页面右下角。</p>
+      </article>
+      <article class="step">
+        <span>02</span>
+        <strong>发送测试消息</strong>
+        <p>输入文字或表情，测试消息发送。</p>
+      </article>
+      <article class="step">
+        <span>03</span>
+        <strong>打开客服工作台</strong>
+        <p>前往客服端查看并回复当前会话。</p>
+      </article>
+    </section>
+  </main>
+
+  <aside class="float-guide" aria-hidden="true">
+    <span>
+      <strong>点击浮球开始聊天</strong>
+      <span>浮球位于页面右下角</span>
+    </span>
+    <b>→</b>
+  </aside>
+
   <script src="/widget/widget.js" data-assistflow
-          data-key="demo-site" data-api-base="" data-title="开发者 AI 助手"></script>
+          data-key="demo-site" data-api-base="" data-title="AssistFlow AI 客服系统"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ function readConfig() {
   return {
     apiBase: ds.apiBase || ds.api || window.location.origin,
     siteKey: ds.key || 'default',
-    title: ds.title || '开发者 AI 助手',
+    title: ds.title || 'AssistFlow AI 客服系统',
   };
 }
 

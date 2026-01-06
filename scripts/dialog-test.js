@@ -80,9 +80,9 @@ async function fetchSession() {
   const customerMsgs = messages.filter((m) => m.actor === 'customer');
   const agentMsgs = messages.filter((m) => m.actor === 'agent');
   const aiMsgs = messages.filter((m) => m.actor === 'ai');
-  assert(customerMsgs.length === 3, `客户消息数为 3 (实际 ${customerMsgs.length})`);
+  assert(customerMsgs.length === 3, `访客消息数为 3 (实际 ${customerMsgs.length})`);
   assert(agentMsgs.length === 2, `开发者消息数为 2 (实际 ${agentMsgs.length})`);
-  assert(customerMsgs.every((m) => m.role === 'user'), '客户消息 role=user (客户端左侧)');
+  assert(customerMsgs.every((m) => m.role === 'user'), '访客消息 role=user (访客端左侧)');
   assert(agentMsgs.every((m) => m.role === 'assistant'), '开发者消息 role=assistant (访客端右侧)');
   assert(agentMsgs.every((m) => m.agentId === agent.id && m.agentName === agent.name), '开发者身份字段完整');
 
