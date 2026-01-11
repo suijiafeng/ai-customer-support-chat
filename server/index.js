@@ -7,6 +7,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parseBooleanEnv } from './config.js';
+import { createStore } from './store.js';
 import {
   createFaqSearcher,
   detectIntent,
@@ -55,6 +56,43 @@ const MAX_MESSAGES_PER_SESSION = 80;
 const MAX_AI_HISTORY = 8;
 const MAX_SESSIONS = 200;
 const MAX_TICKETS = 200;
+
+// 持久化：启动时从 Postgres 载入内存；之后所有变更写穿透。
+// 初始化失败（库不可达等）时降级为纯内存，保证服务仍能起来。
+let store = createStore();
+try {
+  await store.init();
+  const persisted = await store.loadAll();
+  for (const [id, data] of persisted.sessions) sessions.set(id, data);
+  for (const [id, messages] of persisted.conversations) conversations.set(id, messages);
+  for (const ticket of persisted.tickets) tickets.push(ticket);
+  if (store.enabled) {
+    console.log(`[store] Postgres 持久化已启用，载入 ${sessions.size} 会话 / ${tickets.length} 工单`);
+  }
+} catch (error) {
+  console.error(`[store] 初始化失败，降级为纯内存模式：${error?.message || error}`);
+  store = createStore({ connectionString: null });
+}
+
+// 写穿透封装：内存仍是运行时事实来源，库作为持久后备同步更新。
+function setSession(session) {
+  sessions.set(session.sessionId, session);
+  store.saveSession(session);
+  trimMap(sessions, MAX_SESSIONS, (id) => store.deleteSession(id));
+  return session;
+}
+
+function setConversation(sessionId, messages) {
+  conversations.set(sessionId, messages);
+  store.saveConversation(sessionId, messages);
+  trimMap(conversations, MAX_CONVERSATIONS, (id) => store.deleteConversation(id));
+  return messages;
+}
+
+function persistTicket(ticket) {
+  if (ticket) store.saveTicket(ticket);
+  return ticket;
+}
 
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
@@ -181,7 +219,7 @@ app.post('/api/sessions/:sessionId/resolve', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  sessions.set(req.params.sessionId, updatedSession);
+  setSession(updatedSession);
   notifySession(req.params.sessionId);
   notifyQueue();
 
@@ -242,8 +280,8 @@ app.post('/api/sessions/:sessionId/messages', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  conversations.set(req.params.sessionId, nextMessages);
-  sessions.set(req.params.sessionId, updatedSession);
+  setConversation(req.params.sessionId, nextMessages);
+  setSession(updatedSession);
   notifySession(req.params.sessionId);
   notifyQueue();
 
@@ -306,8 +344,7 @@ app.post('/api/sessions/:sessionId/profile', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  sessions.set(req.params.sessionId, updatedSession);
-  trimMap(sessions, MAX_SESSIONS);
+  setSession(updatedSession);
   notifySession(req.params.sessionId);
   notifyQueue();
 
@@ -354,8 +391,7 @@ app.post('/api/chat', async (req, res) => {
         sources: [],
       };
 
-      conversations.set(sessionId, nextHistory);
-      trimMap(conversations, MAX_CONVERSATIONS);
+      setConversation(sessionId, nextHistory);
       upsertSession({ sessionId, message, workflow, profile, visitor, forceStatus: 'assigned' });
       notifySession(sessionId);
       notifyQueue();
@@ -398,8 +434,7 @@ app.post('/api/chat', async (req, res) => {
       })),
     };
 
-    conversations.set(sessionId, nextHistory);
-    trimMap(conversations, MAX_CONVERSATIONS);
+    setConversation(sessionId, nextHistory);
     upsertSession({ sessionId, message, workflow, profile, visitor });
     notifySession(sessionId);
     notifyQueue();
@@ -649,7 +684,7 @@ function createTicket({ sessionId, message, intent, reason, inquiry }) {
     existingTicket.lastMessage = message;
     existingTicket.reason = reason;
     existingTicket.updatedAt = new Date().toISOString();
-    return existingTicket;
+    return persistTicket(existingTicket);
   }
 
   const priority = hasAny(normalize(message), ['紧急', '尽快', '马上', '今天联系'])
@@ -670,9 +705,10 @@ function createTicket({ sessionId, message, intent, reason, inquiry }) {
 
   tickets.push(ticket);
   if (tickets.length > MAX_TICKETS) {
-    tickets.splice(0, tickets.length - MAX_TICKETS);
+    const evicted = tickets.splice(0, tickets.length - MAX_TICKETS);
+    evicted.forEach((item) => store.deleteTicket(item.id));
   }
-  return ticket;
+  return persistTicket(ticket);
 }
 
 function getLatestTicketForSession(sessionId) {
@@ -728,7 +764,7 @@ function updateTicket(ticket, updates = {}) {
     ticket.resolvedAt = ticket.resolvedAt || now;
   }
 
-  return ticket;
+  return persistTicket(ticket);
 }
 
 function syncSessionFromTicket(ticket) {
@@ -758,7 +794,7 @@ function syncSessionFromTicket(ticket) {
     updatedAt: new Date().toISOString(),
   };
 
-  sessions.set(ticket.sessionId, nextSession);
+  setSession(nextSession);
   return nextSession;
 }
 
@@ -911,8 +947,7 @@ function upsertSession({ sessionId, message, workflow, profile, visitor, forceSt
     updatedAt: now,
   };
 
-  sessions.set(sessionId, session);
-  trimMap(sessions, MAX_SESSIONS);
+  setSession(session);
 }
 
 function resolveSessionStatus(current, workflow) {
@@ -1021,16 +1056,28 @@ function sortSessions(a, b) {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 }
 
-function trimMap(map, maxEntries) {
+function trimMap(map, maxEntries, onEvict) {
   while (map.size > maxEntries) {
     const firstKey = map.keys().next().value;
     map.delete(firstKey);
+    if (onEvict) onEvict(firstKey);
   }
 }
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Developer AI assistant running at http://localhost:${port}`);
   console.log(
     `AI mode: ${getActiveAiClient() ? `${aiProvider} ${getActiveModel()}` : aiFeatureEnabled ? 'local rules only' : 'disabled'}`
   );
+  console.log(`Storage: ${store.enabled ? 'Postgres (持久化)' : '内存（未配置 DATABASE_URL）'}`);
 });
+
+// Render 重新部署/缩容时发 SIGTERM：优雅关闭 HTTP 与数据库连接池。
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    server.close(async () => {
+      await store.close();
+      process.exit(0);
+    });
+  });
+}

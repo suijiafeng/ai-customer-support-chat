@@ -46,7 +46,21 @@ const MessageRow = memo(function MessageRow({ m, customerName }) {
   );
 });
 
-export default function MessageList({ messages, customerName }) {
+function Skeleton() {
+  // 历史加载中的占位骨架，避免空白或与“暂无消息”混淆
+  return (
+    <div className="skeleton" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={`sk-row${i % 2 ? ' me' : ''}`}>
+          <div className="sk-avatar" />
+          <div className="sk-bubble" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function MessageList({ messages, customerName, status = 'ready' }) {
   const listEl = useRef(null);
   const [atBottom, setAtBottom] = useState(true);
 
@@ -71,8 +85,9 @@ export default function MessageList({ messages, customerName }) {
         {messages.map((m) => (
           <MessageRow key={m.id} m={m} customerName={customerName} />
         ))}
-        {!messages.length && (
-          <div className="empty"><span className="ico" aria-hidden="true">💬</span>加载中…</div>
+        {!messages.length && status === 'loading' && <Skeleton />}
+        {!messages.length && status === 'ready' && (
+          <div className="empty"><span className="ico" aria-hidden="true">💬</span>暂无消息，等待访客发起咨询</div>
         )}
       </div>
       {!atBottom && (

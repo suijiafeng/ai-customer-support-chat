@@ -86,6 +86,48 @@ button { font-family: inherit; }
 .send-btn:disabled { background: #a0cfff; cursor: not-allowed; }
 .send-btn.loading { opacity: .7; cursor: default; }
 
+/* 连接状态指示（聊天头部） */
+.conn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; }
+.conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #c0c4cc; flex-shrink: 0; }
+.conn-synced { color: #67c23a; }
+.conn-synced .conn-dot { background: #67c23a; }
+.conn-syncing { color: #909399; }
+.conn-syncing .conn-dot { background: #c0c4cc; animation: conn-pulse 1.2s ease-in-out infinite; }
+.conn-reconnecting { color: #e6a23c; }
+.conn-reconnecting .conn-dot { background: #e6a23c; animation: conn-pulse 1s ease-in-out infinite; }
+@keyframes conn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* 断线/提示横幅 */
+.banner { padding: 7px 16px; font-size: 12px; text-align: center; }
+.banner-warn { background: #fdf6ec; color: #b88230; border-bottom: 1px solid #f5e2c4; }
+
+/* 加载失败/重试块 */
+.state-block { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: #909399; font-size: 13px; background: #f1f3f6; }
+.state-block .ico { font-size: 38px; }
+.state-block p { margin: 0; }
+.retry-btn { padding: 7px 18px; border: 1px solid #d9dde6; border-radius: 8px; background: #fff;
+  color: #2457c5; font-weight: 600; font-size: 13px; cursor: pointer; transition: background .15s; }
+.retry-btn:hover { background: #eef2fb; }
+
+/* 历史加载骨架 */
+.skeleton { padding: 16px; }
+.sk-row { display: flex; align-items: flex-start; gap: 9px; margin: 14px 0; }
+.sk-row.me { flex-direction: row-reverse; }
+.sk-avatar { width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0; }
+.sk-bubble { height: 40px; width: 56%; max-width: 260px; border-radius: 12px; }
+.sk-row.me .sk-bubble { width: 42%; }
+.sk-avatar, .sk-bubble {
+  background: linear-gradient(90deg, #e4e8ef 25%, #eef1f6 37%, #e4e8ef 63%);
+  background-size: 400% 100%; animation: sk-shimmer 1.4s ease infinite;
+}
+@keyframes sk-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* 队列离线指示 */
+.queue-offline { font-size: 11px; color: #e6a23c; display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.queue-offline::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #e6a23c;
+  animation: conn-pulse 1s ease-in-out infinite; }
+
 /* 平板/窄屏：收窄会话队列 */
 @media (max-width: 900px) {
   .queue { width: 240px; }

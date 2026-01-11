@@ -7,7 +7,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "check": "node --check server/index.js && node --check server/config.js && node --check server/rules.js && node --check public/agent.js && node --check scripts/smoke-test.js",
+    "check": "node --check server/index.js && node --check server/config.js && node --check server/rules.js && node --check server/store.js && node --check public/agent.js && node --check scripts/smoke-test.js",
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "test": "node --test test/*.test.js",
@@ -21,9 +21,11 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "openai": "^6.9.1"
+    "openai": "^6.9.1",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "pg-mem": "^3.0.14"
   }
 }
