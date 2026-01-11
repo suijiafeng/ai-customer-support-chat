@@ -1,11 +1,18 @@
 services:
   - type: web
     name: ai-customer-support-chat
-    runtime: node
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
-    buildCommand: npm ci
-    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
-      - key: NODE_VERSION
-        value: 22.12.0
+      # AI 默认关闭，走本地规则；如需启用，在 Render 后台填入对应密钥并改为 true
+      - key: AI_ENABLED
+        value: "false"
+      - key: AI_PROVIDER
+        value: deepseek
+      # 密钥不写入仓库，sync:false 表示由 Render 后台手动填写
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
