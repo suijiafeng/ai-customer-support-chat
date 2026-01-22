@@ -6,16 +6,20 @@
   "engines": {
     "node": ">=18"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "check": "node --check server/index.js && node --check server/config.js && node --check server/rules.js && node --check server/store.js && node --check public/agent.js && node --check scripts/smoke-test.js",
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "test": "node --test test/*.test.js",
     "smoke": "node scripts/smoke-test.js",
-    "install:all": "npm install && npm install --prefix apps/widget && npm install --prefix apps/workstation",
-    "build:apps": "npm run build --prefix apps/widget && npm run build --prefix apps/workstation",
+    "build:shared": "npm run build --workspace @assistflow/shared",
+    "build:apps": "npm run build:shared && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation",
     "start:all": "npm run build:apps && node server/index.js",
-    "dev:all": "concurrently -n server,widget,workstation -c green,magenta,cyan \"node --watch server/index.js\" \"npm run dev --prefix apps/widget\" \"npm run dev --prefix apps/workstation\""
+    "dev:all": "concurrently -n server,widget,workstation -c green,magenta,cyan \"node --watch server/index.js\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\""
   },
   "dependencies": {
     "cors": "^2.8.5",
