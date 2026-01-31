@@ -1,13 +1,14 @@
-import Widget from './Widget.svelte';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import Widget from './Widget.js';
 import css from './styles.js';
 
 // 嵌入入口：读取 <script> 上的配置，挂载到隔离的 Shadow DOM
 function readConfig() {
-  const el =
-    document.currentScript ||
+  const el = (document.currentScript ||
     document.querySelector('script[data-assistflow]') ||
-    document.querySelector('script[src*="widget.js"]');
-  const ds = el ? el.dataset : {};
+    document.querySelector('script[src*="widget.js"]')) as HTMLScriptElement | null;
+  const ds: DOMStringMap = el ? el.dataset : ({} as DOMStringMap);
   return {
     apiBase: ds.apiBase || ds.api || window.location.origin,
     siteKey: ds.key || 'default',
@@ -28,15 +29,14 @@ function mount() {
   const target = document.createElement('div');
   shadow.appendChild(target);
 
-  new Widget({
-    target,
-    props: {
-      apiBase: cfg.apiBase.replace(/\/$/, ''),
-      title: cfg.title,
+  createRoot(target).render(
+    <Widget
+      apiBase={cfg.apiBase.replace(/\/$/, '')}
+      title={cfg.title}
       // 标识由 widget 在首次发消息时惰性生成并校验，这里只传 siteKey
-      siteKey: cfg.siteKey,
-    },
-  });
+      siteKey={cfg.siteKey}
+    />
+  );
 }
 
 if (document.readyState === 'loading') {

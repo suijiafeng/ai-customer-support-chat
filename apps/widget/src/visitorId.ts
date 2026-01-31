@@ -7,12 +7,12 @@
 // 注意：浏览器端无法保存真正的密钥，这里的校验和只用于检测「本地存储被改动/损坏」，
 //       并非防伪造的安全签名。
 
-const STORE_KEY = (siteKey) => `assistflow.visitor.${siteKey}`;
+const STORE_KEY = (siteKey: string) => `assistflow.visitor.${siteKey}`;
 const ID_PREFIX = 'v-';
 const ID_PATTERN = /^v-[a-z0-9]{6,48}$/;
 
 // FNV-1a 轻量校验和，输出 base36 字符串
-function checksum(str) {
+function checksum(str: string): string {
   let h = 2166136261;
   for (let i = 0; i < str.length; i += 1) {
     h ^= str.charCodeAt(i);
@@ -21,23 +21,23 @@ function checksum(str) {
   return (h >>> 0).toString(36);
 }
 
-function isValidFormat(id) {
+function isValidFormat(id: unknown): id is string {
   return typeof id === 'string' && ID_PATTERN.test(id);
 }
 
-function generateId() {
+function generateId(): string {
   return ID_PREFIX + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-function persist(siteKey, id) {
+function persist(siteKey: string, id: string) {
   try {
     window.localStorage.setItem(STORE_KEY(siteKey), JSON.stringify({ id, sig: checksum(id) }));
   } catch {}
 }
 
 // 读取并校验本地标识；不存在、格式非法或校验和不符（被篡改）一律返回 null
-export function loadVisitorId(siteKey) {
-  let raw;
+export function loadVisitorId(siteKey: string): string | null {
+  let raw: string | null;
   try {
     raw = window.localStorage.getItem(STORE_KEY(siteKey));
   } catch {
@@ -64,7 +64,7 @@ export function loadVisitorId(siteKey) {
 }
 
 // 确保有一个合法标识：已存在且未被篡改则复用，否则重新生成并落盘
-export function ensureVisitorId(siteKey) {
+export function ensureVisitorId(siteKey: string): string {
   const existing = loadVisitorId(siteKey);
   if (existing) return existing;
   const fresh = generateId();
@@ -73,6 +73,6 @@ export function ensureVisitorId(siteKey) {
 }
 
 // 校验给定标识是否仍与本地存储一致且未被篡改
-export function isVisitorIdValid(siteKey, id) {
+export function isVisitorIdValid(siteKey: string, id: string): boolean {
   return Boolean(id) && loadVisitorId(siteKey) === id;
 }
