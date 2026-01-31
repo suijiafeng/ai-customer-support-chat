@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react';
+import type { SessionSummary } from '@assistflow/shared';
 import { API, requestJson } from '../api.js';
 
 // 会话队列实时订阅：优先 SSE，断线/不支持时降级为轮询。
 export function useQueueEvents() {
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    let es = null;
-    let pollTimer = null;
+    let es: EventSource | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
     let closed = false;
 
     const startPolling = () => {
       if (pollTimer) return;
       const tick = async () => {
         try {
-          const data = await requestJson('/api/sessions');
+          const data = await requestJson<{ sessions: SessionSummary[] }>('/api/sessions');
           if (!closed) setSessions(data.sessions || []);
         } catch {
           /* 保留上次数据 */
@@ -37,7 +38,7 @@ export function useQueueEvents() {
     es = new EventSource(`${API}/api/sessions/events`);
     es.onopen = () => { setConnected(true); stopPolling(); };
     es.addEventListener('sessions', (e) => {
-      try { setSessions(JSON.parse(e.data).sessions || []); } catch {}
+      try { setSessions(JSON.parse((e as MessageEvent).data).sessions || []); } catch {}
     });
     es.onerror = () => {
       setConnected(false);

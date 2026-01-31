@@ -1,15 +1,22 @@
 import React from 'react';
-import MessageList from './MessageList.jsx';
-import Composer from './Composer.jsx';
-import { useSessionMessages } from '../hooks/useSessionMessages.js';
+import type { SessionSummary } from '@assistflow/shared';
+import MessageList from './MessageList.js';
+import Composer from './Composer.js';
+import { useSessionMessages, type ConnectionStatus } from '../hooks/useSessionMessages.js';
+import type { AgentIdentity } from '../api.js';
 
-const CONNECTION_LABEL = {
+const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
   synced: '消息已同步',
   syncing: '正在同步…',
   reconnecting: '连接中断，重连中…',
 };
 
-export default function ChatPanel({ session, agent }) {
+interface ChatPanelProps {
+  session: SessionSummary | null;
+  agent: AgentIdentity;
+}
+
+export default function ChatPanel({ session, agent }: ChatPanelProps) {
   const sessionId = session?.sessionId || null;
   const { messages, setMessages, status, connection, reload } = useSessionMessages(sessionId);
 

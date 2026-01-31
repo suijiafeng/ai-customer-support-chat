@@ -1,9 +1,10 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { fmtTime, linkParts } from '../api.js';
+import { fmtTime, linkParts, type UiMessage } from '../api.js';
+import type { HistoryStatus } from '../hooks/useSessionMessages.js';
 
-const avatarText = (from) => (from === 'customer' ? '访' : from === 'ai' ? 'AI' : '本');
+const avatarText = (from: string) => (from === 'customer' ? '访' : from === 'ai' ? 'AI' : '本');
 
-function RichText({ text }) {
+function RichText({ text }: { text: string }) {
   return (
     <div className="txt">
       {linkParts(text).map((p, i) =>
@@ -15,7 +16,7 @@ function RichText({ text }) {
   );
 }
 
-const MessageRow = memo(function MessageRow({ m, customerName }) {
+const MessageRow = memo(function MessageRow({ m, customerName }: { m: UiMessage; customerName?: string }) {
   const who = m.from === 'customer'
     ? (customerName || '访客')
     : m.from === 'ai' ? '智能助手' : (m.agentName || '开发者本人');
@@ -60,8 +61,14 @@ function Skeleton() {
   );
 }
 
-export default function MessageList({ messages, customerName, status = 'ready' }) {
-  const listEl = useRef(null);
+interface MessageListProps {
+  messages: UiMessage[];
+  customerName?: string;
+  status?: HistoryStatus;
+}
+
+export default function MessageList({ messages, customerName, status = 'ready' }: MessageListProps) {
+  const listEl = useRef<HTMLDivElement | null>(null);
   const [atBottom, setAtBottom] = useState(true);
 
   const scrollToBottom = useCallback(() => {

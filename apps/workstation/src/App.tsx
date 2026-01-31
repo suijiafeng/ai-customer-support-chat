@@ -1,15 +1,15 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import 'emoji-picker-element';
-import { stableAgentId } from './api.js';
+import { stableAgentId, type AgentIdentity } from './api.js';
 import { useQueueEvents } from './hooks/useQueueEvents.js';
-import SessionQueue from './components/SessionQueue.jsx';
-import ChatPanel from './components/ChatPanel.jsx';
+import SessionQueue from './components/SessionQueue.js';
+import ChatPanel from './components/ChatPanel.js';
 
 export default function App() {
   // 开发者身份在组件生命周期内稳定
-  const [agent] = useState(() => ({ id: stableAgentId(), name: '开发者本人' }));
+  const [agent] = useState<AgentIdentity>(() => ({ id: stableAgentId(), name: '开发者本人' }));
   const { sessions } = useQueueEvents();
-  const [activeId, setActiveId] = useState(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false); // 移动端抽屉
 
   const activeSession = useMemo(
@@ -18,7 +18,7 @@ export default function App() {
   );
 
   // 选中会话后在移动端自动收起队列
-  const handleSelect = useCallback((id) => {
+  const handleSelect = useCallback((id: string) => {
     setActiveId(id);
     setQueueOpen(false);
   }, []);

@@ -1,17 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { Message } from '@assistflow/shared';
 import {
   requestJson, fileToDataUrl, normalizeMessages, MAX_ATTACHMENTS, MAX_IMAGE_BYTES,
+  type AgentIdentity, type PendingAttachment, type UiMessage,
 } from '../api.js';
 
-export default function Composer({ sessionId, agent, onSent }) {
+interface ComposerProps {
+  sessionId: string | null;
+  agent: AgentIdentity;
+  onSent?: (messages: UiMessage[]) => void;
+}
+
+export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   const [reply, setReply] = useState('');
-  const [pending, setPending] = useState([]); // 待发送图片附件
+  const [pending, setPending] = useState<PendingAttachment[]>([]); // 待发送图片附件
   const [loading, setLoading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
 
-  const fileEl = useRef(null);
-  const replyInput = useRef(null);
-  const emojiRef = useRef(null);
+  const fileEl = useRef<HTMLInputElement | null>(null);
+  const replyInput = useRef<HTMLTextAreaElement | null>(null);
+  const emojiRef = useRef<HTMLElement | null>(null);
 
   // 切换会话时重置输入区
   useEffect(() => {
@@ -19,27 +27,33 @@ export default function Composer({ sessionId, agent, onSent }) {
     requestAnimationFrame(() => replyInput.current?.focus());
   }, [sessionId]);
 
-  const addFiles = useCallback(async (files) => {
+  const addFiles = useCallback(async (files: Iterable<File>) => {
     const list = [...files].filter((f) => f && f.type.startsWith('image/') && f.size <= MAX_IMAGE_BYTES);
     if (!list.length) return;
     const items = await Promise.all(list.map(fileToDataUrl));
     setPending((p) => [...p, ...items].slice(0, MAX_ATTACHMENTS));
   }, []);
 
-  const onPaste = useCallback((e) => {
+  const onPaste = useCallback((e: React.ClipboardEvent) => {
     const items = [...(e.clipboardData?.items || [])].filter((i) => i.type.startsWith('image/'));
-    if (items.length) { e.preventDefault(); addFiles(items.map((i) => i.getAsFile()).filter(Boolean)); }
+    if (items.length) {
+      e.preventDefault();
+      addFiles(items.map((i) => i.getAsFile()).filter((f): f is File => Boolean(f)));
+    }
   }, [addFiles]);
 
-  const onPickFiles = useCallback((e) => { addFiles(e.target.files); e.target.value = ''; }, [addFiles]);
-  const removePending = useCallback((i) => setPending((p) => p.filter((_, idx) => idx !== i)), []);
+  const onPickFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(e.target.files || []);
+    e.target.value = '';
+  }, [addFiles]);
+  const removePending = useCallback((i: number) => setPending((p) => p.filter((_, idx) => idx !== i)), []);
 
   // emoji-picker 是 web component，需手动绑事件
   useEffect(() => {
     if (!showEmoji) return;
     const el = emojiRef.current;
     if (!el) return;
-    const handler = (e) => {
+    const handler = (e: any) => {
       setReply((r) => r + (e.detail?.unicode || ''));
       setShowEmoji(false);
       requestAnimationFrame(() => replyInput.current?.focus());
@@ -54,11 +68,14 @@ export default function Composer({ sessionId, agent, onSent }) {
     if ((!content && attachments.length === 0) || !sessionId || loading) return;
     setLoading(true);
     try {
-      const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, attachments, agent }),
-      });
+      const data = await requestJson<{ messages: Message[] }>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/messages`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, attachments, agent }),
+        }
+      );
       onSent?.(normalizeMessages(data.messages));
       setReply(''); setPending([]); setShowEmoji(false);
     } catch {
@@ -69,7 +86,7 @@ export default function Composer({ sessionId, agent, onSent }) {
     }
   }, [reply, pending, sessionId, loading, agent, onSent]);
 
-  const onKeyDown = useCallback((e) => {
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
     send();
@@ -118,8 +135,6 @@ export default function Composer({ sessionId, agent, onSent }) {
                 aria-pressed={showEmoji}
                 onClick={() => setShowEmoji((v) => !v)}
               >😊</button>
-              {/* <button type="button" className="tool" title="发送图片/截图" aria-label="发送图片"
-                onClick={() => fileEl.current?.click()}>🖼️</button> */}
               <input ref={fileEl} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
               <span className="key-hint">Shift + Enter 换行</span>
             </div>

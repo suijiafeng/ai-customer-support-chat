@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 
 // 构建时部署在 Express 的 /workstation-demo 路径；开发时根路径 + 代理到后端
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/workstation-demo/' : '/',
+  base: command === 'build' ? '/workstation/' : '/',
   plugins: [react()],
   build: { outDir: 'dist', emptyOutDir: false },
   server: {

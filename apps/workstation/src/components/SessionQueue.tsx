@@ -1,7 +1,15 @@
 import React from 'react';
+import type { SessionSummary } from '@assistflow/shared';
 import { statusTag, statusText } from '../api.js';
 
-export default function SessionQueue({ sessions, activeId, onSelect, open = false }) {
+interface SessionQueueProps {
+  sessions: SessionSummary[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  open?: boolean;
+}
+
+export default function SessionQueue({ sessions, activeId, onSelect, open = false }: SessionQueueProps) {
   return (
     <aside className={`queue${open ? ' open' : ''}`} aria-label="会话队列">
       <div className="queue-head">

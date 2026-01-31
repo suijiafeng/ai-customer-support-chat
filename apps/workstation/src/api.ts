@@ -1,18 +1,28 @@
+import type { Message } from '@assistflow/shared';
+
 // 后端基地址：与工作台同源，留空即可
 export const API = '';
 
 export const newId = () => crypto.randomUUID();
 
-export async function requestJson(url, options) {
+/** UI 用消息：在服务端 actor/role 基础上统一补出 from 区分左右 */
+export type UiMessage = Message & { from: string };
+
+export interface AgentIdentity {
+  id: string;
+  name: string;
+}
+
+export async function requestJson<T = any>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${url}`, options);
   const data = await response.json().catch(() => null);
   if (!response.ok || !data) throw new Error(data?.error || `request failed: ${response.status}`);
-  return data;
+  return data as T;
 }
 
 // 开发者身份（本轮先用本地身份占位，下一轮接 JWT 登录替换）
 // ID 持久化到 localStorage，刷新/重开后保持同一开发者身份
-export function stableAgentId() {
+export function stableAgentId(): string {
   try {
     let id = localStorage.getItem('assistflow-agent-id');
     if (!id) {
@@ -26,21 +36,29 @@ export function stableAgentId() {
 }
 
 // 服务端消息字段是 actor/role，统一补出 from 供 UI 区分左右
-export function normalizeMessages(list = []) {
-  return list.map((m) => ({ ...m, from: m.from || m.actor || 'system' }));
+export function normalizeMessages(list: Message[] = []): UiMessage[] {
+  return list.map((m) => ({ ...m, from: (m as any).from || m.actor || 'system' }));
 }
 
-export const statusTag = (s) =>
-  ({ bot: 'info', waiting_human: 'warning', assigned: 'success', resolved: 'info', closed: 'info' }[s] || 'info');
+export const statusTag = (s: string): string =>
+  ({ bot: 'info', waiting_human: 'warning', assigned: 'success', resolved: 'info', closed: 'info' } as Record<string, string>)[s] || 'info';
 
-export const statusText = (s) =>
-  ({ bot: 'AI 回答', waiting_human: '待本人跟进', assigned: '本人沟通中', resolved: '已解决', closed: '已关闭' }[s] || s);
+export const statusText = (s: string): string =>
+  ({ bot: 'AI 回答', waiting_human: '待本人跟进', assigned: '本人沟通中', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[s] || s;
+
+export interface PendingAttachment {
+  id: string;
+  dataUrl: string;
+  name: string;
+  type: string;
+}
 
 // 图片附件：转 data URL，供发送使用
-export function fileToDataUrl(file) {
+export function fileToDataUrl(file: File): Promise<PendingAttachment> {
   return new Promise((resolve) => {
     const r = new FileReader();
-    r.onload = () => resolve({ id: newId(), dataUrl: r.result, name: file.name || 'image', type: file.type });
+    r.onload = () =>
+      resolve({ id: newId(), dataUrl: r.result as string, name: file.name || 'image', type: file.type });
     r.readAsDataURL(file);
   });
 }
@@ -49,7 +67,7 @@ export const MAX_ATTACHMENTS = 4;
 export const MAX_IMAGE_BYTES = 750 * 1024;
 
 // 时间戳格式化为 HH:MM
-export function fmtTime(iso) {
+export function fmtTime(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -58,9 +76,16 @@ export function fmtTime(iso) {
 
 // 将纯文本切分为 文本/链接 片段，供安全渲染可点击链接
 const URL_RE = /(https?:\/\/[^\s]+)/g;
-export function linkParts(text) {
-  const parts = [];
-  let last = 0; let match;
+
+export interface LinkPart {
+  link: boolean;
+  value: string;
+}
+
+export function linkParts(text: string): LinkPart[] {
+  const parts: LinkPart[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
   URL_RE.lastIndex = 0;
   while ((match = URL_RE.exec(text)) !== null) {
     if (match.index > last) parts.push({ link: false, value: text.slice(last, match.index) });
