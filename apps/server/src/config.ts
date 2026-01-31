@@ -27,5 +27,6 @@ export const appConfig = {
   staticDirs: {
     widget: path.join(repoRoot, 'apps', 'widget', 'dist'),
     workstation: path.join(repoRoot, 'apps', 'workstation', 'dist'),
+    demo: path.join(repoRoot, 'apps', 'demo', 'dist'),
   },
 };

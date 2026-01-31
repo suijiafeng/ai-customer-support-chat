@@ -39,6 +39,17 @@ async function bootstrap() {
     })
   );
 
+  // 演示站挂在根路径；后端只托管其构建产物，不感知演示内容
+  app.use(
+    express.static(appConfig.staticDirs.demo, {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        }
+      },
+    })
+  );
+
   await app.listen(appConfig.port);
   console.log(`AssistFlow server (NestJS) running at http://localhost:${appConfig.port}`);
 }
