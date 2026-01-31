@@ -11,25 +11,13 @@
     "apps/*"
   ],
   "scripts": {
-    "check": "node --check server/index.js && node --check server/config.js && node --check server/rules.js && node --check server/store.js && node --check public/agent.js && node --check scripts/smoke-test.js",
-    "start": "node server/index.js",
-    "dev": "node --watch server/index.js",
-    "test": "node --test test/*.test.js",
+    "build": "npm run build --workspace @assistflow/shared && npm run build --workspace @assistflow/server && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation && npm run build --workspace assistflow-demo",
+    "start": "node apps/server/dist/main.js",
+    "test": "npm test --workspace @assistflow/server",
     "smoke": "node scripts/smoke-test.js",
-    "build:shared": "npm run build --workspace @assistflow/shared",
-    "build:apps": "npm run build:shared && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation",
-    "start:all": "npm run build:apps && node server/index.js",
-    "dev:all": "concurrently -n server,widget,workstation -c green,magenta,cyan \"node --watch server/index.js\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\""
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "openai": "^6.9.1",
-    "pg": "^8.21.0"
+    "dev:all": "concurrently -n server,widget,workstation,demo -c green,magenta,cyan,yellow \"npm run dev --workspace @assistflow/server\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\" \"npm run dev --workspace assistflow-demo\""
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
-    "pg-mem": "^3.0.14"
+    "concurrently": "^9.1.0"
   }
 }

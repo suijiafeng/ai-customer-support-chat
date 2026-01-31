@@ -23,7 +23,7 @@ export const appConfig = {
   aiProvider: process.env.AI_PROVIDER || 'openai',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4o',
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
-  dataDir: process.env.DATA_DIR || path.join(repoRoot, 'data'),
+  dataDir: process.env.DATA_DIR || path.join(repoRoot, 'apps', 'server', 'data'),
   staticDirs: {
     widget: path.join(repoRoot, 'apps', 'widget', 'dist'),
     workstation: path.join(repoRoot, 'apps', 'workstation', 'dist'),

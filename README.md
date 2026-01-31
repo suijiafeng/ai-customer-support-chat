@@ -50,14 +50,23 @@
 
 负面情绪、投诉、知识库未命中和查询不到编号都不会自动转本人。系统会继续使用 FAQ 回答，或提示访客补充信息。
 
+## 仓库结构（monorepo）
+
+```
+packages/shared        前后端共享的 TS 类型与常量
+apps/server            NestJS 后端（API + 静态产物托管）
+apps/workstation       React 开发者工作台
+apps/widget            React 嵌入式聊天组件（构建为单文件 widget.js）
+apps/demo              演示站（落地页 + widget 嵌入演示，仅消费产物与公开 API）
+```
+
 ## 入口
 
 | 页面 | 本地地址 | 用途 |
 |------|----------|------|
-| 项目首页 | http://localhost:3001/ | 项目能力介绍与新版演示入口 |
-| 开发者工作台 | http://localhost:3001/agent.html | 会话队列、诊断、跟进事项和本人回复 |
-| Widget Demo | http://localhost:3001/widget-demo/ | 嵌入式聊天演示 |
-| 新版工作台 | http://localhost:3001/workstation-demo/ | React 会话工作台 |
+| 演示入口 | http://localhost:3001/ | 演示站落地页 |
+| Widget 嵌入演示 | http://localhost:3001/embed/ | 模拟第三方网站嵌入 widget |
+| 开发者工作台 | http://localhost:3001/workstation/ | React 会话工作台 |
 | 健康检查 | http://localhost:3001/api/health | 服务、FAQ 和项目咨询数据状态 |
 
 ## 运行
@@ -67,20 +76,14 @@
 ```bash
 npm install
 cp .env.example .env
-npm run dev
+npm run build   # 构建全部 workspace
+npm start       # 启动 NestJS 服务（托管前端产物）
 ```
 
-同时开发服务端、Widget 和 React 工作台：
+并行开发全部模块（后端 watch + 三个前端 Vite dev server）：
 
 ```bash
-npm run install:all
 npm run dev:all
-```
-
-构建新版前端并启动：
-
-```bash
-npm run start:all
 ```
 
 ## 环境变量
@@ -100,7 +103,7 @@ npm run start:all
 
 ## 本地知识库
 
-FAQ 位于 `data/faqs.json`：
+FAQ 位于 `apps/server/data/faqs.json`：
 
 ```json
 {
@@ -112,7 +115,7 @@ FAQ 位于 `data/faqs.json`：
 }
 ```
 
-项目和咨询的公开进展位于 `data/inquiries.json`：
+项目和咨询的公开进展位于 `apps/server/data/inquiries.json`：
 
 ```json
 {
@@ -163,14 +166,14 @@ PATCH /api/tickets/:id              更新跟进事项
 ## 验证
 
 ```bash
-npm run check
+npm run build
 npm test
 npm run smoke
 ```
 
 ## 当前限制
 
-- 会话、消息和跟进事项暂存在进程内存中，服务重启后清空。
+- 运行时以内存为事实来源；配置 `DATABASE_URL` 后写穿透到 Postgres 持久化。
 - FAQ 使用关键词和字符匹配，不是语义向量检索。
 - 开发者工作台当前没有登录鉴权，只适合 Demo 和本地使用。
 - 图片附件当前使用 Base64 存储，不适合生产环境。
