@@ -60,6 +60,21 @@ apps/widget            React 嵌入式聊天组件（构建为单文件 widget.j
 apps/demo              演示站（widget 嵌入演示，仅消费产物与公开 API）
 ```
 
+## 客服账号与鉴权
+
+客服工作台需登录（JWT）。演示账号在 `apps/server/data/agents.json`，共三个客服：
+
+| 工号 | 显示名称 | 演示密码 |
+|------|----------|----------|
+| `9527` | 客服9527 | `123456` |
+| `9528` | 客服9528 | `123456` |
+| `9529` | 客服9529 | `123456` |
+
+- 客服侧接口（队列、回复、工单、指标）要求 `Authorization: Bearer <token>`；SSE 通过 `?token=` 传递。
+- 访客侧接口（`/api/chat`、会话详情与会话 SSE）保持公开，供 widget 使用。
+- 客服身份只来自已验证 token，请求体里的身份字段不再被信任。
+- 生产部署请设置环境变量 `AUTH_SECRET`（JWT 签名密钥）。
+
 ## 入口
 
 | 页面 | 本地地址 | 用途 |
@@ -156,6 +171,7 @@ GET  /api/sessions/:id/events       SSE：会话实时推送
 GET  /api/tickets                   跟进事项列表
 GET  /api/metrics                   运营指标
 
+POST /api/auth/login                客服登录（工号+密码 → JWT）
 POST /api/chat                      访客发送消息
 POST /api/sessions/:id/messages     开发者本人回复
 POST /api/sessions/:id/resolve      标记会话已解决
@@ -174,7 +190,7 @@ npm run smoke
 
 - 运行时以内存为事实来源；配置 `DATABASE_URL` 后写穿透到 Postgres 持久化。
 - FAQ 使用关键词和字符匹配，不是语义向量检索。
-- 开发者工作台当前没有登录鉴权，只适合 Demo 和本地使用。
+- 客服账号为静态配置（agents.json），暂无账号管理界面。
 - 图片附件当前使用 Base64 存储，不适合生产环境。
 
 ## 部署

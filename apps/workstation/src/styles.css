@@ -145,3 +145,17 @@ button { font-family: inherit; }
   .queue-overlay { display: block; position: absolute; inset: 0; z-index: 20; background: rgba(15,23,42,.38); }
   .col { max-width: 86%; }
 }
+
+/* ---- 登录页 ---- */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f1f5f9; }
+.login-card { background: #fff; border-radius: 14px; box-shadow: 0 18px 44px rgba(15, 23, 42, .12); padding: 34px 32px; width: 320px; display: flex; flex-direction: column; gap: 14px; }
+.login-brand { font-size: 17px; font-weight: 700; color: #0f172a; }
+.login-tip { margin: 0; color: #64748b; font-size: 13px; }
+.login-card label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #334155; }
+.login-card input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 11px; font-size: 14px; outline: none; }
+.login-card input:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36, 87, 197, .14); }
+.login-error { color: #dc2626; font-size: 13px; }
+.login-card button { background: #2457c5; border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px; }
+.login-card button:disabled { opacity: .55; cursor: not-allowed; }
+.logout-btn { background: rgba(255, 255, 255, .16); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 12px; margin-left: 10px; padding: 4px 10px; }
+.logout-btn:hover { background: rgba(255, 255, 255, .28); }

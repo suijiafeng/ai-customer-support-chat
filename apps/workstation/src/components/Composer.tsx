@@ -73,7 +73,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, attachments, agent }),
+          body: JSON.stringify({ content, attachments }),
         }
       );
       onSent?.(normalizeMessages(data.messages));
@@ -84,7 +84,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
       setLoading(false);
       requestAnimationFrame(() => replyInput.current?.focus());
     }
-  }, [reply, pending, sessionId, loading, agent, onSent]);
+  }, [reply, pending, sessionId, loading, onSent]);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;

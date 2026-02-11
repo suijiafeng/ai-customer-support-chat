@@ -1,0 +1,20 @@
+[
+  {
+    "id": "9527",
+    "name": "客服9527",
+    "salt": "d777bf8e0c7ef3c9",
+    "passwordHash": "de5f38ce8266f71598c1ce9c47772f8e81ba8298baba5c96060646b6e05678fa"
+  },
+  {
+    "id": "9528",
+    "name": "客服9528",
+    "salt": "d60acdf7af2cece3",
+    "passwordHash": "a4fb29cceb64e340a04768e1ccf626ed2bc884a4a2787724297c2678d398e980"
+  },
+  {
+    "id": "9529",
+    "name": "客服9529",
+    "salt": "b5929e1eefe83221",
+    "passwordHash": "2732ee7166375fe6b041332c29fef1cfb5e9c57d22d9f906a71e66a5e9cd6baa"
+  }
+]

@@ -1,11 +1,37 @@
 const baseUrl = process.env.SMOKE_BASE_URL || 'http://localhost:3001';
 const runId = `smoke-${Date.now()}`;
+
+// 客服账号（apps/server/data/agents.json，演示密码 123456）
+let agentToken = null;   // 客服 9527
+let agentToken2 = null;  // 客服 9528
 const inquirySessionId = `${runId}-inquiry`;
 const faqMissSessionId = `${runId}-faq-miss`;
 const ticketSessionId = `${runId}-ticket`;
 let ticketId = null;
 
 const cases = [
+  {
+    name: 'agent login',
+    run: async () => {
+      const a = await post('/api/auth/login', { agentNo: '9527', password: '123456' });
+      const b = await post('/api/auth/login', { agentNo: '9528', password: '123456' });
+      agentToken = a.token || null;
+      agentToken2 = b.token || null;
+      return { a, b };
+    },
+    assert: ({ a, b }) => Boolean(agentToken) && Boolean(agentToken2)
+      && a.agent?.name === '客服9527' && b.agent?.name === '客服9528',
+  },
+  {
+    name: 'login rejects wrong password',
+    run: () => post('/api/auth/login', { agentNo: '9527', password: 'wrong' }),
+    assert: (data) => data.error === 'invalid agent number or password',
+  },
+  {
+    name: 'queue requires auth',
+    run: () => get('/api/sessions', { auth: false }),
+    assert: (data) => data.error === 'agent authentication required',
+  },
   {
     name: 'health',
     run: () => get('/api/health'),
@@ -64,25 +90,24 @@ const cases = [
     assert: (data) => data.session?.displayName === '测试用户' && data.session?.profile?.contact === '13800000000',
   },
   {
-    name: 'agent reply',
+    name: 'agent reply uses token identity',
     run: () => post(`/api/sessions/${ticketSessionId}/messages`, {
-      content: '您好，我是开发者本人，已经接入当前会话。',
-      agent: { id: `${runId}-agent-1`, name: '开发者本人' },
+      content: '您好，我是客服9527，已经接入当前会话。',
     }),
     assert: (data) => data.session?.status === 'assigned'
       && data.session?.workflow?.ticket?.status === 'processing'
-      && data.session?.assignedAgentId === `${runId}-agent-1`
+      && data.session?.assignedAgentId === '9527'
+      && data.messages?.at(-1)?.agentName === '客服9527'
       && data.messages?.at(-1)?.actor === 'agent'
       && Boolean(data.messages?.at(-1)?.id),
   },
   {
     name: 'reject competing agent',
     run: () => post(`/api/sessions/${ticketSessionId}/messages`, {
-      content: '另一个协作者不应该覆盖接入。',
-      agent: { id: `${runId}-agent-2`, name: '其他协作者' },
-    }),
+      content: '另一个客服不应该覆盖接入。',
+    }, { token: () => agentToken2 }),
     assert: (data) => data.error === 'session is assigned to another agent'
-      && data.assignedAgentId === `${runId}-agent-1`,
+      && data.assignedAgentId === '9527',
   },
   {
     name: 'operations metrics',
@@ -150,15 +175,21 @@ for (const testCase of cases) {
   console.log(`PASS ${testCase.name}`);
 }
 
-async function get(path) {
-  const response = await fetch(`${baseUrl}${path}`);
+// 客服侧请求默认带 9527 的 token；{ auth: false } 测未授权，{ token } 可换身份
+function authHeaders({ auth = true, token } = {}) {
+  const value = token ? token() : agentToken;
+  return auth && value ? { Authorization: `Bearer ${value}` } : {};
+}
+
+async function get(path, options) {
+  const response = await fetch(`${baseUrl}${path}`, { headers: authHeaders(options) });
   return response.json();
 }
 
-async function post(path, body) {
+async function post(path, body, options) {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(options) },
     body: JSON.stringify(body),
   });
 

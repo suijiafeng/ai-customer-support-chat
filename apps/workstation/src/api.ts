@@ -13,26 +13,66 @@ export interface AgentIdentity {
   name: string;
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export async function requestJson<T = any>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API}${url}`, options);
+  const token = getToken();
+  const headers = new Headers(options?.headers);
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${API}${url}`, { ...options, headers });
   const data = await response.json().catch(() => null);
-  if (!response.ok || !data) throw new Error(data?.error || `request failed: ${response.status}`);
+  if (response.status === 401 && !url.startsWith('/api/auth/')) {
+    // 登录态失效：清空并回到登录页
+    clearAuth();
+    window.location.reload();
+  }
+  if (!response.ok || !data) throw new ApiError(data?.error || `request failed: ${response.status}`, response.status);
   return data as T;
 }
 
-// 开发者身份（本轮先用本地身份占位，下一轮接 JWT 登录替换）
-// ID 持久化到 localStorage，刷新/重开后保持同一开发者身份
-export function stableAgentId(): string {
+// 登录态：JWT 与客服身份存 localStorage，所有客服侧请求带 Authorization
+const TOKEN_KEY = 'assistflow-token';
+const AGENT_KEY = 'assistflow-agent';
+
+export function getToken(): string | null {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
+export function getStoredAgent(): AgentIdentity | null {
   try {
-    let id = localStorage.getItem('assistflow-agent-id');
-    if (!id) {
-      id = 'agent-' + crypto.randomUUID().slice(0, 8);
-      localStorage.setItem('assistflow-agent-id', id);
-    }
-    return id;
-  } catch {
-    return 'agent-' + crypto.randomUUID().slice(0, 8);
-  }
+    const raw = localStorage.getItem(AGENT_KEY);
+    return raw ? (JSON.parse(raw) as AgentIdentity) : null;
+  } catch { return null; }
+}
+
+export function saveAuth(token: string, agent: AgentIdentity) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(AGENT_KEY, JSON.stringify(agent));
+  } catch {}
+}
+
+export function clearAuth() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(AGENT_KEY);
+  } catch {}
+}
+
+export async function login(agentNo: string, password: string): Promise<AgentIdentity> {
+  const data = await requestJson<{ token: string; agent: AgentIdentity }>('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agentNo, password }),
+  });
+  saveAuth(data.token, data.agent);
+  return data.agent;
 }
 
 // 服务端消息字段是 actor/role，统一补出 from 供 UI 区分左右

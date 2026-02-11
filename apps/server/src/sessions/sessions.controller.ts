@@ -7,12 +7,16 @@ import {
   NotFoundException,
   Param,
   Post,
+  Req,
   Sse,
+  UseGuards,
 } from '@nestjs/common';
 import type { Session } from '@assistflow/shared';
 import { map } from 'rxjs';
+import { AgentAuthGuard } from '../auth/auth.guard.js';
+import type { AuthenticatedAgent } from '../auth/auth.service.js';
 import { MetricsService } from '../metrics/metrics.service.js';
-import { normalizeAgent, normalizeAttachments, normalizeProfile } from '../common/normalize.js';
+import { normalizeAttachments, normalizeProfile } from '../common/normalize.js';
 import { SseService } from '../sse/sse.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { SessionsService } from './sessions.service.js';
@@ -26,11 +30,13 @@ export class SessionsController {
     private readonly sse: SseService
   ) {}
 
+  @UseGuards(AgentAuthGuard)
   @Get()
   listSessions() {
     return this.sessions.getSessionsPayload();
   }
 
+  @UseGuards(AgentAuthGuard)
   @Sse('events')
   queueEvents() {
     return this.sse
@@ -57,6 +63,7 @@ export class SessionsController {
       .pipe(map((event) => ({ type: event.type, data: event.data as object })));
   }
 
+  @UseGuards(AgentAuthGuard)
   @Post(':sessionId/resolve')
   resolveSession(@Param('sessionId') sessionId: string, @Body() body: any) {
     const session = this.sessions.get(sessionId);
@@ -104,12 +111,13 @@ export class SessionsController {
     };
   }
 
+  @UseGuards(AgentAuthGuard)
   @Post(':sessionId/messages')
-  postMessage(@Param('sessionId') sessionId: string, @Body() body: any) {
+  postMessage(@Param('sessionId') sessionId: string, @Body() body: any, @Req() req: any) {
     const actor = body?.actor === 'customer' ? 'customer' : 'agent';
     const session = this.sessions.get(sessionId);
     const content = String(body?.content || '').trim();
-    const agent = normalizeAgent(body?.agent);
+    const agent = req.agent as AuthenticatedAgent;
     const attachments = normalizeAttachments(body?.attachments);
 
     if (!session) {

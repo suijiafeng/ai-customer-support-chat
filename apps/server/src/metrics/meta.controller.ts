@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { AgentAuthGuard } from '../auth/auth.guard.js';
 import { appConfig } from '../config.js';
 import { AiService } from '../ai/ai.service.js';
 import { KnowledgeService } from '../knowledge/knowledge.service.js';
@@ -34,6 +35,7 @@ export class MetaController {
     return { faqs: this.knowledge.faqs };
   }
 
+  @UseGuards(AgentAuthGuard)
   @Get('metrics')
   metricsHandler() {
     return this.metrics.buildMetrics();

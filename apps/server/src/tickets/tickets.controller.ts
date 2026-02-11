@@ -7,12 +7,15 @@ import {
   NotFoundException,
   Param,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
+import { AgentAuthGuard } from '../auth/auth.guard.js';
 import { MetricsService } from '../metrics/metrics.service.js';
 import { SessionsService } from '../sessions/sessions.service.js';
 import { SseService } from '../sse/sse.service.js';
 import { TicketsService } from './tickets.service.js';
 
+@UseGuards(AgentAuthGuard)
 @Controller('api/tickets')
 export class TicketsController {
   constructor(

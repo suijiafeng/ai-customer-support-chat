@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
-import { API, requestJson } from '../api.js';
+import { API, getToken, requestJson } from '../api.js';
 
 // 会话队列实时订阅：优先 SSE，断线/不支持时降级为轮询。
 export function useQueueEvents() {
@@ -35,7 +35,8 @@ export function useQueueEvents() {
       return () => { closed = true; stopPolling(); };
     }
 
-    es = new EventSource(`${API}/api/sessions/events`);
+    // EventSource 无法携带请求头，token 走查询参数
+    es = new EventSource(`${API}/api/sessions/events?token=${encodeURIComponent(getToken() || '')}`);
     es.onopen = () => { setConnected(true); stopPolling(); };
     es.addEventListener('sessions', (e) => {
       try { setSessions(JSON.parse((e as MessageEvent).data).sessions || []); } catch {}

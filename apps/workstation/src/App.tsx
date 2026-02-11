@@ -1,13 +1,25 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import 'emoji-picker-element';
-import { stableAgentId, type AgentIdentity } from './api.js';
+import { clearAuth, getStoredAgent, getToken, type AgentIdentity } from './api.js';
 import { useQueueEvents } from './hooks/useQueueEvents.js';
 import SessionQueue from './components/SessionQueue.js';
 import ChatPanel from './components/ChatPanel.js';
+import Login from './components/Login.js';
 
 export default function App() {
-  // 开发者身份在组件生命周期内稳定
-  const [agent] = useState<AgentIdentity>(() => ({ id: stableAgentId(), name: '开发者本人' }));
+  // 客服身份来自登录态（JWT），未登录先进登录页
+  const [agent, setAgent] = useState<AgentIdentity | null>(() =>
+    getToken() ? getStoredAgent() : null
+  );
+
+  if (!agent) {
+    return <Login onLogin={setAgent} />;
+  }
+
+  return <Workstation agent={agent} onLogout={() => { clearAuth(); setAgent(null); }} />;
+}
+
+function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () => void }) {
   const { sessions } = useQueueEvents();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false); // 移动端抽屉
@@ -33,9 +45,12 @@ export default function App() {
             aria-expanded={queueOpen}
             onClick={() => setQueueOpen((v) => !v)}
           >☰</button>
-          <span className="brand">AssistFlow 开发者工作台</span>
+          <span className="brand">AssistFlow 客服工作台</span>
         </div>
-        <span className="me">{agent.name}（访客咨询跟进）</span>
+        <span className="me">
+          {agent.name}（访客咨询跟进）
+          <button className="logout-btn" onClick={onLogout}>退出</button>
+        </span>
       </header>
       <div className="body">
         <SessionQueue

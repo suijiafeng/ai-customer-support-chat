@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AiService } from './ai/ai.service.js';
+import { AuthController } from './auth/auth.controller.js';
+import { AuthService } from './auth/auth.service.js';
 import { ChatController } from './chat/chat.controller.js';
 import { ChatService } from './chat/chat.service.js';
 import { KnowledgeService } from './knowledge/knowledge.service.js';
@@ -13,8 +15,9 @@ import { TicketsController } from './tickets/tickets.controller.js';
 import { TicketsService } from './tickets/tickets.service.js';
 
 @Module({
-  controllers: [ChatController, SessionsController, TicketsController, MetaController],
+  controllers: [AuthController, ChatController, SessionsController, TicketsController, MetaController],
   providers: [
+    AuthService,
     StoreService,
     KnowledgeService,
     AiService,

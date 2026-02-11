@@ -17,15 +17,6 @@ export function normalizeAttachments(value: unknown): Attachment[] {
     }));
 }
 
-export function normalizeAgent(value: any = {}): { id: string; name: string } {
-  const id = String(value?.id || '').trim().slice(0, 48);
-  const name = String(value?.name || '').trim().slice(0, 40);
-  return {
-    id: id || 'agent-local',
-    name: name || '开发者本人',
-  };
-}
-
 export function normalizeProfile(value: any = {}): Profile {
   return {
     name: String(value?.name || '').trim().slice(0, 24),
