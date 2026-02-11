@@ -11,11 +11,18 @@ interface ComposerProps {
   onSent?: (messages: UiMessage[]) => void;
 }
 
+let emojiPickerPromise: Promise<unknown> | null = null;
+function loadEmojiPicker() {
+  emojiPickerPromise ||= import('emoji-picker-element');
+  return emojiPickerPromise;
+}
+
 export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   const [reply, setReply] = useState('');
   const [pending, setPending] = useState<PendingAttachment[]>([]); // 待发送图片附件
   const [loading, setLoading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiLoading, setEmojiLoading] = useState(false);
   const [showCanned, setShowCanned] = useState(false);
 
   const fileEl = useRef<HTMLInputElement | null>(null);
@@ -48,6 +55,21 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
     e.target.value = '';
   }, [addFiles]);
   const removePending = useCallback((i: number) => setPending((p) => p.filter((_, idx) => idx !== i)), []);
+
+  const toggleEmoji = useCallback(async () => {
+    if (showEmoji) {
+      setShowEmoji(false);
+      return;
+    }
+    setShowCanned(false);
+    setEmojiLoading(true);
+    try {
+      await loadEmojiPicker();
+      setShowEmoji(true);
+    } finally {
+      setEmojiLoading(false);
+    }
+  }, [showEmoji]);
 
   // emoji-picker 是 web component，需手动绑事件
   useEffect(() => {
@@ -152,12 +174,13 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
             <div className="tools">
               <button
                 type="button"
-                className={`tool${showEmoji ? ' active' : ''}`}
+                className={`tool${showEmoji || emojiLoading ? ' active' : ''}`}
                 title="表情"
                 aria-label="插入表情"
                 aria-pressed={showEmoji}
-                onClick={() => setShowEmoji((v) => !v)}
-              >😊</button>
+                aria-busy={emojiLoading}
+                onClick={toggleEmoji}
+              >{emojiLoading ? '…' : '😊'}</button>
               <button
                 type="button"
                 className={`tool${showCanned ? ' active' : ''}`}

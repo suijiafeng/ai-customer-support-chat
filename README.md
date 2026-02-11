@@ -126,9 +126,18 @@ npm start       # NestJS 托管 API + 三套前端产物，http://localhost:3001
 ```bash
 # 本地或自托管：构建并运行生产镜像
 docker build -t assistflow .
-docker run -d -p 3001:3001 \
-  -e AUTH_SECRET=$(openssl rand -hex 32) \
-  -e DATABASE_URL=postgresql://... \
+cp .env.docker.example .env.docker
+# 修改 .env.docker 中的 AUTH_SECRET / DATABASE_URL / AI Key
+docker run -d --name assistflow -p 3001:3001 --env-file .env.docker assistflow
+```
+
+- 也可以直接使用 `-e` 传入变量，例如：
+
+```bash
+docker run -d --name assistflow -p 3001:3001 \
+  -e AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e AI_ENABLED=false \
+  -e DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require" \
   assistflow
 ```
 

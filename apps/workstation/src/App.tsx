@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import 'emoji-picker-element';
 import { clearAuth, getStoredAgent, getToken, type AgentIdentity } from './api.js';
 import { useQueueEvents } from './hooks/useQueueEvents.js';
 import SessionQueue from './components/SessionQueue.js';

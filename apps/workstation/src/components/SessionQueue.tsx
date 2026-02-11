@@ -39,9 +39,9 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
   const waitingCount = sessions.filter((s) => s.status === 'waiting_human').length;
 
   return (
-    <aside className={`queue${open ? ' open' : ''}`} aria-label="会话队列">
+    <aside className={`queue${open ? ' open' : ''}`} aria-label="会话列表">
       <div className="queue-head">
-        会话队列 <span className="count-badge" aria-label={`共 ${sessions.length} 个会话`}>{sessions.length}</span>
+        会话列表 <span className="count-badge" aria-label={`共 ${sessions.length} 个会话`}>共 {sessions.length} 个</span>
         {waitingCount > 0 && <span className="waiting-badge">{waitingCount} 待跟进</span>}
       </div>
       <div className="queue-tools">

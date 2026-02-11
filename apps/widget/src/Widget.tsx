@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import 'emoji-picker-element';
 import type { Message } from '@assistflow/shared';
 import { loadVisitorId, ensureVisitorId, isVisitorIdValid } from './visitorId.js';
 
@@ -53,6 +52,22 @@ function normalizeMessages(list: any[] = []): UiMessage[] {
 
 const imageEnabled = false; // 是否启用图片发送（后端未实现相关接口，暂时隐藏入口）
 
+// 访客快捷消息：使用内置 FAQ 问题原文，确保一键发送后能命中对应回复。
+const QUICK_MESSAGES = [
+  '项目怎么报价？',
+  '咨询项目前需要准备什么？',
+  '合作流程是什么？',
+  '是否有最低合作预算？',
+  '最近有档期吗？',
+  '如何联系你？',
+];
+
+let emojiPickerPromise: Promise<unknown> | null = null;
+function loadEmojiPicker() {
+  emojiPickerPromise ||= import('emoji-picker-element');
+  return emojiPickerPromise;
+}
+
 export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -61,6 +76,8 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   const [messages, setMessagesState] = useState<UiMessage[]>([]);
   const [pending, setPending] = useState<PendingImage[]>([]); // 待发送图片附件
   const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiLoading, setEmojiLoading] = useState(false);
+  const [showQuick, setShowQuick] = useState(false);
   const [mobile, setMobile] = useState(false);
   // 窗口左上角；null = 居中（由 CSS 控制）
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
@@ -131,8 +148,8 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     }
   }, [siteKey, activate]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if ((!text && pending.length === 0) || sending) return;
     const attachments = pending;
     setSending(true);
@@ -151,6 +168,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       setInput('');
       setPending([]);
       setShowEmoji(false);
+      setShowQuick(false);
       atBottomRef.current = true;
       setAtBottom(true);
       setMessages(data.messages || [], true);
@@ -196,6 +214,21 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       window.removeEventListener('resize', onResize);
     };
   }, [siteKey, activate]);
+
+  const toggleEmoji = useCallback(async () => {
+    if (showEmoji) {
+      setShowEmoji(false);
+      return;
+    }
+    setShowQuick(false);
+    setEmojiLoading(true);
+    try {
+      await loadEmojiPicker();
+      setShowEmoji(true);
+    } finally {
+      setEmojiLoading(false);
+    }
+  }, [showEmoji]);
 
   // emoji-picker 是 web component，需手动绑事件
   useEffect(() => {
@@ -348,7 +381,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               <div className="list" ref={listEl} onScroll={onListScroll}>
                 {messages.length === 0 && (
                   <div className="hint">
-                    您好，请问有什么可以帮您？<br />请直接输入您的问题
+                    您好，请问有什么可以帮您？<br />请直接输入您的问题，或点击下方快捷提问
                   </div>
                 )}
                 {messages.map((m) => (
@@ -432,6 +465,16 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               </div>
             )}
 
+            {(showQuick || messages.length === 0) && !sending && (
+              <div className="quick-pop" role="menu" aria-label="快捷提问">
+                {QUICK_MESSAGES.map((text) => (
+                  <button key={text} role="menuitem" onClick={() => send(text)}>
+                    {text}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="composer">
               <textarea
                 rows={2}
@@ -445,10 +488,17 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               <div className="composer-foot">
                 <div className="toolbar">
                   <button
-                    className={`tool${showEmoji ? ' active' : ''}`}
+                    className={`tool${showEmoji || emojiLoading ? ' active' : ''}`}
                     title="表情"
-                    onClick={() => setShowEmoji((v) => !v)}
-                  >😊</button>
+                    aria-busy={emojiLoading}
+                    onClick={toggleEmoji}
+                  >{emojiLoading ? '…' : '😊'}</button>
+                  <button
+                    className={`tool${showQuick ? ' active' : ''}`}
+                    title="快捷提问"
+                    aria-pressed={showQuick}
+                    onClick={() => { setShowQuick((v) => !v); setShowEmoji(false); }}
+                  >⚡</button>
                   {imageEnabled && (
                     <>
                       <button className="tool" title="发送图片/截图" onClick={() => fileEl.current?.click()}>🖼️</button>
@@ -459,7 +509,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                 </div>
                 <button
                   className="send"
-                  onClick={send}
+                  onClick={() => send()}
                   disabled={sending || (!input.trim() && pending.length === 0)}
                 >
                   {sending ? '发送中' : '发送'}

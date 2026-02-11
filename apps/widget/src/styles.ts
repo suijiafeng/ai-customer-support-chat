@@ -1,4 +1,11 @@
 export default `
+.quick-pop { position: absolute; bottom: 104px; left: 10px; max-width: min(360px, calc(100% - 20px));
+  background: #fff; border: 1px solid #e8edf4; border-radius: 10px; box-shadow: 0 12px 32px rgba(15,23,42,.14);
+  padding: 6px; display: flex; flex-direction: column; z-index: 6; }
+.quick-pop button { background: none; border: none; border-radius: 7px; color: #334155; cursor: pointer;
+  font-size: 13px; padding: 8px 10px; text-align: left; font-family: inherit; }
+.quick-pop button:hover { background: #f1f5f9; }
+
 .afw { position: fixed; right: 20px; bottom: 20px; z-index: 2147483000;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
 .fab { width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
