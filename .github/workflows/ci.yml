@@ -38,3 +38,35 @@ jobs:
             sleep 1
           done
           npm run smoke
+
+      - name: Dialog test
+        run: |
+          npm start &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID" EXIT
+          for i in {1..30}; do
+            curl -fsS http://localhost:3001/api/health && break
+            sleep 1
+          done
+          node scripts/dialog-test.js
+
+  # 生产镜像验证：保证 Dockerfile 能构建、容器能启动并通过健康检查
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t assistflow:ci .
+
+      - name: Boot container and check health
+        run: |
+          docker run -d --name assistflow -p 3001:3001 \
+            -e AUTH_SECRET=ci-only-secret assistflow:ci
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3001/api/health; then exit 0; fi
+            sleep 1
+          done
+          echo "health check failed"; docker logs assistflow; exit 1

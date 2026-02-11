@@ -16,11 +16,28 @@ export interface AuthenticatedAgent {
   name: string;
 }
 
+/**
+ * JWT 签名密钥：生产环境必须显式配置（缺失直接拒绝启动，
+ * 避免静默回退到仓库里公开的开发默认值导致 token 可被伪造）。
+ */
+function resolveAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (secret) {
+    return secret;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AUTH_SECRET is required in production (generate one with: openssl rand -hex 32)'
+    );
+  }
+  return 'assistflow-dev-secret';
+}
+
 /** 客服账号鉴权：账号在 data/agents.json，密码 scrypt 哈希存储，登录签发 JWT。 */
 @Injectable()
 export class AuthService implements OnModuleInit {
   private accounts: AgentAccount[] = [];
-  private readonly secret = process.env.AUTH_SECRET || 'assistflow-dev-secret';
+  private readonly secret = resolveAuthSecret();
 
   async onModuleInit() {
     this.accounts = JSON.parse(

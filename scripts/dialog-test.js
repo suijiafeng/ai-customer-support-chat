@@ -1,7 +1,20 @@
-// 模拟访客 ↔ 开发者两个对话框相互发消息，校验消息排序和双方位置
-const BASE = process.env.BASE_URL || 'http://127.0.0.1:3001';
+// 模拟访客 ↔ 客服两个对话框相互发消息，校验消息排序和双方位置。
+// 需要服务已在运行（npm start）。客服侧接口走 JWT（演示账号见 apps/server/data/agents.json）。
+const BASE = process.env.SMOKE_BASE_URL || process.env.BASE_URL || 'http://127.0.0.1:3001';
 const sessionId = `dialog-test-${Date.now()}`;
-const agent = { id: 'agent-test', name: '开发者本人' };
+const agent = { id: '9527', name: '客服9527' };
+let agentToken = '';
+let otherToken = '';
+
+async function login(agentNo) {
+  const r = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ agentNo, password: '123456' }),
+  });
+  if (!r.ok) throw new Error(`login ${agentNo} ${r.status}`);
+  return (await r.json()).token;
+}
 
 const assert = (cond, msg) => {
   if (!cond) { console.error('  ✗', msg); process.exitCode = 1; }
@@ -23,8 +36,8 @@ async function customerSay(text) {
 async function agentSay(text) {
   const r = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ content: text, agent }),
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${agentToken}` },
+    body: JSON.stringify({ content: text }),
   });
   if (!r.ok) throw new Error(`agent reply ${r.status}: ${await r.text()}`);
   return r.json();
@@ -39,6 +52,10 @@ async function fetchSession() {
 (async () => {
   console.log('Session:', sessionId);
 
+  console.log('\n[Step 0] 客服登录（9527 / 9528）');
+  agentToken = await login('9527');
+  otherToken = await login('9528');
+
   console.log('\n[Step 1] 访客发起咨询');
   await customerSay('你好，我想了解前端开发服务');
   await sleep(50);
@@ -47,7 +64,7 @@ async function fetchSession() {
   await customerSay('我想联系开发者本人');
   await sleep(50);
 
-  console.log('[Step 3] 开发者接入并回复');
+  console.log('[Step 3] 客服接入并回复');
   await agentSay('您好，我是开发者本人，已接手您的咨询');
   await sleep(50);
 
@@ -84,7 +101,7 @@ async function fetchSession() {
   assert(agentMsgs.length === 2, `开发者消息数为 2 (实际 ${agentMsgs.length})`);
   assert(customerMsgs.every((m) => m.role === 'user'), '访客消息 role=user (访客端左侧)');
   assert(agentMsgs.every((m) => m.role === 'assistant'), '开发者消息 role=assistant (访客端右侧)');
-  assert(agentMsgs.every((m) => m.agentId === agent.id && m.agentName === agent.name), '开发者身份字段完整');
+  assert(agentMsgs.every((m) => m.agentId === agent.id && m.agentName === agent.name), '客服身份来自 token（9527/客服9527）');
 
   // 3) 交互顺序：访客1 → (AI?) → 访客2 → 开发者1 → 访客3 → 开发者2
   const sequence = messages.map((m) => m.actor);
@@ -99,20 +116,28 @@ async function fetchSession() {
 
   // 4) 会话状态
   assert(session.status === 'assigned', `会话状态 = assigned (实际 ${session.status})`);
-  assert(session.assignedAgentId === agent.id, '会话已分配给开发者本人');
+  assert(session.assignedAgentId === agent.id, '会话已分配给客服9527');
 
   // 5) 唯一 ID
   const ids = new Set(messages.map((m) => m.id));
   assert(ids.size === messages.length, '消息 ID 唯一');
 
   // 6) 模拟「另一个协作者」抢答 -> 应被服务端拒绝
-  console.log('\n[Step 6] 另一个协作者尝试覆盖回复');
+  console.log('\n[Step 6] 另一个客服（9528）尝试覆盖回复');
   const conflict = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ content: '我是另一个协作者', agent: { id: 'agent-other', name: '其他协作者' } }),
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${otherToken}` },
+    body: JSON.stringify({ content: '我是另一个客服' }),
   });
-  assert(conflict.status === 409, `其他协作者回复被拒绝 (409) — 实际 ${conflict.status}`);
+  assert(conflict.status === 409, `其他客服回复被拒绝 (409) — 实际 ${conflict.status}`);
+
+  console.log('[Step 7] 未登录请求客服接口应 401');
+  const unauth = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ content: '无 token' }),
+  });
+  assert(unauth.status === 401, `未鉴权被拒绝 (401) — 实际 ${unauth.status}`);
 
   console.log('\n完成。');
 })().catch((e) => { console.error(e); process.exit(1); });

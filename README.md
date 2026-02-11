@@ -5,7 +5,7 @@
 项目默认使用本地 FAQ，不依赖外部模型。只有访客明确要求“联系开发者本人”或“转人工”时，系统才会创建跟进事项并进入本人沟通流程。
 
 [![CI](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml)
-![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-2f855a)
+![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-2f855a)
 ![SSE](https://img.shields.io/badge/realtime-SSE-2457c5)
 ![Local FAQ](https://img.shields.io/badge/default-local%20FAQ-f59e0b)
 
@@ -83,22 +83,60 @@ apps/demo              演示站（widget 嵌入演示，仅消费产物与公�
 | 开发者工作台 | http://localhost:3001/workstation/ | React 会话工作台 |
 | 健康检查 | http://localhost:3001/api/health | 服务、FAQ 和项目咨询数据状态 |
 
-## 运行
+## 运行（三套环境）
 
-需要 Node.js 18+。
+需要 Node.js 22+。首次准备：
 
 ```bash
 npm install
-cp .env.example .env
-npm run build   # 构建全部 workspace
-npm start       # 启动 NestJS 服务（托管前端产物）
+cp .env.example .env   # 按需修改；本地纯内存演示可不改
 ```
 
-并行开发全部模块（后端 watch + 三个前端 Vite dev server）：
+### 1. 开发环境（改代码热更新）
 
 ```bash
 npm run dev:all
 ```
+
+一条命令并行启动 5 个进程（首次会自动预构建 shared 与 widget）：
+
+| 进程 | 说明 |
+|------|------|
+| shared | `tsc --watch`，类型/常量改动自动重编译并传导到前后端 |
+| server | `tsc --watch` + `node --watch`，改 `.ts` 自动重编译重启（http://localhost:3001） |
+| widget | Vite dev（http://localhost:5173，模拟宿主预览页） |
+| workstation | Vite dev（http://localhost:5174，登录 9527/123456） |
+| demo | Vite dev（http://localhost:5175，/widget 与 /workstation 代理到 3001） |
+
+三个前端的 `/api` 都代理到 3001，SSE / 登录在 dev 下可直接使用。
+
+### 2. 演示环境（单机以生产形态跑构建产物）
+
+```bash
+npm run build   # shared → server → widget → workstation → demo
+npm start       # NestJS 托管 API + 三套前端产物，http://localhost:3001
+```
+
+- 入口：`/`（widget 嵌入演示）、`/workstation/`（客服工作台）、`/widget/widget.js`（嵌入脚本）。
+- 未配置 `DATABASE_URL` 时数据存内存，重启即清空——适合演示。
+- 建议在 `.env` 中设置 `AUTH_SECRET`（`openssl rand -hex 32`），避免使用内置开发密钥。
+
+### 3. 生产环境（Docker / Render）
+
+```bash
+# 本地或自托管：构建并运行生产镜像
+docker build -t assistflow .
+docker run -d -p 3001:3001 \
+  -e AUTH_SECRET=$(openssl rand -hex 32) \
+  -e DATABASE_URL=postgresql://... \
+  assistflow
+```
+
+- **Render**：推送到 main 后按 `render.yaml` 自动 Docker 部署；`AUTH_SECRET` 由 Render 自动生成，`DATABASE_URL` / AI 密钥在后台填写。
+- 生产强制要求 `AUTH_SECRET`（`NODE_ENV=production` 且缺失时拒绝启动）。
+- 持久化：配置 `DATABASE_URL`（Neon/Supabase 等托管 Postgres），会话/消息/工单写穿透入库，重启自动恢复。
+- 健康检查：`/api/health`（Render 用 healthCheckPath，本地 docker 用镜像内 HEALTHCHECK）。
+- CI 会构建生产镜像并启动验证健康检查，保证 Dockerfile 不漂移。
 
 ## 环境变量
 
@@ -112,6 +150,10 @@ npm run dev:all
 | `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型 |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek 接口地址 |
 | `PORT` | `3001` | 服务监听端口 |
+| `AUTH_SECRET` | 开发默认值 | 客服 JWT 签名密钥；**生产必须设置**（缺失拒绝启动） |
+| `DATABASE_URL` | — | Postgres 连接串；留空则纯内存（重启清空） |
+| `DATA_DIR` | `apps/server/data` | faqs/inquiries/agents 数据目录 |
+| `NODE_ENV` | — | `production` 时收紧错误信息并强制 AUTH_SECRET |
 
 设置 `AI_ENABLED=true` 且配置对应 API Key 后，FAQ 会作为模型回答上下文。模型失败时仍会自动降级到本地 FAQ。
 
@@ -173,7 +215,8 @@ GET  /api/metrics                   运营指标
 
 POST /api/auth/login                客服登录（工号+密码 → JWT）
 POST /api/chat                      访客发送消息
-POST /api/sessions/:id/messages     开发者本人回复
+POST /api/sessions/:id/messages     客服回复（需 JWT）
+POST /api/sessions/:id/profile      更新访客资料
 POST /api/sessions/:id/resolve      标记会话已解决
 PATCH /api/tickets/:id              更新跟进事项
 ```
@@ -182,9 +225,13 @@ PATCH /api/tickets/:id              更新跟进事项
 
 ```bash
 npm run build
-npm test
-npm run smoke
+npm test                       # 单元测试（rules/store/auth/config）
+npm start &                    # smoke/dialog 需要服务已在运行
+npm run smoke                  # 17 个接口回归用例（含鉴权）
+node scripts/dialog-test.js    # 访客↔客服对话时序回归
 ```
+
+`SMOKE_BASE_URL` 可指向其他环境（默认 http://localhost:3001）。
 
 ## 当前限制
 

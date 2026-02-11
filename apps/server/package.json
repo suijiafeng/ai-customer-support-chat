@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "dev": "npm run build && node --watch dist/main.js",
+    "dev": "npm run build && concurrently -r \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch dist/main.js\"",
     "test": "npm run build && node --test test/*.test.js"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "@types/node": "^22.10.0",
     "@types/pg": "^8.20.0",
     "pg-mem": "^3.0.14",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "concurrently": "^9.1.0"
   }
 }

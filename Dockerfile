@@ -40,6 +40,7 @@ COPY --from=builder /app/apps/demo/dist ./apps/demo/dist
 
 EXPOSE 3001
 
+# 仅用于本地/自托管 docker run；Render 走 render.yaml 的 healthCheckPath
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD sh -c 'wget -qO- http://127.0.0.1:${PORT:-3001}/api/health || exit 1'
 

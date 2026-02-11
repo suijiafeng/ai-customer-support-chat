@@ -1,3 +1,5 @@
+> ⚠️ **本文档已过时（2026-06）**：仓库已重构为 npm workspaces monorepo——NestJS 后端（apps/server）+ React 工作台/widget/演示站 + JWT 鉴权 + Postgres 写穿透，实时层仍为 SSE（未采用本文规划的 Socket.IO/Prisma 方案）。当前架构与运行方式见根目录 README.md。本文仅作历史决策记录保留。
+
 # AssistFlow 架构设计（开发者本人跟进多个访客）
 
 > 目标：把当前 Demo（Express + SSE + 内存 + 原生 JS）演进为可长期迭代的个人主页咨询系统，
