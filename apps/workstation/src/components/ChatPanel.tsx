@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
 import MessageList from './MessageList.js';
 import Composer from './Composer.js';
+import SessionDetail from './SessionDetail.js';
 import { useSessionMessages, type ConnectionStatus } from '../hooks/useSessionMessages.js';
 import type { AgentIdentity } from '../api.js';
 
@@ -19,6 +20,7 @@ interface ChatPanelProps {
 export default function ChatPanel({ session, agent }: ChatPanelProps) {
   const sessionId = session?.sessionId || null;
   const { messages, setMessages, status, connection, reload } = useSessionMessages(sessionId);
+  const [showDetail, setShowDetail] = useState(true);
 
   if (!session) {
     return (
@@ -38,7 +40,13 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
             {CONNECTION_LABEL[connection] || connection}
           </span>
         </span>
-        <span className="tag tag-success">服务端同步</span>
+        <button
+          className={`ghost-btn${showDetail ? ' active' : ''}`}
+          aria-pressed={showDetail}
+          onClick={() => setShowDetail((v) => !v)}
+        >
+          {showDetail ? '收起详情' : '会话详情'}
+        </button>
       </div>
 
       {connection === 'reconnecting' && (
@@ -47,17 +55,21 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
         </div>
       )}
 
-      {status === 'error' ? (
-        <div className="state-block">
-          <span className="ico" aria-hidden="true">⚠️</span>
-          <p>历史消息加载失败</p>
-          <button className="retry-btn" onClick={reload}>重试</button>
+      <div className="chat-body">
+        <div className="chat-main">
+          {status === 'error' ? (
+            <div className="state-block">
+              <span className="ico" aria-hidden="true">⚠️</span>
+              <p>历史消息加载失败</p>
+              <button className="retry-btn" onClick={reload}>重试</button>
+            </div>
+          ) : (
+            <MessageList messages={messages} customerName={session.displayName} status={status} />
+          )}
+          <Composer sessionId={sessionId} agent={agent} onSent={setMessages} />
         </div>
-      ) : (
-        <MessageList messages={messages} customerName={session.displayName} status={status} />
-      )}
-
-      <Composer sessionId={sessionId} agent={agent} onSent={setMessages} />
+        {showDetail && <SessionDetail session={session} onClose={() => setShowDetail(false)} />}
+      </div>
     </main>
   );
 }

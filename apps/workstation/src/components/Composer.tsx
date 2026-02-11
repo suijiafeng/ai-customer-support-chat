@@ -16,6 +16,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   const [pending, setPending] = useState<PendingAttachment[]>([]); // 待发送图片附件
   const [loading, setLoading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showCanned, setShowCanned] = useState(false);
 
   const fileEl = useRef<HTMLInputElement | null>(null);
   const replyInput = useRef<HTMLTextAreaElement | null>(null);
@@ -86,6 +87,20 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
     }
   }, [reply, pending, sessionId, loading, onSent]);
 
+  // 快捷回复：常用语一键插入输入框
+  const CANNED_REPLIES = [
+    '您好，我是客服，请问有什么可以帮您？',
+    '收到，我先确认一下，请稍等。',
+    '请留下您的联系方式和需求摘要，我们会尽快跟进。',
+    '该问题已记录为跟进事项，会有专人与您联系。',
+    '感谢咨询，如还有问题随时联系我们，祝您生活愉快！',
+  ];
+  const insertCanned = useCallback((text: string) => {
+    setReply((r) => (r ? `${r}${r.endsWith('\n') ? '' : '\n'}${text}` : text));
+    setShowCanned(false);
+    requestAnimationFrame(() => replyInput.current?.focus());
+  }, []);
+
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
@@ -113,6 +128,14 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
         </div>
       )}
 
+      {showCanned && (
+        <div className="canned-pop" role="menu" aria-label="快捷回复">
+          {CANNED_REPLIES.map((text) => (
+            <button key={text} role="menuitem" onClick={() => insertCanned(text)}>{text}</button>
+          ))}
+        </div>
+      )}
+
       <div className="composer-wrap">
         <div className="composer">
           <textarea
@@ -135,6 +158,14 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
                 aria-pressed={showEmoji}
                 onClick={() => setShowEmoji((v) => !v)}
               >😊</button>
+              <button
+                type="button"
+                className={`tool${showCanned ? ' active' : ''}`}
+                title="快捷回复"
+                aria-label="快捷回复"
+                aria-pressed={showCanned}
+                onClick={() => { setShowCanned((v) => !v); setShowEmoji(false); }}
+              >⚡</button>
               <input ref={fileEl} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
               <span className="key-hint">Shift + Enter 换行</span>
             </div>

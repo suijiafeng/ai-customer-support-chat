@@ -57,19 +57,7 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
 
       {open && (
         <div className="agent-dropdown" role="menu">
-          <div className="agent-card">
-            <span className="avatar-badge lg" style={{ background: color }}>{initials}</span>
-            <div className="agent-card-info">
-              <strong>{agent.name}</strong>
-              <span>工号 {agent.id}</span>
-              <span className="online"><i aria-hidden="true" />在线</span>
-            </div>
-          </div>
-          <div className="agent-stats">
-            <div><b>{myActive}</b><span>接待中</span></div>
-            <div><b>{myResolved}</b><span>已解决</span></div>
-            <div><b>{waiting}</b><span>队列等待</span></div>
-          </div>
+
           <div className="agent-actions">
             <button role="menuitem" onClick={() => { setShowProfile(true); setOpen(false); }}>
               👤 个人中心

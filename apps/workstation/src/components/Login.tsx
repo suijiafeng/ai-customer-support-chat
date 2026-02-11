@@ -46,7 +46,8 @@ export default function Login({ onLogin }: LoginProps) {
             type="password"
             value={password}
             autoComplete="current-password"
-            placeholder="请输入密码"
+            placeholder="密码 123456"
+            
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
