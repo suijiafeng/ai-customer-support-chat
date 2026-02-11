@@ -57,15 +57,14 @@ packages/shared        前后端共享的 TS 类型与常量
 apps/server            NestJS 后端（API + 静态产物托管）
 apps/workstation       React 开发者工作台
 apps/widget            React 嵌入式聊天组件（构建为单文件 widget.js）
-apps/demo              演示站（落地页 + widget 嵌入演示，仅消费产物与公开 API）
+apps/demo              演示站（widget 嵌入演示，仅消费产物与公开 API）
 ```
 
 ## 入口
 
 | 页面 | 本地地址 | 用途 |
 |------|----------|------|
-| 演示入口 | http://localhost:3001/ | 演示站落地页 |
-| Widget 嵌入演示 | http://localhost:3001/embed/ | 模拟第三方网站嵌入 widget |
+| Widget 嵌入演示 | http://localhost:3001/ | 模拟第三方网站嵌入 widget |
 | 开发者工作台 | http://localhost:3001/workstation/ | React 会话工作台 |
 | 健康检查 | http://localhost:3001/api/health | 服务、FAQ 和项目咨询数据状态 |
 

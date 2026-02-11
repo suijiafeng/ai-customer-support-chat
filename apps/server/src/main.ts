@@ -50,6 +50,19 @@ async function bootstrap() {
     })
   );
 
+  // 演示站是 SPA：未命中 API/静态产物的 GET 页面请求回退到 demo 入口
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const reserved = ['/api', '/widget', '/workstation'];
+    if (
+      req.method === 'GET' &&
+      !reserved.some((prefix) => req.path.startsWith(prefix)) &&
+      req.accepts('html')
+    ) {
+      return res.sendFile(path.join(appConfig.staticDirs.demo, 'index.html'));
+    }
+    next();
+  });
+
   await app.listen(appConfig.port);
   console.log(`AssistFlow server (NestJS) running at http://localhost:${appConfig.port}`);
 }
