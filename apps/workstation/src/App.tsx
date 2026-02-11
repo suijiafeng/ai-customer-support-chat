@@ -5,6 +5,7 @@ import { useQueueEvents } from './hooks/useQueueEvents.js';
 import SessionQueue from './components/SessionQueue.js';
 import ChatPanel from './components/ChatPanel.js';
 import Login from './components/Login.js';
+import AgentMenu from './components/AgentMenu.js';
 
 export default function App() {
   // 客服身份来自登录态（JWT），未登录先进登录页
@@ -47,10 +48,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
           >☰</button>
           <span className="brand">AssistFlow 客服工作台</span>
         </div>
-        <span className="me">
-          {agent.name}（访客咨询跟进）
-          <button className="logout-btn" onClick={onLogout}>退出</button>
-        </span>
+        <AgentMenu agent={agent} sessions={sessions} onLogout={onLogout} />
       </header>
       <div className="body">
         <SessionQueue

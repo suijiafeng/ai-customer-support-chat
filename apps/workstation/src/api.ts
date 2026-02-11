@@ -39,6 +39,7 @@ export async function requestJson<T = any>(url: string, options?: RequestInit): 
 // 登录态：JWT 与客服身份存 localStorage，所有客服侧请求带 Authorization
 const TOKEN_KEY = 'assistflow-token';
 const AGENT_KEY = 'assistflow-agent';
+const LOGIN_AT_KEY = 'assistflow-login-at';
 
 export function getToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -55,13 +56,19 @@ export function saveAuth(token: string, agent: AgentIdentity) {
   try {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(AGENT_KEY, JSON.stringify(agent));
+    localStorage.setItem(LOGIN_AT_KEY, new Date().toISOString());
   } catch {}
+}
+
+export function getLoginAt(): string | null {
+  try { return localStorage.getItem(LOGIN_AT_KEY); } catch { return null; }
 }
 
 export function clearAuth() {
   try {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(AGENT_KEY);
+    localStorage.removeItem(LOGIN_AT_KEY);
   } catch {}
 }
 

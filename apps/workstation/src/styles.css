@@ -157,5 +157,42 @@ button { font-family: inherit; }
 .login-error { color: #dc2626; font-size: 13px; }
 .login-card button { background: #2457c5; border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px; }
 .login-card button:disabled { opacity: .55; cursor: not-allowed; }
-.logout-btn { background: rgba(255, 255, 255, .16); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 12px; margin-left: 10px; padding: 4px 10px; }
-.logout-btn:hover { background: rgba(255, 255, 255, .28); }
+/* ---- 右上角客服菜单 ---- */
+.agent-menu { position: relative; }
+.agent-trigger { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.12); border: none; border-radius: 999px; color: #fff; cursor: pointer; font-size: 13px; padding: 4px 12px 4px 4px; }
+.agent-trigger:hover { background: rgba(255,255,255,.22); }
+.avatar-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; flex: none; }
+.avatar-badge.lg { width: 42px; height: 42px; font-size: 15px; }
+.avatar-badge.xl { width: 56px; height: 56px; font-size: 18px; }
+.agent-name { font-weight: 600; }
+.caret { font-size: 10px; opacity: .85; transition: transform .15s ease; }
+.caret.up { transform: rotate(180deg); }
+.agent-dropdown { position: absolute; right: 0; top: calc(100% + 10px); width: 252px; background: #fff; border-radius: 12px; box-shadow: 0 16px 42px rgba(15,23,42,.18); color: #0f172a; z-index: 50; overflow: hidden; }
+.agent-card { display: flex; gap: 12px; align-items: center; padding: 16px 16px 12px; }
+.agent-card-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #64748b; }
+.agent-card-info strong { font-size: 14px; color: #0f172a; }
+.online { display: inline-flex; align-items: center; gap: 5px; color: #16a34a; }
+.online i { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; }
+.agent-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+.agent-stats div { display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
+.agent-stats b { font-size: 16px; color: #0f172a; }
+.agent-stats span { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.agent-actions { padding: 8px; display: flex; flex-direction: column; }
+.agent-actions button { background: none; border: none; border-radius: 8px; color: #334155; cursor: pointer; font-size: 13px; padding: 9px 10px; text-align: left; }
+.agent-actions button:hover { background: #f1f5f9; }
+.agent-actions button.danger { color: #dc2626; }
+.agent-actions button.danger:hover { background: #fef2f2; }
+
+/* ---- 个人中心弹窗 ---- */
+.profile-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.4); display: flex; align-items: center; justify-content: center; z-index: 90; }
+.profile-modal { position: relative; background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(15,23,42,.25); color: #0f172a; padding: 26px 26px 20px; width: 360px; max-width: calc(100vw - 40px); }
+.profile-close { position: absolute; right: 12px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 20px; }
+.profile-close:hover { color: #334155; }
+.profile-head { display: flex; gap: 14px; align-items: center; }
+.profile-head strong { font-size: 17px; }
+.profile-head p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
+.profile-detail { margin: 18px 0 0; border-top: 1px solid #f1f5f9; }
+.profile-detail div { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+.profile-detail dt { color: #64748b; }
+.profile-detail dd { margin: 0; font-weight: 600; }
+.profile-note { color: #94a3b8; font-size: 12px; margin: 14px 0 0; }
