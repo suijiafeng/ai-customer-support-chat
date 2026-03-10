@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
+import { createMessageArchive } from '@assistflow/shared';
 import { loadVisitorId, ensureVisitorId, isVisitorIdValid } from './visitorId.js';
 
 const newId = () => crypto.randomUUID();
@@ -138,6 +139,12 @@ async function streamChat(
   return done;
 }
 
+// 访客侧对话归档：服务端窗口外的旧消息留在本地，重启/淘汰不丢界面历史
+const messageArchive = createMessageArchive(
+  typeof window !== 'undefined' ? window.localStorage : undefined,
+  'assistflow.history'
+);
+
 let emojiPickerPromise: Promise<unknown> | null = null;
 function loadEmojiPicker() {
   emojiPickerPromise ||= import('emoji-picker-element');
@@ -178,7 +185,11 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
 
   const setMessages = useCallback(
     (list: any[], force = false) => {
-      setMessagesState(normalizeMessages(list));
+      // 「本地归档 ∪ 服务端窗口」：服务端只保留最近一段，溢出部分从本地归档补全
+      const merged = sessionIdRef.current
+        ? messageArchive.merge(sessionIdRef.current, list)
+        : list;
+      setMessagesState(normalizeMessages(merged));
       if (force || atBottomRef.current) scrollToBottom();
     },
     [scrollToBottom]
