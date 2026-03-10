@@ -33,6 +33,24 @@ const cases = [
     assert: (data) => data.error === 'agent authentication required',
   },
   {
+    name: 'chat stream emits done event',
+    run: async () => {
+      const response = await fetch(`${baseUrl}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: `${runId}-stream`, message: '在吗' }),
+      });
+      const text = await response.text();
+      const block = text.split('\n\n').find((b) => b.includes('event: done'));
+      const dataLine = block?.split('\n').find((l) => l.startsWith('data:'));
+      return { contentType: response.headers.get('content-type'), done: dataLine ? JSON.parse(dataLine.slice(5)) : null };
+    },
+    assert: ({ contentType, done }) => String(contentType).includes('text/event-stream')
+      && Boolean(done?.reply)
+      && done?.intent === 'small_talk:greeting'
+      && done?.sessionId === `${runId}-stream`,
+  },
+  {
     name: 'health',
     run: () => get('/api/health'),
     assert: (data) => data.ok === true

@@ -19,6 +19,9 @@ export interface ReplyResult {
   ai: AiUsage;
 }
 
+/** 流式增量回调：每收到一段模型输出调用一次 */
+export type ReplyDeltaHandler = (delta: string) => void;
+
 /** AI 适配层：openai / deepseek 双 provider + 本地规则降级。自原 buildReply 平移。 */
 @Injectable()
 export class AiService {
@@ -50,7 +53,7 @@ export class AiService {
     return this.getConfiguredClient();
   }
 
-  async buildReply(params: BuildReplyParams): Promise<ReplyResult> {
+  async buildReply(params: BuildReplyParams, onDelta?: ReplyDeltaHandler): Promise<ReplyResult> {
     const { message, history, matchedFaqs, intent, handoff, inquiry, ticket } = params;
     const fallback = this.buildFallbackReply(matchedFaqs, handoff, inquiry, ticket);
     const fallbackResult: ReplyResult = {
@@ -107,15 +110,38 @@ export class AiService {
 
     if (this.provider === 'deepseek') {
       try {
-        const completion = await activeClient.chat.completions.create({
-          model: this.getActiveModel(),
-          messages: [
-            { role: 'system', content: instructions },
-            { role: 'user', content: prompt },
-          ],
-        });
+        let text: string | undefined;
 
-        const text = completion.choices[0]?.message?.content?.trim();
+        if (onDelta) {
+          // 流式：增量转发给调用方，同时拼出完整文本
+          const stream = await activeClient.chat.completions.create({
+            model: this.getActiveModel(),
+            stream: true,
+            messages: [
+              { role: 'system', content: instructions },
+              { role: 'user', content: prompt },
+            ],
+          });
+          let acc = '';
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content || '';
+            if (delta) {
+              acc += delta;
+              onDelta(delta);
+            }
+          }
+          text = acc.trim();
+        } else {
+          const completion = await activeClient.chat.completions.create({
+            model: this.getActiveModel(),
+            messages: [
+              { role: 'system', content: instructions },
+              { role: 'user', content: prompt },
+            ],
+          });
+          text = completion.choices[0]?.message?.content?.trim();
+        }
+
         return {
           text: text || fallback,
           ai: {

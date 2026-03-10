@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { LIMITS } from '@assistflow/shared';
 import type { ChatResponse, Workflow } from '@assistflow/shared';
-import { AiService } from '../ai/ai.service.js';
+import { AiService, type ReplyDeltaHandler } from '../ai/ai.service.js';
 import { KnowledgeService } from '../knowledge/knowledge.service.js';
 import { detectIntent, detectSentiment, shouldHandoff } from '../rules/rules.js';
 import {
@@ -24,7 +24,7 @@ export class ChatService {
     private readonly sse: SseService
   ) {}
 
-  async handleChat(body: any): Promise<ChatResponse | { error: string }> {
+  async handleChat(body: any, onDelta?: ReplyDeltaHandler): Promise<ChatResponse | { error: string }> {
     const message = String(body?.message || '').trim();
     const sessionId = String(body?.sessionId || 'default');
     const profile = body?.profile ? normalizeProfile(body.profile) : null;
@@ -125,15 +125,10 @@ export class ChatService {
     const ticket = handoff.needHuman
       ? this.tickets.create({ sessionId, message, intent, reason: handoff.reason, inquiry })
       : null;
-    const replyResult = await this.ai.buildReply({
-      message,
-      history,
-      matchedFaqs,
-      intent,
-      handoff,
-      inquiry,
-      ticket,
-    });
+    const replyResult = await this.ai.buildReply(
+      { message, history, matchedFaqs, intent, handoff, inquiry, ticket },
+      onDelta
+    );
     const reply = replyResult.text;
     const nextHistory = this.sessions.appendMessages(
       storedHistory,
