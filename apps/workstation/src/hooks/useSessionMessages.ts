@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
+import { createMessageArchive } from '@assistflow/shared';
 import { API, requestJson, normalizeMessages, type UiMessage } from '../api.js';
+
+// 客服侧对话归档：服务端窗口外的旧消息留在工作台本地，合并渲染完整历史
+const messageArchive = createMessageArchive(
+  typeof window !== 'undefined' ? window.localStorage : undefined,
+  'assistflow.agent-history'
+);
 
 export type HistoryStatus = 'loading' | 'ready' | 'error';
 export type ConnectionStatus = 'syncing' | 'synced' | 'reconnecting';
@@ -24,7 +31,7 @@ export function useSessionMessages(sessionId: string | null) {
         `/api/sessions/${encodeURIComponent(sessionId)}`
       );
       if (!cancelledRef.current) {
-        setMessages(normalizeMessages(data.messages));
+        setMessages(normalizeMessages(messageArchive.merge(sessionId, data.messages) as Message[]));
         setStatus('ready');
       }
     } catch {
@@ -58,7 +65,7 @@ export function useSessionMessages(sessionId: string | null) {
       try {
         const data = JSON.parse((event as MessageEvent).data);
         if (!cancelledRef.current) {
-          setMessages(normalizeMessages(data.messages));
+          setMessages(normalizeMessages(messageArchive.merge(sessionId, data.messages) as Message[]));
           setStatus('ready');
         }
       } catch {}
