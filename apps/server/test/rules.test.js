@@ -75,3 +75,50 @@ test('detectSentiment remains diagnostic and does not control handoff', () => {
   assert.equal(detectSentiment('谢谢，介绍很清楚'), 'positive');
   assert.equal(detectSentiment('你主要使用什么技术栈'), 'neutral');
 });
+
+import { createSmallTalkMatcher } from '../dist/rules/rules.js';
+import { readFileSync } from 'node:fs';
+
+// 词库来自真实数据文件，测试同时校验数据内容有效
+const smallTalkGroups = JSON.parse(
+  new URL('../data/small-talk.json', import.meta.url).pathname
+    ? readFileSync(new URL('../data/small-talk.json', import.meta.url), 'utf8')
+    : '[]'
+);
+const matchSmallTalk = createSmallTalkMatcher(smallTalkGroups);
+
+test('small-talk 词库数据有效：每组有意图、词条和回复', () => {
+  assert.ok(smallTalkGroups.length >= 6);
+  for (const group of smallTalkGroups) {
+    assert.ok(group.intent, 'intent required');
+    assert.ok(Array.isArray(group.terms) && group.terms.length > 0, `${group.intent} terms`);
+    assert.ok(Array.isArray(group.replies) && group.replies.length > 0, `${group.intent} replies`);
+  }
+});
+
+test('matchSmallTalk 命中常见口水话并按类别回复', () => {
+  assert.equal(matchSmallTalk('在吗？')?.intent, 'greeting');
+  assert.equal(matchSmallTalk('你好呀~')?.intent, 'greeting');
+  assert.equal(matchSmallTalk('测试')?.intent, 'testing');
+  assert.equal(matchSmallTalk('111')?.intent, 'testing');
+  assert.equal(matchSmallTalk('???')?.intent, 'testing');
+  assert.equal(matchSmallTalk('谢谢！')?.intent, 'thanks');
+  assert.equal(matchSmallTalk('拜拜')?.intent, 'bye');
+  assert.equal(matchSmallTalk('好的')?.intent, 'ack');
+  assert.equal(matchSmallTalk('666')?.intent, 'praise');
+  assert.equal(matchSmallTalk('你是机器人吗')?.intent, 'who_are_you');
+  assert.equal(matchSmallTalk('在干嘛呢')?.intent, 'chitchat');
+  assert.ok(matchSmallTalk('在吗').reply.length > 0);
+});
+
+test('matchSmallTalk 同一消息回复稳定可复现', () => {
+  assert.equal(matchSmallTalk('在吗').reply, matchSmallTalk('在吗').reply);
+});
+
+test('matchSmallTalk 不误伤正常业务问题', () => {
+  assert.equal(matchSmallTalk('你好，项目怎么报价'), null);
+  assert.equal(matchSmallTalk('我想联系开发者本人'), null);
+  assert.equal(matchSmallTalk('帮我查一下项目 P1001'), null);
+  assert.equal(matchSmallTalk('最近有档期吗'), null);
+  assert.equal(matchSmallTalk('1234567890123'), null);
+});

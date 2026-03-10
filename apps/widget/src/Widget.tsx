@@ -175,7 +175,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     } catch {
       setMessagesState((m) => [
         ...m,
-        { id: newId(), from: 'system', content: '消息发送失败，请稍后重试。' },
+        { id: newId(), from: 'system', content: '抱歉，消息没发出去，稍后再试一下好吗？' },
       ]);
       scrollToBottom();
     } finally {
@@ -381,7 +381,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               <div className="list" ref={listEl} onScroll={onListScroll}>
                 {messages.length === 0 && (
                   <div className="hint">
-                    您好，请问有什么可以帮您？<br />请直接输入您的问题，或点击下方快捷提问
+                    你好呀，我是开发者的智能助手 👋<br />有什么想了解的直接问我，或点下方快捷提问
                   </div>
                 )}
                 {messages.map((m) => (

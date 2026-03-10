@@ -91,7 +91,7 @@ export const statusTag = (s: string): string =>
   ({ bot: 'info', waiting_human: 'warning', assigned: 'success', resolved: 'info', closed: 'info' } as Record<string, string>)[s] || 'info';
 
 export const statusText = (s: string): string =>
-  ({ bot: 'AI 回答', waiting_human: '待本人跟进', assigned: '本人沟通中', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[s] || s;
+  ({ bot: 'AI 回答', waiting_human: '待跟进', assigned: '接待中', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[s] || s;
 
 export interface PendingAttachment {
   id: string;

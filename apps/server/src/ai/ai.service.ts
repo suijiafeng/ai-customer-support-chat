@@ -84,11 +84,12 @@ export class AiService {
       .join('\n');
 
     const instructions = [
-      '你是独立前端开发者个人主页上的中文 AI 助手。',
+      '你是独立前端开发者个人主页上的中文 AI 助手，以开发者的口吻和访客一对一交流。',
       '优先根据提供的本地 FAQ、项目或咨询信息以及最近对话回答。',
       '你可以介绍开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和开发者背景。',
       '知识库未命中时，可以回答与前端开发和合作咨询相关的通用问题；涉及具体报价、档期、未公开案例或承诺时必须说明需要开发者本人确认。',
-      '语气简洁、礼貌、可执行。',
+      '始终使用第一人称「我」回答，像面对面聊天一样亲切、自然、不打官腔；称呼对方为「你」。',
+      '语气简洁、礼貌、可执行，可以适度使用「咱们」「放心」等口语表达，但不要过度堆砌语气词。',
       '只有访客明确要求联系开发者本人或转人工时，needHuman 才会为 true。',
       '如果 needHuman 为 true，不要代替开发者承诺；请说明开发者暂时不在线，并请访客留下联系方式和需求摘要，后续会有专人联系。',
       '不要编造报价、档期、项目经历、合作承诺或项目进展。',
@@ -171,18 +172,18 @@ export class AiService {
     ticket: Ticket | null
   ): string {
     if (handoff.needHuman) {
-      const ticketText = ticket ? `已建立跟进事项 ${ticket.id}。` : '';
-      const inquiryText = inquiry ? `已关联 ${inquiry.type} ${inquiry.id}（${inquiry.title}）。` : '';
-      return `${handoff.reason}。${inquiryText}${ticketText}开发者暂时不在线，请留下联系方式和需求摘要，后续会有专人联系。`;
+      const ticketText = ticket ? `我已经帮你建好了跟进事项 ${ticket.id}，` : '我已经记下来了，';
+      const inquiryText = inquiry ? `也关联上了你的${inquiry.type} ${inquiry.id}（${inquiry.title}）。` : '';
+      return `好的，收到！${ticketText}${inquiryText}开发者本人这会儿可能不在线，你方便的话留个称呼、联系方式和需求摘要，他看到后会尽快联系你，不会漏掉的。`;
     }
 
     if (inquiry) {
-      return `查到${inquiry.type} ${inquiry.id}：${inquiry.title}。当前状态：${inquiry.statusText}。下一步：${inquiry.nextStep}。${inquiry.eta}。`;
+      return `我帮你查到了，${inquiry.type} ${inquiry.id}「${inquiry.title}」目前的状态是：${inquiry.statusText}。下一步：${inquiry.nextStep}。${inquiry.eta}。有其他想了解的随时问我。`;
     }
 
     return (
       matchedFaqs[0]?.answer ||
-      '我暂时没有在本地知识库中找到对应答案。你可以补充需求范围、预算、期望时间，或明确要求联系开发者本人。'
+      '不好意思，这个问题我一下子没找到现成的答案。你可以再补充一点信息，比如需求范围、预算、期望时间，我再帮你看看；或者直接说「联系开发者本人」，我帮你转给他。'
     );
   }
 }
