@@ -51,6 +51,23 @@ const cases = [
       && done?.sessionId === `${runId}-stream`,
   },
   {
+    name: 'duplicate clientMessageId is idempotent',
+    run: async () => {
+      const payload = {
+        sessionId: `${runId}-idem`,
+        message: '项目怎么报价？',
+        clientMessageId: `${runId}-msg-1`,
+      };
+      const first = await post('/api/chat', payload);
+      const second = await post('/api/chat', payload);
+      return { first, second };
+    },
+    assert: ({ first, second }) => first.messages?.length === 2
+      && second.messages?.length === 2
+      && second.reply === first.reply
+      && second.messages?.[0]?.id === first.messages?.[0]?.id,
+  },
+  {
     name: 'health',
     run: () => get('/api/health'),
     assert: (data) => data.ok === true

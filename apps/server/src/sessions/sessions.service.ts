@@ -78,9 +78,11 @@ export class SessionsService implements OnModuleInit {
     agentId?: string | null;
     agentName?: string | null;
     attachments?: Attachment[];
+    clientMessageId?: string | null;
   }): Message {
     return {
       id: randomUUID(),
+      clientMessageId: params.clientMessageId ?? null,
       role: params.role,
       actor: params.actor,
       content: params.content,

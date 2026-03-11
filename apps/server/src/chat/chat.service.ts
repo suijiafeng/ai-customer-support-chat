@@ -30,8 +30,43 @@ export class ChatService {
     const profile = body?.profile ? normalizeProfile(body.profile) : null;
     const visitor = normalizeVisitor(body?.visitor);
     const attachments = normalizeAttachments(body?.attachments);
+    const clientMessageId = String(body?.clientMessageId || '').slice(0, 64) || null;
     const storedHistory = this.sessions.getMessages(sessionId);
     const history = storedHistory.slice(-LIMITS.MAX_AI_HISTORY);
+
+    // 幂等：同一 clientMessageId 重复提交（客户端重试）直接返回已有结果，不重复入库/回复
+    if (clientMessageId) {
+      const dupIndex = storedHistory.findIndex((m) => m.clientMessageId === clientMessageId);
+      if (dupIndex !== -1) {
+        const existingReply = storedHistory
+          .slice(dupIndex + 1)
+          .find((m) => m.role === 'assistant');
+        const session = this.sessions.get(sessionId) || this.sessions.createEmptySession(sessionId);
+        const workflow: Workflow = session.workflow ?? {
+          ai: {
+            provider: this.ai.provider,
+            model: this.ai.getActiveModel(),
+            used: false,
+            fallback: false,
+            error: null,
+          },
+          intent: 'duplicate',
+          sentiment: 'neutral',
+          needHuman: false,
+          reason: '重复消息（客户端重试），返回已有结果',
+          inquiry: null,
+          ticket: null,
+          sources: [],
+        };
+        return {
+          sessionId,
+          reply: existingReply?.content || '',
+          session,
+          messages: storedHistory,
+          ...workflow,
+        };
+      }
+    }
 
     // 允许「纯图片」消息：有文字或有图片即可（空校验由 controller 处理）
 
@@ -39,7 +74,7 @@ export class ChatService {
       const activeTicket = this.tickets.getLatestForSession(sessionId);
       const nextHistory = this.sessions.appendMessages(
         storedHistory,
-        this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments })
+        this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments, clientMessageId })
       );
       const workflow: Workflow = {
         ai: {
@@ -93,7 +128,7 @@ export class ChatService {
       };
       const nextHistory = this.sessions.appendMessages(
         storedHistory,
-        this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments }),
+        this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments, clientMessageId }),
         this.sessions.createMessage({ role: 'assistant', actor: 'ai', content: smallTalk.reply })
       );
 
@@ -132,7 +167,7 @@ export class ChatService {
     const reply = replyResult.text;
     const nextHistory = this.sessions.appendMessages(
       storedHistory,
-      this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments }),
+      this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments, clientMessageId }),
       this.sessions.createMessage({ role: 'assistant', actor: 'ai', content: reply })
     );
     const workflow: Workflow = {

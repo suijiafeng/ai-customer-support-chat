@@ -16,6 +16,8 @@ export interface Attachment {
 
 export interface Message {
   id: string;
+  /** 客户端生成的消息标识：用于发送重试去重（幂等） */
+  clientMessageId?: string | null;
   role: 'user' | 'assistant';
   actor: Actor;
   content: string;
