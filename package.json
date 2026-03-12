@@ -12,11 +12,14 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @assistflow/shared && npm run build --workspace @assistflow/server && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation && npm run build --workspace assistflow-demo",
-    "start": "node apps/server/dist/main.js",
+    "start": "node scripts/start.js",
+    "start:dev": "npm run dev:all",
+    "start:prod": "npm run build && node apps/server/dist/main.js",
+    "start:demo": "npm run build && concurrently --kill-others -n server,demo -c green,yellow \"node apps/server/dist/main.js\" \"npm run preview --workspace assistflow-demo\"",
     "test": "npm test --workspace @assistflow/server",
     "smoke": "node scripts/smoke-test.js",
-    "predev:all": "npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-widget",
-    "dev:all": "concurrently --kill-others --success first -n shared,server,widget,workstation,demo -c blue,green,magenta,cyan,yellow \"npm run dev --workspace @assistflow/shared\" \"npm run dev --workspace @assistflow/server\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\" \"npm run dev --workspace assistflow-demo\""
+    "predev:all": "npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation",
+    "dev:all": "concurrently --kill-others-on-fail -n shared,server,widget,workstation,demo -c blue,green,magenta,cyan,yellow \"npm run dev --workspace @assistflow/shared\" \"npm run dev --workspace @assistflow/server\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\" \"npm run dev --workspace assistflow-demo\""
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
