@@ -28,26 +28,20 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Smoke test
+      - name: Integration tests
         run: |
           npm start &
           SERVER_PID=$!
-          trap "kill $SERVER_PID" EXIT
+          cleanup() {
+            kill "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
           for i in {1..30}; do
             curl -fsS http://localhost:3001/api/health && break
             sleep 1
           done
           npm run smoke
-
-      - name: Dialog test
-        run: |
-          npm start &
-          SERVER_PID=$!
-          trap "kill $SERVER_PID" EXIT
-          for i in {1..30}; do
-            curl -fsS http://localhost:3001/api/health && break
-            sleep 1
-          done
           node scripts/dialog-test.js
 
   # 生产镜像验证：保证 Dockerfile 能构建、容器能启动并通过健康检查
