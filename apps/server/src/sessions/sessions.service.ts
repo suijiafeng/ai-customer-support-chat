@@ -56,6 +56,16 @@ export class SessionsService implements OnModuleInit {
     return this.sessions.get(sessionId)?.status === 'assigned';
   }
 
+  /**
+   * 某客服能否看到该会话：管理员看全部；普通客服只看公共池（未被认领）+ 自己已认领的。
+   * Node 单线程，读写在同一同步函数内，认领无竞态。
+   */
+  canView(session: Session, agent: { id: string; role: string }): boolean {
+    if (agent.role === 'admin') return true;
+    return !session.assignedAgentId || session.assignedAgentId === agent.id;
+  }
+
+
   /** 写穿透封装：内存仍是运行时事实来源，库作为持久后备同步更新。 */
   setSession(session: Session): Session {
     this.sessions.set(session.sessionId, session);
@@ -215,13 +225,24 @@ export class SessionsService implements OnModuleInit {
     return `访客 ${suffix}`;
   }
 
-  getSessionsPayload(): { sessions: SessionSummary[] } {
+  getSessionsPayload(agent?: { id: string; role: string }): { sessions: SessionSummary[] } {
+    const all = [...this.sessions.values()];
+    const scoped = agent ? all.filter((session) => this.canView(session, agent)) : all;
     return {
-      sessions: [...this.sessions.values()].sort(sortSessions).map((session) => ({
+      sessions: scoped.sort(sortSessions).map((session) => ({
         ...session,
         messageCount: this.conversations.get(session.sessionId)?.length || 0,
       })),
     };
+  }
+
+  /** 队列 SSE 按客服可见性过滤（推送的是全量快照，按订阅者再裁剪）。 */
+  filterPayloadForAgent(
+    payload: { sessions: SessionSummary[] },
+    agent: { id: string; role: string }
+  ): { sessions: SessionSummary[] } {
+    if (agent.role === 'admin') return payload;
+    return { sessions: payload.sessions.filter((session) => this.canView(session, agent)) };
   }
 
   getSessionPayload(sessionId: string): { session: Session | null; messages: Message[] } {
