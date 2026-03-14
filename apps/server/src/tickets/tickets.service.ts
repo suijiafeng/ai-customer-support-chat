@@ -119,6 +119,21 @@ export class TicketsService implements OnModuleInit {
     return ticket;
   }
 
+  /** 追加处理备注（按时间累积，最多保留 50 条）。 */
+  addNote(ticket: Ticket, note: { agentId: string; agentName: string; text: string }): Ticket {
+    const entry = {
+      id: randomUUID(),
+      agentId: note.agentId,
+      agentName: note.agentName,
+      text: note.text.trim().slice(0, 500),
+      createdAt: new Date().toISOString(),
+    };
+    ticket.notes = [...(ticket.notes || []), entry].slice(-50);
+    ticket.updatedAt = entry.createdAt;
+    this.store.saveTicket(ticket);
+    return ticket;
+  }
+
   moveOpenToProcessing(sessionId: string): Ticket | null {
     const ticket = this.tickets.find((item) => item.sessionId === sessionId && item.status === 'open');
     if (!ticket) {

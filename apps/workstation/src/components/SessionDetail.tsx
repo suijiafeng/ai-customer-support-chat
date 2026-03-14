@@ -8,16 +8,17 @@ const TICKET_STATUS: Record<string, string> = { open: '待处理', processing: '
 interface SessionDetailProps {
   session: SessionSummary;
   onClose: () => void;
+  canResolve?: boolean;
 }
 
 /** 会话详情侧栏：访客资料、AI 诊断、关联工单、标记解决。 */
-export default function SessionDetail({ session, onClose }: SessionDetailProps) {
+export default function SessionDetail({ session, onClose, canResolve = true }: SessionDetailProps) {
   const [resolving, setResolving] = useState(false);
   const wf = session.workflow;
   const ticket: Ticket | null = wf?.ticket || null;
 
   const resolve = async () => {
-    if (resolving || session.status === 'closed') return;
+    if (resolving || session.status === 'closed' || !canResolve) return;
     if (!window.confirm('确认将该会话标记为已解决？关联跟进事项会一并解决。')) return;
     setResolving(true);
     try {
@@ -99,10 +100,15 @@ export default function SessionDetail({ session, onClose }: SessionDetailProps) 
       <div className="detail-foot">
         <button
           className="resolve-btn"
-          disabled={session.status === 'closed' || resolving}
+          disabled={session.status === 'closed' || resolving || !canResolve}
+          title={canResolve ? undefined : '非本人接待，无法标记解决'}
           onClick={resolve}
         >
-          {session.status === 'closed' ? '会话已关闭' : resolving ? '处理中…' : '✓ 标记解决'}
+          {session.status === 'closed'
+            ? '会话已关闭'
+            : !canResolve
+              ? '非本人接待'
+              : resolving ? '处理中…' : '✓ 标记解决'}
         </button>
       </div>
     </aside>

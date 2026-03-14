@@ -27,6 +27,14 @@ export interface Message {
   createdAt: string;
 }
 
+export interface TicketNote {
+  id: string;
+  agentId: string;
+  agentName: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Ticket {
   id: string;
   sessionId: string;
@@ -37,10 +45,14 @@ export interface Ticket {
   inquiryId: string | null;
   lastMessage: string;
   resolution?: string;
+  notes?: TicketNote[];
   createdAt: string;
   updatedAt: string;
   acceptedAt?: string;
   resolvedAt?: string;
+  // 响应时按会话归属附带（不一定持久化）：当前接待该工单会话的客服
+  ownerAgentId?: string | null;
+  ownerAgentName?: string | null;
 }
 
 export interface Inquiry {

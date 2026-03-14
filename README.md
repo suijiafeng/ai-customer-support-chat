@@ -25,18 +25,26 @@ apps/demo              演示站（widget 嵌入演示，仅消费产物与公�
 
 ## 客服账号与鉴权
 
-客服工作台需登录（JWT）。演示账号在 `apps/server/data/agents.json`，共三个客服：
+客服工作台需登录（JWT）。演示账号在 `apps/server/data/agents.json`，共三个客服（`9527` 为管理员）：
 
-| 工号 | 显示名称 | 演示密码 |
-|------|----------|----------|
-| `9527` | 客服9527 | `123456` |
-| `9528` | 客服9528 | `123456` |
-| `9529` | 客服9529 | `123456` |
+| 工号 | 显示名称 | 演示密码 | 角色 |
+|------|----------|----------|------|
+| `9527` | 客服9527 | `123456` | 管理员（admin） |
+| `9528` | 客服9528 | `123456` | 普通客服 |
+| `9529` | 客服9529 | `123456` | 普通客服 |
 
+- 角色写入 JWT：管理员可见/可操作全部会话与工单；普通客服只看「接待大厅 + 自己接待的」。
 - 客服侧接口（队列、回复、工单、指标）要求 `Authorization: Bearer <token>`；SSE 通过 `?token=` 传递。
-- 访客侧接口（`/api/chat`、会话详情与会话 SSE）保持公开，供 widget 使用。
+- 会话详情与会话 SSE 做可选鉴权：带客服 token 的非归属者（且非管理员）返回 403；不带 token 的访客（widget）正常放行。
 - 客服身份只来自已验证 token，请求体里的身份字段不再被信任。
 - 生产部署请设置环境变量 `AUTH_SECRET`（JWT 签名密钥）。
+
+### 接待大厅与抢单
+
+- 未被认领（`assignedAgentId` 为空）且未关闭的会话进入「接待大厅」，对所有客服可见。
+- **发首条消息即接待**：客服回复后该会话归为自己的，从接待大厅消失，进入「我的会话」；其他普通客服不再可见。并发下后到者收到 409。
+- 跟进事项（工单）归属随会话：普通客服只看「自己的 + 未认领」，管理员看全部；改状态/优先级、加备注需归属人或管理员。
+- 数据看板用 ECharts 展示饼图（会话状态）/柱状图（待办负载）/折线图（按本地日期的每日趋势，存于浏览器本地）。
 
 ## 入口
 
@@ -52,13 +60,22 @@ apps/demo              演示站（widget 嵌入演示，仅消费产物与公�
 
 ```bash
 npm install
-cp .env.example .env   # 按需修改；本地纯内存演示可不改
+# 共享兜底配置已在 .env（可提交）；本机私有配置/密钥写到 .env.local（不提交）
+# 加载优先级：真实环境变量 > .env.local > .env
+```
+
+统一入口 `npm run start` 按模式分发（也可直接用对应子脚本）：
+
+```bash
+npm run start -- dev    # 开发模式（= dev:all，热更新）
+npm run start           # 生产模式（先 build 再跑打包产物，默认）
+npm run start -- demo   # 演示模式（build 产物 + vite preview 模拟第三方嵌入）
 ```
 
 ### 1. 开发环境（改代码热更新）
 
 ```bash
-npm run dev:all
+npm run start -- dev    # 等价于 npm run dev:all
 ```
 
 一条命令并行启动 5 个进程（首次会自动预构建 shared 与 widget）：
@@ -76,37 +93,32 @@ npm run dev:all
 ### 2. 演示环境（单机以生产形态跑构建产物）
 
 ```bash
-npm run build   # shared → server → widget → workstation → demo
-npm start       # NestJS 托管 API + 三套前端产物，http://localhost:3001
+npm run build       # shared → server → widget → workstation → demo
+npm run start       # NestJS 托管 API + 三套前端产物，http://localhost:3001
 ```
 
 - 入口：`/`（widget 嵌入演示）、`/workstation/`（客服工作台）、`/widget/widget.js`（嵌入脚本）。
-- 未配置 `DATABASE_URL` 时数据存内存，重启即清空——适合演示。
-- 建议在 `.env` 中设置 `AUTH_SECRET`（`openssl rand -hex 32`），避免使用内置开发密钥。
+- 默认使用本地 SQLite 持久化（`apps/server/data/assistflow.db`），重启不丢；纯内存调试可设 `DB_DRIVER=memory`。
+- 建议在 `.env.local` 中设置 `AUTH_SECRET`（`openssl rand -hex 32`），避免使用内置开发密钥。
 
 ### 3. 生产环境（Docker / Render）
 
 ```bash
-# 本地或自托管：构建并运行生产镜像
+# 本地或自托管：构建并运行生产镜像（挂卷以持久化 SQLite）
 docker build -t assistflow .
-cp .env.docker.example .env.docker
-# 修改 .env.docker 中的 AUTH_SECRET / DATABASE_URL / AI Key
-docker run -d --name assistflow -p 3001:3001 --env-file .env.docker assistflow
-```
-
-- 也可以直接使用 `-e` 传入变量，例如：
-
-```bash
 docker run -d --name assistflow -p 3001:3001 \
+  -v assistflow_data:/data \
   -e AUTH_SECRET="$(openssl rand -hex 32)" \
-  -e AI_ENABLED=false \
-  -e DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require" \
   assistflow
 ```
 
-- **Render**：推送到 main 后按 `render.yaml` 自动 Docker 部署；`AUTH_SECRET` 由 Render 自动生成，`DATABASE_URL` / AI 密钥在后台填写。
+- 镜像默认走 SQLite，库文件写在容器内的 `/data` 卷，**自托管必须挂卷才能持久化**（否则容器重建即丢，如上 `-v assistflow_data:/data`）。想用 Postgres 时追加 `-e DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require"`。
+- 持久化（`DB_DRIVER` 选择后端，默认 `sqlite`）：
+  - **SQLite（默认）**：零配置，库文件 `/data/assistflow.db`（镜像已设 `SQLITE_PATH` 并声明 `VOLUME /data`）；镜像启动已带 `--experimental-sqlite`。挂卷即持久。
+  - **Postgres**：设置 `DATABASE_URL`（Neon/Supabase 等），会话/消息/工单写穿透入库。
+  - **memory**：`DB_DRIVER=memory`，纯内存、重启清空。
+- **Render**：推送到 main 后按 `render.yaml` 自动 Docker 部署；`AUTH_SECRET` 由 Render 自动生成。注意 Render 文件系统是临时的（free 无持久磁盘），SQLite 重新部署会清空——要持久化请填 `DATABASE_URL` 用外部 Postgres，或付费挂 Disk 到 `/data`。
 - 生产强制要求 `AUTH_SECRET`（`NODE_ENV=production` 且缺失时拒绝启动）。
-- 持久化：配置 `DATABASE_URL`（Neon/Supabase 等托管 Postgres），会话/消息/工单写穿透入库，重启自动恢复。
 - 健康检查：`/api/health`（Render 用 healthCheckPath，本地 docker 用镜像内 HEALTHCHECK）。
 - CI 会构建生产镜像并启动验证健康检查，保证 Dockerfile 不漂移。
 
@@ -123,9 +135,13 @@ docker run -d --name assistflow -p 3001:3001 \
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek 接口地址 |
 | `PORT` | `3001` | 服务监听端口 |
 | `AUTH_SECRET` | 开发默认值 | 客服 JWT 签名密钥；**生产必须设置**（缺失拒绝启动） |
-| `DATABASE_URL` | — | Postgres 连接串；留空则纯内存（重启清空） |
+| `DB_DRIVER` | 自动推断 | 持久化后端：`sqlite`（默认）/ `postgres` / `memory`；不设时配了 `DATABASE_URL` 走 postgres，否则 sqlite |
+| `DATABASE_URL` | — | Postgres 连接串（设置即用 Postgres） |
+| `SQLITE_PATH` | `DATA_DIR/assistflow.db` | SQLite 库文件路径（Docker 镜像内为 `/data/assistflow.db`） |
 | `DATA_DIR` | `apps/server/data` | faqs/inquiries/agents 数据目录 |
 | `NODE_ENV` | — | `production` 时收紧错误信息并强制 AUTH_SECRET |
+
+> 配置文件：`.env` 为可提交的安全兜底，私有配置与密钥写入 `.env.local`（已 gitignore）。加载优先级：真实环境变量 > `.env.local` > `.env`。SQLite 默认启用，需 Node 以 `--experimental-sqlite` 启动（`npm run start` 与 Docker 镜像已自动带上）。
 
 设置 `AI_ENABLED=true` 且配置对应 API Key 后，FAQ 会作为模型回答上下文。模型失败时仍会自动降级到本地 FAQ。
 
@@ -178,19 +194,20 @@ flowchart LR
 ```text
 GET  /api/health                    服务、AI、FAQ 和项目咨询数据状态
 GET  /api/faqs                      本地 FAQ
-GET  /api/sessions                  访客会话队列
-GET  /api/sessions/events           SSE：队列实时推送
-GET  /api/sessions/:id              单个会话详情
-GET  /api/sessions/:id/events       SSE：会话实时推送
-GET  /api/tickets                   跟进事项列表
+GET  /api/sessions                  会话队列（按客服归属过滤：管理员看全部）
+GET  /api/sessions/events           SSE：队列实时推送（按订阅者归属过滤）
+GET  /api/sessions/:id              单个会话详情（带 token 的非归属者 403）
+GET  /api/sessions/:id/events       SSE：会话实时推送（同上可选鉴权）
+GET  /api/tickets                   跟进事项列表（普通客服只看 自己的 + 未认领）
 GET  /api/metrics                   运营指标
 
-POST /api/auth/login                客服登录（工号+密码 → JWT）
+POST /api/auth/login                客服登录（工号+密码 → JWT，含角色）
 POST /api/chat                      访客发送消息
-POST /api/sessions/:id/messages     客服回复（需 JWT）
-POST /api/sessions/:id/profile      更新访客资料
-POST /api/sessions/:id/resolve      标记会话已解决
-PATCH /api/tickets/:id              更新跟进事项
+POST /api/sessions/:id/messages     客服回复（需 JWT；首条消息即接待该会话）
+POST /api/sessions/:id/profile      更新访客资料（需 JWT，归属人/管理员）
+POST /api/sessions/:id/resolve      标记会话已解决（归属人/管理员）
+PATCH /api/tickets/:id              更新跟进事项（归属人/管理员）
+POST /api/tickets/:id/notes         追加处理备注（归属人/管理员）
 ```
 
 ## 验证
@@ -207,7 +224,8 @@ node scripts/dialog-test.js    # 访客↔客服对话时序回归
 
 ## 当前限制
 
-- 运行时以内存为事实来源；配置 `DATABASE_URL` 后写穿透到 Postgres 持久化。
+- 运行时以内存为事实来源，写穿透到持久化后端（默认 SQLite，可切 Postgres / memory）。
+- 每日趋势图基于浏览器 localStorage 累积、按本地日期分桶，故各端各自独立、清缓存即重置。
 - FAQ 使用关键词和字符匹配，不是语义向量检索。
 - 客服账号为静态配置（agents.json），暂无账号管理界面。
 - 图片附件当前使用 Base64 存储，不适合生产环境。

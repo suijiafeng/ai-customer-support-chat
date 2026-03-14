@@ -16,7 +16,9 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
-      # 外部 Postgres 连接串（Neon/Supabase 等），留空则用内存、重启丢数据
+      # 持久化：留空时默认走容器内 SQLite，但 Render 文件系统是临时的（free 无持久磁盘），
+      # 重新部署/重启会清空。要真正持久化，请填外部 Postgres 连接串（Neon/Supabase 等），
+      # 或为服务挂一块 Render Disk 到 /data 并设 SQLITE_PATH=/data/assistflow.db（付费方案）。
       - key: DATABASE_URL
         sync: false
       # 客服 JWT 签名密钥：由 Render 自动生成随机值（生产缺失会拒绝启动）

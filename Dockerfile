@@ -40,10 +40,17 @@ COPY --from=builder /app/apps/demo/dist ./apps/demo/dist
 
 EXPOSE 3001
 
+# SQLite 持久化：库文件写到独立可写卷 /data（与只读种子数据 apps/server/data 分开）。
+# 挂载该卷才能跨容器重建/重新部署保留数据；未配 DATABASE_URL 时默认走 SQLite。
+ENV SQLITE_PATH=/data/assistflow.db
+RUN mkdir -p /data && chown -R node:node /data
+VOLUME ["/data"]
+
 # 仅用于本地/自托管 docker run；Render 走 render.yaml 的 healthCheckPath
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD sh -c 'wget -qO- http://127.0.0.1:${PORT:-3001}/api/health || exit 1'
 
 USER node
 
-CMD ["node", "apps/server/dist/main.js"]
+# --experimental-sqlite 让内置 node:sqlite 生效（Node 22）；否则会降级为纯内存
+CMD ["node", "--experimental-sqlite", "--disable-warning=ExperimentalWarning", "apps/server/dist/main.js"]

@@ -27,8 +27,9 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
       await this.store.init();
       this.persisted = await this.store.loadAll();
       if (this.store.enabled) {
+        const backend = (process.env.DB_DRIVER || (process.env.DATABASE_URL ? 'postgres' : 'sqlite')).toLowerCase();
         this.logger.log(
-          `Postgres 持久化已启用，载入 ${this.persisted.sessions.length} 会话 / ${this.persisted.tickets.length} 工单`
+          `${backend} 持久化已启用，载入 ${this.persisted.sessions.length} 会话 / ${this.persisted.tickets.length} 工单`
         );
       }
     } catch (error: any) {
