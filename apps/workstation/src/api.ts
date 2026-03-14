@@ -8,9 +8,12 @@ export const newId = () => crypto.randomUUID();
 /** UI 用消息：在服务端 actor/role 基础上统一补出 from 区分左右 */
 export type UiMessage = Message & { from: string };
 
+export type AgentRole = 'agent' | 'admin';
+
 export interface AgentIdentity {
   id: string;
   name: string;
+  role?: AgentRole;
 }
 
 export class ApiError extends Error {
