@@ -198,6 +198,9 @@ const cases = [
   },
 ];
 
+// 等待服务就绪后再跑用例（避免 `npm start &` 仍在构建/启动时冒烟连接失败）
+await waitForReady();
+
 for (const testCase of cases) {
   const data = await testCase.run();
 
@@ -208,6 +211,22 @@ for (const testCase of cases) {
   }
 
   console.log(`PASS ${testCase.name}`);
+}
+
+// 轮询 /api/health，直到服务就绪或超时（默认 30s）
+async function waitForReady(timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetch(`${baseUrl}/api/health`);
+      if (r.ok) return;
+    } catch {
+      /* 服务尚未监听，稍后重试 */
+    }
+    await new Promise((res) => setTimeout(res, 500));
+  }
+  console.error(`服务未就绪：${baseUrl}（等待 ${timeoutMs}ms 超时）。请先启动服务再跑冒烟。`);
+  process.exit(1);
 }
 
 // 客服侧请求默认带 9527 的 token；{ auth: false } 测未授权，{ token } 可换身份
