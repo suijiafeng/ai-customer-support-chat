@@ -1,47 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Metrics } from '@assistflow/shared';
+import type { DailyMetricPoint, Metrics } from '@assistflow/shared';
 import * as echarts from 'echarts';
 import { fmtTime, requestJson } from '../api.js';
 
-interface DayPoint { date: string; waiting: number; assigned: number; active: number; }
 const MAX_DAYS = 14;
-const DAILY_KEY = 'assistflow.metrics-daily';
 const CHART_H = 240; // 三张图统一高度
-
-function loadDaily(): DayPoint[] {
-  try { return JSON.parse(localStorage.getItem(DAILY_KEY) || '[]') as DayPoint[]; } catch { return []; }
-}
-function saveDaily(arr: DayPoint[]) {
-  try { localStorage.setItem(DAILY_KEY, JSON.stringify(arr)); } catch { /* 忽略存储异常 */ }
-}
 
 /** 数据看板：ECharts 可视化（柱状图 / 饼图 / 折线图），进入时拉取，每 15 秒自动刷新。 */
 export default function MetricsPanel() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  // 趋势以「天」为单位：每天一个数据点（同一天刷新只更新当天值），本地持久化跨天累积
-  const [history, setHistory] = useState<DayPoint[]>(() => loadDaily());
+  // 每日趋势改由后端按天落库、聚合返回（团队级、跨端一致）
+  const [history, setHistory] = useState<DailyMetricPoint[]>([]);
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const m = await requestJson<Metrics>('/api/metrics');
+      const [m, t] = await Promise.all([
+        requestJson<Metrics>('/api/metrics'),
+        requestJson<{ trend: DailyMetricPoint[] }>('/api/metrics/trend'),
+      ]);
       setMetrics(m);
+      setHistory(t.trend || []);
       setError(false);
-      const date = new Date(m.generatedAt).toLocaleDateString('en-CA'); // 本地日期 YYYY-MM-DD
-      setHistory((prev) => {
-        const point: DayPoint = {
-          date,
-          waiting: m.queue.waitingHuman,
-          assigned: m.queue.assigned,
-          active: m.workload.activeSessions,
-        };
-        const next = [...prev];
-        const i = next.findIndex((p) => p.date === date);
-        if (i >= 0) next[i] = point; else next.push(point);
-        const trimmed = next.slice(-MAX_DAYS);
-        saveDaily(trimmed);
-        return trimmed;
-      });
     } catch {
       setError(true);
     }
@@ -106,7 +86,7 @@ export default function MetricsPanel() {
     series: [
       { name: '待跟进', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.waiting), itemStyle: { color: '#f59e0b' }, areaStyle: { opacity: 0.06 } },
       { name: '接待中', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.assigned), itemStyle: { color: '#2563eb' }, areaStyle: { opacity: 0.06 } },
-      { name: '活跃会话', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.active), itemStyle: { color: '#10b981' }, areaStyle: { opacity: 0.06 } },
+      { name: '活跃会话', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.activeSessions), itemStyle: { color: '#10b981' }, areaStyle: { opacity: 0.06 } },
     ],
   }), [history]);
 
@@ -120,7 +100,7 @@ export default function MetricsPanel() {
   const pieHasData = metrics.totals.sessions > 0;
   const barHasData =
     metrics.queue.waitingHuman + metrics.queue.assigned + metrics.tickets.open + metrics.tickets.processing > 0;
-  const lineHasData = history.some((h) => h.waiting + h.assigned + h.active > 0);
+  const lineHasData = history.some((h) => h.waiting + h.assigned + h.activeSessions > 0);
 
   return (
     <main className="panel-page">
@@ -143,7 +123,7 @@ export default function MetricsPanel() {
         <section className="chart-card">
           <h3>每日趋势（折线图）</h3>
           {lineHasData ? <EChart option={lineOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} text="正在采集数据…" />}
-          <p className="chart-note">以天为单位（本地日期），每天记录一个数据点，最多保留最近 {MAX_DAYS} 天；趋势仅存于本机浏览器。</p>
+          <p className="chart-note">以天为单位，由后端按天落库并聚合，最多展示最近 {MAX_DAYS} 天（团队级、跨端一致）。</p>
         </section>
       </div>
     </main>
