@@ -23,3 +23,6 @@ vite.config.js.timestamp-*.mjs
 *.db
 *.db-wal
 *.db-shm
+
+# 自动生成并持久化的 JWT 签名密钥（未显式配置 AUTH_SECRET 时）
+.auth_secret

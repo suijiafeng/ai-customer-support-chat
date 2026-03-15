@@ -11,7 +11,13 @@ async function bootstrap() {
     bodyParser: false,
   });
 
-  app.enableCors();
+  // CORS：配置 CORS_ORIGINS（逗号分隔白名单）则只放行这些来源；
+  // 未配置时放开（公开 widget 需从任意第三方站点跨域调用 /api/chat）。
+  const corsOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.enableCors(corsOrigins.length ? { origin: corsOrigins } : {});
   app.useBodyParser('json', { limit: '12mb' });
   app.enableShutdownHooks();
 

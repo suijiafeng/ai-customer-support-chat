@@ -16,6 +16,12 @@ export interface AgentIdentity {
   role?: AgentRole;
 }
 
+/** 换取 60s SSE 短票据，供 EventSource ?ticket= 使用（避免长效 JWT 进 URL/日志） */
+export async function fetchSseTicket(): Promise<string> {
+  const data = await requestJson<{ ticket: string }>('/api/auth/sse-ticket', { method: 'POST' });
+  return data.ticket;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {

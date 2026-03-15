@@ -83,9 +83,9 @@ export class TicketsService implements OnModuleInit {
     };
 
     this.tickets.push(ticket);
+    // 仅淘汰内存缓存，库保留全量工单历史（淘汰项可按需回读）
     if (this.tickets.length > LIMITS.MAX_TICKETS) {
-      const evicted = this.tickets.splice(0, this.tickets.length - LIMITS.MAX_TICKETS);
-      evicted.forEach((item) => this.store.deleteTicket(item.id));
+      this.tickets.splice(0, this.tickets.length - LIMITS.MAX_TICKETS);
     }
     this.store.saveTicket(ticket);
     return ticket;

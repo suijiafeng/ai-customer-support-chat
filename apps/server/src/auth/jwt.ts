@@ -27,6 +27,23 @@ export function signToken(
   return `${header}.${body}.${sig}`;
 }
 
+/**
+ * SSE 短时一次性票据：EventSource 无法带请求头，只能用 query 传递；
+ * 改用 60s 短 TTL 的专用票据（kind:'sse'），避免长效 JWT 暴露在 URL/日志里。
+ */
+export function signSseTicket(
+  payload: { sub: string; name: string; role: AgentRole },
+  secret: string,
+  ttlSeconds = 60
+): string {
+  return signToken({ ...payload, kind: 'sse' } as any, secret, ttlSeconds);
+}
+
+export function verifySseTicket(ticket: string, secret: string): AgentClaims | null {
+  const claims = verifyToken(ticket, secret) as (AgentClaims & { kind?: string }) | null;
+  return claims && claims.kind === 'sse' ? claims : null;
+}
+
 export function verifyToken(token: string, secret: string): AgentClaims | null {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) return null;

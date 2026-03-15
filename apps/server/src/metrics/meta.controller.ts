@@ -4,6 +4,7 @@ import { appConfig } from '../config.js';
 import { AiService } from '../ai/ai.service.js';
 import { KnowledgeService } from '../knowledge/knowledge.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
+import { StoreService } from '../store/store.service.js';
 import { MetricsService } from './metrics.service.js';
 
 @Controller('api')
@@ -12,11 +13,13 @@ export class MetaController {
     private readonly ai: AiService,
     private readonly knowledge: KnowledgeService,
     private readonly tickets: TicketsService,
+    private readonly store: StoreService,
     private readonly metrics: MetricsService
   ) {}
 
   @Get('health')
   health() {
+    const stats = this.store.stats();
     return {
       ok: true,
       aiEnabled: Boolean(this.ai.getActiveClient()),
@@ -27,6 +30,12 @@ export class MetaController {
       faqCount: this.knowledge.faqs.length,
       inquiryCount: this.knowledge.inquiries.length,
       ticketCount: this.tickets.all.length,
+      persistence: {
+        backend: process.env.DB_DRIVER || (process.env.DATABASE_URL ? 'postgres' : 'sqlite'),
+        enabled: this.store.enabled,
+        degraded: this.store.degraded,
+        writeErrors: stats.writeErrors,
+      },
     };
   }
 

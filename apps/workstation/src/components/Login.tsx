@@ -36,7 +36,7 @@ export default function Login({ onLogin }: LoginProps) {
             value={agentNo}
             autoFocus
             autoComplete="username"
-            placeholder="如 9527"
+            placeholder="请输入工号"
             onChange={(e) => setAgentNo(e.target.value)}
           />
         </label>
@@ -46,8 +46,7 @@ export default function Login({ onLogin }: LoginProps) {
             type="password"
             value={password}
             autoComplete="current-password"
-            placeholder="密码 123456"
-            
+            placeholder="请输入密码"
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>

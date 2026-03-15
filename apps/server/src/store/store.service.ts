@@ -50,4 +50,17 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
   deleteConversation = (id: string) => this.store.deleteConversation(id);
   saveTicket = (ticket: Parameters<Store['saveTicket']>[0]) => this.store.saveTicket(ticket);
   deleteTicket = (id: string) => this.store.deleteTicket(id);
+
+  // 单条回读（内存淘汰后仍可从库取回）
+  loadSession = (id: string) => this.store.getSession(id);
+  loadConversation = (id: string) => this.store.getConversation(id);
+  loadTicket = (id: string) => this.store.getTicket(id);
+
+  /** 持久化健康：是否出现过写失败 + 详情 */
+  get degraded(): boolean {
+    return this.store.stats().writeErrors > 0;
+  }
+  stats() {
+    return this.store.stats();
+  }
 }

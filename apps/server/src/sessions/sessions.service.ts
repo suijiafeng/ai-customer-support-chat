@@ -66,19 +66,43 @@ export class SessionsService implements OnModuleInit {
   }
 
 
-  /** 写穿透封装：内存仍是运行时事实来源，库作为持久后备同步更新。 */
+  /**
+   * 写穿透封装：库为持久权威源，内存仅作热缓存。
+   * 超出上限时只淘汰内存缓存、**不删库**（库保留全量历史，淘汰项可按需回读）。
+   */
   setSession(session: Session): Session {
     this.sessions.set(session.sessionId, session);
     this.store.saveSession(session);
-    trimMap(this.sessions, LIMITS.MAX_SESSIONS, (id) => this.store.deleteSession(id));
+    trimMap(this.sessions, LIMITS.MAX_SESSIONS);
     return session;
   }
 
   setConversation(sessionId: string, messages: Message[]): Message[] {
     this.conversations.set(sessionId, messages);
     this.store.saveConversation(sessionId, messages);
-    trimMap(this.conversations, LIMITS.MAX_CONVERSATIONS, (id) => this.store.deleteConversation(id));
+    trimMap(this.conversations, LIMITS.MAX_CONVERSATIONS);
     return messages;
+  }
+
+  /**
+   * 取会话详情：内存命中直接返回；未命中（已淘汰）从库回读并回填缓存。
+   * 让「内存淘汰 / 重启」后历史仍可访问，DB 成为读的权威源。
+   */
+  async loadDetail(sessionId: string): Promise<{ session: Session | null; messages: Message[] }> {
+    let session = this.sessions.get(sessionId) ?? null;
+    let messages = this.conversations.get(sessionId);
+    if (!session) {
+      session = await this.store.loadSession(sessionId);
+      if (session) this.sessions.set(sessionId, session); // 回填缓存
+    }
+    if (messages === undefined) {
+      const loaded = await this.store.loadConversation(sessionId);
+      if (loaded) {
+        messages = loaded;
+        this.conversations.set(sessionId, loaded); // 回填缓存
+      }
+    }
+    return { session, messages: messages ?? [] };
   }
 
   createMessage(params: {
@@ -287,10 +311,10 @@ function sortSessions(a: Session, b: Session): number {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 }
 
-function trimMap<K, V>(map: Map<K, V>, maxEntries: number, onEvict: (key: K) => void) {
+// 仅淘汰内存缓存（库保留全量历史，不在此删库）
+function trimMap<K, V>(map: Map<K, V>, maxEntries: number) {
   while (map.size > maxEntries) {
     const firstKey = map.keys().next().value as K;
     map.delete(firstKey);
-    onEvict(firstKey);
   }
 }

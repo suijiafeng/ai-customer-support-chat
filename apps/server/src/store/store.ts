@@ -23,6 +23,13 @@ export interface PersistedData {
   tickets: Ticket[];
 }
 
+export interface StoreStats {
+  /** 写穿透失败累计次数（>0 表示持久化处于降级风险） */
+  writeErrors: number;
+  /** 最近一次写失败信息 */
+  lastError: string | null;
+}
+
 export interface Store {
   enabled: boolean;
   init(): Promise<void>;
@@ -33,6 +40,12 @@ export interface Store {
   deleteConversation(sessionId: string): Promise<void>;
   saveTicket(ticket: Ticket): Promise<void>;
   deleteTicket(ticketId: string): Promise<void>;
+  /** 单条回读（内存淘汰后仍可从库取回，DB 为读的权威源） */
+  getSession(sessionId: string): Promise<Session | null>;
+  getConversation(sessionId: string): Promise<Message[] | null>;
+  getTicket(ticketId: string): Promise<Ticket | null>;
+  /** 持久化健康状态 */
+  stats(): StoreStats;
   close(): Promise<void>;
 }
 
@@ -100,17 +113,21 @@ export function createStore(opt: CreateStoreOptions = {}): Store {
 
 /** Postgres 后端（写穿透）。ownsPool=true 时 close 会真正结束连接池。 */
 function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
-  // 写穿透失败不应让请求崩溃：统一兜底记录日志。
+  const stats: StoreStats = { writeErrors: 0, lastError: null };
+  // 写穿透失败不应让请求崩溃：兜底记录并计入健康状态（不再静默）。
   function fireAndForget(promise: Promise<unknown>, label: string): Promise<void> {
     return Promise.resolve(promise)
       .then(() => undefined)
       .catch((error) => {
-        console.warn(`[store] ${label} 持久化失败：${error?.message || error}`);
+        stats.writeErrors += 1;
+        stats.lastError = `${label}: ${error?.message || error}`;
+        console.error(`[store] ${label} 持久化失败：${error?.message || error}`);
       });
   }
 
   return {
     enabled: true,
+    stats: () => ({ ...stats }),
 
     async init() {
       await pool.query(`
@@ -216,6 +233,19 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
       );
     },
 
+    async getSession(sessionId) {
+      const res = await pool.query('SELECT data FROM sessions WHERE session_id = $1', [sessionId]);
+      return res.rows[0]?.data ?? null;
+    },
+    async getConversation(sessionId) {
+      const res = await pool.query('SELECT messages FROM conversations WHERE session_id = $1', [sessionId]);
+      return res.rows[0]?.messages ?? null;
+    },
+    async getTicket(ticketId) {
+      const res = await pool.query('SELECT data FROM tickets WHERE id = $1', [ticketId]);
+      return res.rows[0]?.data ?? null;
+    },
+
     async close() {
       if (ownsPool) {
         await pool.end();
@@ -240,18 +270,22 @@ function createSqliteStore(dbPath: string): Store {
   const db = new DatabaseSync(dbPath);
   db.exec('PRAGMA journal_mode = WAL');
 
-  // 写穿透失败不应让请求崩溃：统一兜底记录日志。
+  const stats: StoreStats = { writeErrors: 0, lastError: null };
+  // SQLite 同步写入：safe 返回时数据已落盘。失败计入健康状态（不再静默）。
   function safe(label: string, fn: () => void): Promise<void> {
     try {
       fn();
     } catch (error: any) {
-      console.warn(`[store] ${label} 持久化失败：${error?.message || error}`);
+      stats.writeErrors += 1;
+      stats.lastError = `${label}: ${error?.message || error}`;
+      console.error(`[store] ${label} 持久化失败：${error?.message || error}`);
     }
     return Promise.resolve();
   }
 
   return {
     enabled: true,
+    stats: () => ({ ...stats }),
 
     async init() {
       db.exec(
@@ -338,6 +372,19 @@ function createSqliteStore(dbPath: string): Store {
       );
     },
 
+    async getSession(sessionId) {
+      const row: any = db.prepare('SELECT data FROM sessions WHERE session_id = ?').get(sessionId);
+      return row ? (JSON.parse(row.data) as Session) : null;
+    },
+    async getConversation(sessionId) {
+      const row: any = db.prepare('SELECT messages FROM conversations WHERE session_id = ?').get(sessionId);
+      return row ? (JSON.parse(row.messages) as Message[]) : null;
+    },
+    async getTicket(ticketId) {
+      const row: any = db.prepare('SELECT data FROM tickets WHERE id = ?').get(ticketId);
+      return row ? (JSON.parse(row.data) as Ticket) : null;
+    },
+
     async close() {
       db.close();
     },
@@ -348,6 +395,7 @@ function createNoopStore(): Store {
   const noop = () => Promise.resolve();
   return {
     enabled: false,
+    stats: () => ({ writeErrors: 0, lastError: null }),
     init: noop,
     loadAll: async () => ({ sessions: [], conversations: [], tickets: [] }),
     saveSession: noop,
@@ -356,6 +404,9 @@ function createNoopStore(): Store {
     deleteConversation: noop,
     saveTicket: noop,
     deleteTicket: noop,
+    getSession: async () => null,
+    getConversation: async () => null,
+    getTicket: async () => null,
     close: noop,
   };
 }
