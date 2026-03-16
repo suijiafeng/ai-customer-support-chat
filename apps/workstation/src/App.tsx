@@ -7,6 +7,7 @@ import Login from './components/Login.js';
 import AgentMenu from './components/AgentMenu.js';
 import TicketsPanel from './components/TicketsPanel.js';
 import MetricsPanel from './components/MetricsPanel.js';
+import { FeedbackHost } from './ui/feedback.js';
 
 export default function App() {
   // 客服身份来自登录态（JWT），未登录先进登录页
@@ -14,11 +15,14 @@ export default function App() {
     getToken() ? getStoredAgent() : null
   );
 
-  if (!agent) {
-    return <Login onLogin={setAgent} />;
-  }
-
-  return <Workstation agent={agent} onLogout={() => { clearAuth(); setAgent(null); }} />;
+  return (
+    <>
+      {agent
+        ? <Workstation agent={agent} onLogout={() => { clearAuth(); setAgent(null); }} />
+        : <Login onLogin={setAgent} />}
+      <FeedbackHost />
+    </>
+  );
 }
 
 type View = 'sessions' | 'tickets' | 'metrics';

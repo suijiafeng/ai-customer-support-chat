@@ -1,19 +1,14 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { fmtTime, linkParts, type UiMessage } from '../api.js';
+import { fmtTime, type UiMessage } from '../api.js';
 import type { HistoryStatus } from '../hooks/useSessionMessages.js';
+import { Markdown } from '../ui/markdown.js';
 
 const avatarText = (from: string) => (from === 'customer' ? '访' : from === 'ai' ? 'AI' : '本');
 
-function RichText({ text }: { text: string }) {
-  return (
-    <div className="txt">
-      {linkParts(text).map((p, i) =>
-        p.link
-          ? <a key={i} href={p.value} target="_blank" rel="noopener noreferrer">{p.value}</a>
-          : <span key={i}>{p.value}</span>,
-      )}
-    </div>
-  );
+// AI/客服消息按 Markdown 渲染；访客消息按纯文本（保留换行），避免把用户输入当 Markdown
+function RichText({ text, markdown }: { text: string; markdown?: boolean }) {
+  if (markdown) return <div className="txt"><Markdown text={text} /></div>;
+  return <div className="txt md-plain">{text}</div>;
 }
 
 const MessageRow = memo(function MessageRow({ m, customerName }: { m: UiMessage; customerName?: string }) {
@@ -27,7 +22,7 @@ const MessageRow = memo(function MessageRow({ m, customerName }: { m: UiMessage;
       <div className="col">
         {m.from !== 'agent' && <div className="meta">{who}</div>}
         <div className="bubble">
-          {m.content && <RichText text={m.content} />}
+          {m.content && <RichText text={m.content} markdown={m.from !== 'customer'} />}
           {m.attachments?.length > 0 && (
             <div className="imgs">
               {m.attachments.map((a, j) => (

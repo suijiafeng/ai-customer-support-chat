@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { SessionSummary, Ticket } from '@assistflow/shared';
 import { requestJson, statusTag, statusText } from '../api.js';
+import { showToast, confirmDialog } from '../ui/feedback.js';
 
 const SENTIMENT_TEXT: Record<string, string> = { positive: '😊 积极', neutral: '😐 中性', negative: '😟 消极' };
 const TICKET_STATUS: Record<string, string> = { open: '待处理', processing: '处理中', resolved: '已解决' };
@@ -19,7 +20,10 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
 
   const resolve = async () => {
     if (resolving || session.status === 'closed' || !canResolve) return;
-    if (!window.confirm('确认将该会话标记为已解决？关联跟进事项会一并解决。')) return;
+    const ok = await confirmDialog('确认将该会话标记为已解决？关联跟进事项会一并解决。', {
+      confirmText: '标记解决',
+    });
+    if (!ok) return;
     setResolving(true);
     try {
       await requestJson(`/api/sessions/${encodeURIComponent(session.sessionId)}/resolve`, {
@@ -29,7 +33,7 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
       });
       // 会话状态经 SSE 推送回队列，无需本地改状态
     } catch {
-      alert('操作失败，请重试');
+      showToast('操作失败，请重试', 'error');
     } finally {
       setResolving(false);
     }
