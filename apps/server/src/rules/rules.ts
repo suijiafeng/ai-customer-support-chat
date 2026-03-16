@@ -38,11 +38,6 @@ export function detectIntent(message: string, matchedFaqs: ScoredFaq[] = []): st
   const normalized = normalize(message);
 
   if (hasAny(normalized, [
-    '联系开发者本人',
-    '找开发者本人',
-    '联系本人',
-    '找本人聊',
-    '本人回复',
     '转人工',
     '找人工',
     '真人沟通',
