@@ -2,7 +2,7 @@
 
 独立前端开发者个人主页 AI 助手。访客可以了解开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和个人背景，也可以通过项目或咨询编号查询公开进展。
 
-项目默认使用本地 FAQ，不依赖外部模型。只有访客明确要求“联系开发者本人”或“转人工”时，系统才会创建跟进事项并进入本人沟通流程。
+项目默认使用本地 FAQ，不依赖外部模型。只有访客明确要求“转人工”（转人工 / 找人工 / 真人沟通）时，系统才会创建跟进事项并进入本人沟通流程。
 
 [![CI](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml)
 ![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-2f855a)
@@ -179,7 +179,7 @@ FAQ 位于 `apps/server/data/faqs.json`：
 ```mermaid
 flowchart LR
   A["访客发送消息"] --> B["意图识别 / FAQ 检索 / 项目咨询查询"]
-  B --> C{"明确要求联系本人?"}
+  B --> C{"明确要求转人工?"}
   C -- 否 --> D["本地 FAQ 或可选 AI 回复"]
   C -- 是 --> E["建立跟进事项"]
   D --> F["保存消息与会话"]

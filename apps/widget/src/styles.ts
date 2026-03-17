@@ -13,6 +13,15 @@ export default `
   box-shadow: 0 8px 22px rgba(36,87,197,.4); transition: transform .15s ease, box-shadow .15s ease; }
 .fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 28px rgba(36,87,197,.45); }
 .fab:active { transform: scale(.96); }
+.fab { position: relative; }
+.fab-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px;
+  text-align: center; box-shadow: 0 0 0 2px #fff; }
+/* 访客消息发送状态 / 失败重试 */
+.msg-status { font-size: 11px; color: #aab2c0; margin: 3px 4px 0; text-align: right; }
+.msg-status.failed { color: #ef4444; }
+.retry-link { margin-left: 6px; border: none; background: none; color: #2457c5; font-size: 11px;
+  cursor: pointer; padding: 0; text-decoration: underline; }
 .backdrop { position: fixed; inset: 0; z-index: 2147483001; border: 0; padding: 0; cursor: default;
   background: rgba(15,23,42,.34); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
   animation: afw-fade .18s ease-out; }
@@ -84,6 +93,21 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 .send:active:not(:disabled) { transform: scale(.97); }
 .send:disabled { opacity: .45; cursor: not-allowed; }
 .txt { white-space: pre-wrap; }
+/* Markdown 渲染（AI/客服消息）：容器不再 pre-wrap，由块级元素控制排版 */
+.txt .md { white-space: normal; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md-p { margin: 6px 0; }
+.md-h { font-weight: 600; margin: 8px 0 4px; }
+.md-h1 { font-size: 16px; } .md-h2 { font-size: 15px; } .md-h3, .md-h4, .md-h5, .md-h6 { font-size: 14px; }
+.md-list { margin: 6px 0; padding-left: 20px; }
+.md-list li { margin: 2px 0; }
+.md-code { background: rgba(0,0,0,.06); border-radius: 4px; padding: 1px 4px; font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.md-pre { background: #f5f6f8; border: 1px solid #e7e9ee; border-radius: 8px; padding: 8px 10px;
+  overflow-x: auto; margin: 6px 0; }
+.md-pre code { background: none; padding: 0; font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .imgs img { max-width: 140px; max-height: 140px; border-radius: 10px; cursor: pointer; display: block; }
 .image-link { padding: 0; border: 0; background: transparent; cursor: pointer; }

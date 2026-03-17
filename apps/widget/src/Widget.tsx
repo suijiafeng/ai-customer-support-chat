@@ -2,10 +2,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
 import { createMessageArchive } from '@assistflow/shared';
 import { loadVisitorId, ensureVisitorId, isVisitorIdValid } from './visitorId.js';
+import { Markdown } from './markdown.js';
 
 const newId = () => crypto.randomUUID();
 
-type UiMessage = Partial<Message> & { id: string; from: string; content?: string };
+type UiMessage = Partial<Message> & {
+  id: string;
+  from: string;
+  content?: string;
+  status?: 'sending' | 'failed'; // 访客乐观消息的发送状态
+  retryText?: string; // 失败后重试用的原文
+};
 
 interface PendingImage {
   id: string;
@@ -175,6 +182,8 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
+  const [unread, setUnread] = useState(0); // 关闭状态下收到的新回复数（FAB 红点）
+  const seenInboundRef = useRef(0); // 已读的 AI/客服消息数
 
   const listEl = useRef<HTMLDivElement | null>(null);
   const taEl = useRef<HTMLTextAreaElement | null>(null);
@@ -290,7 +299,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       setAtBottom(true);
       setMessagesState((m) => [
         ...m,
-        { id: userMsgId, from: 'customer', content: text, createdAt: now },
+        { id: userMsgId, from: 'customer', content: text, createdAt: now, status: 'sending' },
         { id: aiMsgId, from: 'ai', content: '', createdAt: now },
       ]);
       scrollToBottom();
@@ -319,16 +328,41 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       }
       setMessages(data.messages || [], true);
     } catch {
-      setMessagesState((m) => [
-        ...m,
-        { id: newId(), from: 'system', content: '抱歉，消息没发出去，稍后再试一下好吗？' },
-      ]);
+      // 彻底失败：把乐观访客气泡标为「失败」并提供一键重试（移除未完成的 AI 空气泡）
+      const inflight = inflightRef.current;
+      setMessagesState((m) =>
+        m
+          .filter((msg) => msg.id !== inflight?.aiId)
+          .map((msg) =>
+            msg.id === inflight?.userId
+              ? { ...msg, status: 'failed' as const, retryText: text }
+              : msg
+          )
+      );
       scrollToBottom();
     } finally {
       inflightRef.current = null;
       setSending(false);
     }
   }, [input, pending, sending, ensureSession, requestJson, setMessages, scrollToBottom]);
+
+  // 失败重试：移除失败气泡，按原文重发
+  const retrySend = useCallback((msg: UiMessage) => {
+    const text = msg.retryText || msg.content || '';
+    setMessagesState((m) => m.filter((x) => x.id !== msg.id));
+    if (text) send(text);
+  }, [send]);
+
+  // 未读红点：关闭时收到的新 AI/客服消息计数；打开即清零
+  useEffect(() => {
+    const inbound = messages.filter((m) => m.from === 'ai' || m.from === 'agent').length;
+    if (open) {
+      seenInboundRef.current = inbound;
+      setUnread(0);
+    } else if (inbound > seenInboundRef.current) {
+      setUnread(inbound - seenInboundRef.current);
+    }
+  }, [messages, open]);
 
   // 回访访客：本地已有合法标识则直接恢复会话；否则等到首次发消息再生成
   useEffect(() => {
@@ -549,17 +583,22 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                           <span className="typing-dots"><i></i><i></i><i></i></span>
                         )}
                         {m.content && (
-                          <div className="txt">
-                            {linkParts(m.content).map((part, i) =>
-                              part.link ? (
-                                <a key={i} href={part.value} target="_blank" rel="noopener noreferrer">
-                                  {part.value}
-                                </a>
-                              ) : (
-                                <React.Fragment key={i}>{part.value}</React.Fragment>
-                              )
-                            )}
-                          </div>
+                          (m.from === 'ai' || m.from === 'agent') ? (
+                            // AI/客服消息按 Markdown 渲染；访客/系统消息保持纯文本（避免把输入当 Markdown）
+                            <div className="txt"><Markdown text={m.content} /></div>
+                          ) : (
+                            <div className="txt">
+                              {linkParts(m.content).map((part, i) =>
+                                part.link ? (
+                                  <a key={i} href={part.value} target="_blank" rel="noopener noreferrer">
+                                    {part.value}
+                                  </a>
+                                ) : (
+                                  <React.Fragment key={i}>{part.value}</React.Fragment>
+                                )
+                              )}
+                            </div>
+                          )
                         )}
                         {m.attachments && m.attachments.length > 0 && (
                           <div className="imgs">
@@ -576,7 +615,16 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                           </div>
                         )}
                       </div>
-                      {m.from !== 'system' && fmtTime(m.createdAt) && (
+                      {m.from === 'customer' && m.status === 'sending' && (
+                        <div className="msg-status">发送中…</div>
+                      )}
+                      {m.from === 'customer' && m.status === 'failed' && (
+                        <div className="msg-status failed">
+                          发送失败
+                          <button type="button" className="retry-link" onClick={() => retrySend(m)}>重试</button>
+                        </div>
+                      )}
+                      {m.from !== 'system' && m.status !== 'failed' && m.status !== 'sending' && fmtTime(m.createdAt) && (
                         <div className="time">{fmtTime(m.createdAt)}</div>
                       )}
                     </div>
@@ -659,7 +707,12 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
           </div>
         </>
       )}
-      {!open && <button className="fab" onClick={toggle}>💬</button>}
+      {!open && (
+        <button className="fab" onClick={toggle} aria-label={unread > 0 ? `有 ${unread} 条新消息` : '打开客服'}>
+          💬
+          {unread > 0 && <span className="fab-badge">{unread > 99 ? '99+' : unread}</span>}
+        </button>
+      )}
     </div>
   );
 }

@@ -106,7 +106,7 @@ const cases = [
     name: 'handoff ticket',
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
-      message: '我想联系开发者本人',
+      message: '我要转人工',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => {
