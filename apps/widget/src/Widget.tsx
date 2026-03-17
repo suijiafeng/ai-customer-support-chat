@@ -72,12 +72,20 @@ async function streamChat(
   payload: unknown,
   onDelta: (text: string) => void
 ): Promise<any> {
-  const response = await fetch(`${apiBase}/api/chat/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok || !response.body) throw new Error(`stream failed: ${response.status}`);
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}/api/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err: any) {
+    // 请求根本没到服务端：调用方可以安全重试
+    throw Object.assign(new Error(err?.message || 'request failed'), { phase: 'request' });
+  }
+  if (!response.ok || !response.body) {
+    throw Object.assign(new Error(`stream failed: ${response.status}`), { phase: 'request' });
+  }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -135,7 +143,8 @@ async function streamChat(
   drain();
   if (buffer.trim()) handleBlock(buffer);
 
-  if (!done) throw new Error('stream ended without done event');
+  // 流已建立但中途断开/异常：服务端可能已在处理，调用方不应盲目重发
+  if (!done) throw Object.assign(new Error('stream ended without done event'), { phase: 'stream' });
   return done;
 }
 
@@ -242,15 +251,16 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     setSending(true);
     try {
       await ensureSession();
+      // 乐观渲染：先放上访客消息和一个空的 AI 气泡，流式增量往里填
+      const userMsgId = newId();
       const payload = {
         sessionId: sessionIdRef.current,
         message: text,
         attachments,
         visitor: { code: sessionIdRef.current },
+        // 幂等键：服务端据此对重试去重，避免「AI 失败 + 重发」产生重复气泡
+        clientMessageId: userMsgId,
       };
-
-      // 乐观渲染：先放上访客消息和一个空的 AI 气泡，流式增量往里填
-      const userMsgId = newId();
       const aiMsgId = newId();
       const now = new Date().toISOString();
       setInput('');
@@ -274,8 +284,14 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
           );
           if (atBottomRef.current) scrollToBottom();
         });
-      } catch {
-        // 流式不可用（老版本服务等）：回退到一次性接口
+      } catch (err: any) {
+        if (err?.phase === 'stream') {
+          // 流已建立但中断：服务端大概率仍在处理并会落库，最终结果由会话 SSE 推回来。
+          // 只移除未完成的 AI 气泡等待同步，不重发（误重发也会被服务端幂等去重兜底）
+          setMessagesState((m) => m.filter((msg) => msg.id !== aiMsgId));
+          return;
+        }
+        // 请求阶段失败（流式接口不可用等）：回退一次性接口；服务端按 clientMessageId 幂等
         data = await requestJson('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
