@@ -525,6 +525,9 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                         </div>
                       )}
                       <div className="bubble">
+                        {m.from === 'ai' && !m.content && !m.attachments?.length && (
+                          <span className="typing-dots"><i></i><i></i><i></i></span>
+                        )}
                         {m.content && (
                           <div className="txt">
                             {linkParts(m.content).map((part, i) =>
@@ -559,16 +562,6 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                     </div>
                   </div>
                 ))}
-                {sending && !(messages.at(-1)?.from === 'ai' && messages.at(-1)?.content) && (
-                  <div className="row ai">
-                    <div className="avatar ai">AI</div>
-                    <div className="col">
-                      <div className="bubble">
-                        <span className="typing-dots"><i></i><i></i><i></i></span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
               {!atBottom && (
                 <button className="to-bottom" onClick={scrollToBottom} aria-label="回到底部">↓</button>
