@@ -4,7 +4,9 @@
  * 渲染时「本地归档 ∪ 服务端窗口」按时间合并去重，双方都能看到完整历史，
  * 服务端重启或内存淘汰也不会让界面上的记录消失。
  *
- * 体积控制：图片附件不入档（降级为 [图片] 占位），每会话保留最近 maxMessages 条，
+ * 体积控制：图片附件本体不写入本地存储（落盘降级为 [图片] 占位）；但 merge 的返回值
+ * 会对仍在服务端窗口内的消息透传原始对象（保留 attachments），只有窗口外的旧消息才用占位，
+ * 因此界面不会因合并而把图片抹成「[图片]」文字。每会话保留最近 maxMessages 条，
  * 归档会话总数按 LRU 保留 maxSessions 个。
  */
 
@@ -21,7 +23,7 @@ export interface ArchivedMessage {
 }
 
 export interface MessageArchive {
-  /** 合并一批服务端消息进归档并落盘，返回「归档 ∪ 本批」的完整时间线 */
+  /** 合并一批服务端消息进归档并落盘，返回「归档 ∪ 本批」的完整时间线（窗口内消息保留原始附件） */
   merge(sessionId: string, messages: any[]): ArchivedMessage[];
   /** 读取某会话的归档 */
   load(sessionId: string): ArchivedMessage[];
@@ -100,7 +102,16 @@ export function createMessageArchive(
     },
 
     merge(sessionId: string, messages: any[]): ArchivedMessage[] {
-      const incoming = (Array.isArray(messages) ? messages : [])
+      const incomingRaw = (Array.isArray(messages) ? messages : []).filter(
+        (m) => m?.id && m?.actor
+      );
+      // 原始服务端消息（含 attachments 等完整字段）按 id 索引：
+      // 渲染时窗口内消息优先返回原对象，避免图片附件被归档占位覆盖而「消失」
+      const incomingById = new Map<string, any>();
+      for (const m of incomingRaw) incomingById.set(String(m.id), m);
+
+      // 归档版（精简、不含附件本体），仅用于落盘持久化与补全窗口外旧消息
+      const incoming = incomingRaw
         .map(toArchived)
         .filter((m): m is ArchivedMessage => m !== null);
       const existing = this.load(sessionId);
@@ -113,10 +124,12 @@ export function createMessageArchive(
       const trimmed = merged.slice(-maxMessages);
 
       if (incoming.length) {
-        writeJson(sessionKey(sessionId), trimmed);
+        writeJson(sessionKey(sessionId), trimmed); // 落盘的是精简档（不含图片本体）
         touchIndex(sessionId);
       }
-      return trimmed;
+      // 渲染时间线：窗口内消息返回服务端原对象（保留图片附件），
+      // 仅窗口外的旧消息用归档占位（其附件本就不在本地）
+      return trimmed.map((m) => incomingById.get(m.id) ?? m);
     },
   };
 }
