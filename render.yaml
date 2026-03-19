@@ -26,3 +26,6 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
+      # 部署在 Render 反向代理后：开启 trust proxy，使限流按真实访客 IP 统计
+      - key: TRUST_PROXY
+        value: "1"

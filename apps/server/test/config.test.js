@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBooleanEnv } from '../dist/config.js';
+import { parseBooleanEnv, parseTrustProxy } from '../dist/config.js';
 
 test('parseBooleanEnv defaults to enabled', () => {
   assert.equal(parseBooleanEnv(undefined), true);
@@ -18,4 +18,18 @@ test('parseBooleanEnv supports common enabled and disabled values', () => {
 
 test('parseBooleanEnv uses the provided default for invalid values', () => {
   assert.equal(parseBooleanEnv('invalid', false), false);
+});
+
+test('parseTrustProxy defaults to false when unset (direct deployment, anti-spoof)', () => {
+  assert.equal(parseTrustProxy(undefined), false);
+  assert.equal(parseTrustProxy(''), false);
+  assert.equal(parseTrustProxy('   '), false);
+});
+
+test('parseTrustProxy parses hop count, booleans and presets', () => {
+  assert.equal(parseTrustProxy('1'), 1);
+  assert.equal(parseTrustProxy('2'), 2);
+  assert.equal(parseTrustProxy('true'), true);
+  assert.equal(parseTrustProxy('false'), false);
+  assert.equal(parseTrustProxy('loopback'), 'loopback');
 });

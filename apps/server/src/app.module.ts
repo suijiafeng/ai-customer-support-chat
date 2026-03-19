@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AiService } from './ai/ai.service.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService } from './auth/auth.service.js';
@@ -15,6 +16,14 @@ import { TicketsController } from './tickets/tickets.controller.js';
 import { TicketsService } from './tickets/tickets.service.js';
 
 @Module({
+  imports: [
+    ThrottlerModule.forRoot([
+      // chat 限速：每分钟每 IP 最多 20 条消息
+      { name: 'chat', ttl: 60000, limit: 20 },
+      // login 限速：每分钟每 IP 最多 5 次尝试，防暴力破解
+      { name: 'login', ttl: 60000, limit: 5 },
+    ]),
+  ],
   controllers: [AuthController, ChatController, SessionsController, TicketsController, MetaController],
   providers: [
     AuthService,

@@ -11,6 +11,10 @@ async function bootstrap() {
     bodyParser: false,
   });
 
+  // 反向代理（Render/Nginx 等）后取真实客户端 IP，确保限流按用户而非代理 IP 统计。
+  // 默认 false（直连部署，防止 X-Forwarded-For 伪造）；部署在代理后时设 TRUST_PROXY=1。
+  app.set('trust proxy', appConfig.trustProxy);
+
   // CORS：配置 CORS_ORIGINS（逗号分隔白名单）则只放行这些来源；
   // 未配置时放开（公开 widget 需从任意第三方站点跨域调用 /api/chat）。
   const corsOrigins = (process.env.CORS_ORIGINS || '')

@@ -10,6 +10,20 @@ export function parseBooleanEnv(value: string | undefined, defaultValue = true):
   return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
 }
 
+/**
+ * 解析 Express `trust proxy` 配置（用于在反向代理后取真实客户端 IP）。
+ * 空值默认 false（直连部署，避免伪造 X-Forwarded-For 绕过限流）；
+ * 数字按代理跳数处理，'true'/'false' 按布尔处理，其余按预设字符串（如 'loopback'）。
+ */
+export function parseTrustProxy(value: string | undefined): boolean | number | string {
+  const raw = (value ?? '').trim();
+  if (raw === '') return false;
+  if (raw.toLowerCase() === 'true') return true;
+  if (raw.toLowerCase() === 'false') return false;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  return raw;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // dist/config.js → apps/server/dist → 仓库根目录
 export const repoRoot = path.resolve(__dirname, '..', '..', '..');
@@ -23,6 +37,8 @@ for (const file of ['.env.local', '.env']) {
 
 export const appConfig = {
   port: Number(process.env.PORT || 3001),
+  // 反向代理（Render/Nginx 等）后设为 1 或对应跳数，使限流按真实客户端 IP 统计
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   aiFeatureEnabled: parseBooleanEnv(process.env.AI_ENABLED, false),
   aiProvider: process.env.AI_PROVIDER || 'openai',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4o',
