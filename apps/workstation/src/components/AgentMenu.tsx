@@ -15,20 +15,26 @@ function avatarColor(id: string): string {
   return AVATAR_COLORS[n % AVATAR_COLORS.length];
 }
 
-/** 右上角客服入口：头像+名称，点击下拉显示个人信息；个人中心打开详情弹窗。 */
+/** 右上角客服入口：触发器只显示头像+名称，点击下拉展开个人详情与操作。 */
 export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps) {
   const [open, setOpen] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
   const wrapEl = useRef<HTMLDivElement | null>(null);
 
-  // 点击菜单外部关闭下拉
+  // 点击菜单外部 / 按 Esc 关闭下拉
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
       if (!wrapEl.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const myActive = sessions.filter(
@@ -44,6 +50,7 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
 
   return (
     <div className="agent-menu" ref={wrapEl}>
+      {/* 触发器：尽量简洁，只展示头像 + 名称 */}
       <button
         className="agent-trigger"
         aria-haspopup="menu"
@@ -51,52 +58,43 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
         onClick={() => setOpen((v) => !v)}
       >
         <span className="avatar-badge" style={{ background: color }}>{initials}</span>
-        <span className="agent-name">
-          {agent.name}
-          {agent.role === 'admin' && <span className="role-badge">管理员</span>}
-        </span>
+        <span className="agent-name">{agent.name}</span>
         <span className={`caret${open ? ' up' : ''}`} aria-hidden="true">▾</span>
       </button>
 
       {open && (
-        <div className="agent-dropdown" role="menu">
+        <div className="agent-dropdown" role="menu" aria-label="个人信息">
+          {/* 详情头部：头像 + 名称 + 工号 + 在线 + 登录时间 */}
+          <div className="agent-card">
+            <span className="avatar-badge lg" style={{ background: color }}>{initials}</span>
+            <div className="agent-card-info">
+              <strong>
+                {agent.name}
+                {agent.role === 'admin' && <span className="role-badge">管理员</span>}
+              </strong>
+              <span>工号 {agent.id} · <span className="online"><i aria-hidden="true" />在线</span></span>
+              <span>
+                登录于 {loginAt
+                  ? `${new Date(loginAt).toLocaleDateString('zh-CN')} ${fmtTime(loginAt)}`
+                  : '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* 工作量概览 */}
+          <div className="agent-stats">
+            <div><b>{myActive}</b><span>接待中</span></div>
+            <div><b>{myResolved}</b><span>已解决</span></div>
+            <div><b>{waiting}</b><span>待跟进</span></div>
+          </div>
 
           <div className="agent-actions">
-            <button role="menuitem" onClick={() => { setShowProfile(true); setOpen(false); }}>
-              👤 个人中心
-            </button>
             <button role="menuitem" className="danger" onClick={onLogout}>
               ⏻ 退出登录
             </button>
           </div>
-        </div>
-      )}
 
-      {showProfile && (
-        <div className="profile-overlay" onClick={() => setShowProfile(false)}>
-          <div
-            className="profile-modal"
-            role="dialog"
-            aria-label="个人中心"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="profile-close" aria-label="关闭" onClick={() => setShowProfile(false)}>×</button>
-            <div className="profile-head">
-              <span className="avatar-badge xl" style={{ background: color }}>{initials}</span>
-              <div>
-                <strong>{agent.name}</strong>
-                <p>客服工号 {agent.id} · <span className="online"><i aria-hidden="true" />在线</span></p>
-              </div>
-            </div>
-            <dl className="profile-detail">
-              <div><dt>工号</dt><dd>{agent.id}</dd></div>
-              <div><dt>显示名称</dt><dd>{agent.name}</dd></div>
-              <div><dt>本次登录</dt><dd>{loginAt ? `${new Date(loginAt).toLocaleDateString('zh-CN')} ${fmtTime(loginAt)}` : '—'}</dd></div>
-              <div><dt>接待中会话</dt><dd>{myActive}</dd></div>
-              <div><dt>已解决会话</dt><dd>{myResolved}</dd></div>
-            </dl>
-            <p className="profile-note">账号信息由管理员在服务端配置，如需修改密码请联系管理员。</p>
-          </div>
+          <p className="agent-note">账号由管理员在服务端配置，修改密码请联系管理员。</p>
         </div>
       )}
     </div>
