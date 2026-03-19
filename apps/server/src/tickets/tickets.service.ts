@@ -9,11 +9,41 @@ import { StoreService } from '../store/store.service.js';
 @Injectable()
 export class TicketsService implements OnModuleInit {
   private readonly tickets: Ticket[] = [];
+  /** O(1) 按 id 查找索引 */
+  private readonly ticketById = new Map<string, Ticket>();
+  /** O(1) 按 sessionId 查找索引（Set 保证 O(1) 删除） */
+  private readonly ticketsBySession = new Map<string, Set<Ticket>>();
 
   constructor(private readonly store: StoreService) {}
 
   onModuleInit() {
-    this.tickets.push(...this.store.getPersisted().tickets);
+    for (const ticket of this.store.getPersisted().tickets) {
+      this.insertTicket(ticket);
+    }
+  }
+
+  /** 内部：同步维护 tickets 数组 + 两个 Map 索引。 */
+  private insertTicket(ticket: Ticket): void {
+    this.tickets.push(ticket);
+    this.ticketById.set(ticket.id, ticket);
+    const set = this.ticketsBySession.get(ticket.sessionId);
+    if (set) {
+      set.add(ticket);
+    } else {
+      this.ticketsBySession.set(ticket.sessionId, new Set([ticket]));
+    }
+  }
+
+  /** 内部：从索引中移除最旧的工单（淘汰内存缓存时用）。 */
+  private evictOldest(): void {
+    const oldest = this.tickets.shift();
+    if (!oldest) return;
+    this.ticketById.delete(oldest.id);
+    const set = this.ticketsBySession.get(oldest.sessionId);
+    if (set) {
+      set.delete(oldest);
+      if (set.size === 0) this.ticketsBySession.delete(oldest.sessionId);
+    }
   }
 
   list(): Ticket[] {
@@ -25,14 +55,14 @@ export class TicketsService implements OnModuleInit {
   }
 
   findById(ticketId: string): Ticket | undefined {
-    return this.tickets.find((item) => item.id === ticketId);
+    return this.ticketById.get(ticketId);
   }
 
   getLatestForSession(sessionId: string): Ticket | null {
-    return (
-      this.tickets
-        .filter((ticket) => ticket.sessionId === sessionId)
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] || null
+    const set = this.ticketsBySession.get(sessionId);
+    if (!set || set.size === 0) return null;
+    return [...set].reduce((latest, t) =>
+      new Date(t.updatedAt) > new Date(latest.updatedAt) ? t : latest
     );
   }
 
@@ -49,14 +79,10 @@ export class TicketsService implements OnModuleInit {
   }): Ticket {
     const { sessionId, message, intent, reason, inquiry } = params;
     const inquiryId = inquiry?.id || extractInquiryId(message) || null;
-    const existingTicket = this.tickets.find((ticket) => {
-      return (
-        ticket.status === 'open' &&
-        ticket.sessionId === sessionId &&
-        ticket.intent === intent &&
-        ticket.inquiryId === inquiryId
-      );
-    });
+    const set = this.ticketsBySession.get(sessionId);
+    const existingTicket = set && [...set].find(
+      (ticket) => ticket.status === 'open' && ticket.intent === intent && ticket.inquiryId === inquiryId
+    ) || undefined;
 
     if (existingTicket) {
       existingTicket.lastMessage = message;
@@ -82,10 +108,10 @@ export class TicketsService implements OnModuleInit {
       updatedAt: new Date().toISOString(),
     };
 
-    this.tickets.push(ticket);
+    this.insertTicket(ticket);
     // 仅淘汰内存缓存，库保留全量工单历史（淘汰项可按需回读）
-    if (this.tickets.length > LIMITS.MAX_TICKETS) {
-      this.tickets.splice(0, this.tickets.length - LIMITS.MAX_TICKETS);
+    while (this.tickets.length > LIMITS.MAX_TICKETS) {
+      this.evictOldest();
     }
     this.store.saveTicket(ticket);
     return ticket;
@@ -135,7 +161,8 @@ export class TicketsService implements OnModuleInit {
   }
 
   moveOpenToProcessing(sessionId: string): Ticket | null {
-    const ticket = this.tickets.find((item) => item.sessionId === sessionId && item.status === 'open');
+    const set = this.ticketsBySession.get(sessionId);
+    const ticket = (set && [...set].find((item) => item.status === 'open')) ?? null;
     if (!ticket) {
       return null;
     }
@@ -143,8 +170,9 @@ export class TicketsService implements OnModuleInit {
   }
 
   resolveForSession(sessionId: string, resolution: string): Ticket[] {
-    return this.tickets
-      .filter((ticket) => ticket.sessionId === sessionId && ticket.status !== 'resolved')
+    const set = this.ticketsBySession.get(sessionId) ?? new Set<Ticket>();
+    return [...set]
+      .filter((ticket) => ticket.status !== 'resolved')
       .map((ticket) => this.update(ticket, { status: 'resolved', resolution }));
   }
 }
