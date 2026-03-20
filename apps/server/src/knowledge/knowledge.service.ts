@@ -16,6 +16,25 @@ import {
 
 /** 需要监听热更新的知识库数据文件 */
 const DATA_FILES = ['faqs.json', 'inquiries.json', 'small-talk.json'] as const;
+const MAX_MISS_QUERY_KEYS = 500;
+const MIN_TRACK_QUERY_LEN = 2;
+
+export interface MissQueryStat {
+  query: string;
+  count: number;
+  lastSeen: string;
+}
+
+export interface KnowledgeStatsSnapshot {
+  faqSearch: {
+    total: number;
+    hit: number;
+    miss: number;
+    hitRate: number;
+    avgTopScore: number;
+  };
+  topMissQueries: MissQueryStat[];
+}
 
 /** 知识库：启动时加载 FAQ、项目咨询与口水话词库（只读种子数据）。支持运行时热更新。 */
 @Injectable()
@@ -26,6 +45,12 @@ export class KnowledgeService implements OnModuleInit, OnModuleDestroy {
   private inquiryIndex = new Map<string, Inquiry>();
   private searcher: (message: string) => ScoredFaq[] = () => [];
   private smallTalkMatcher: (message: string) => SmallTalkMatch | null = () => null;
+  private faqSearchTotal = 0;
+  private faqSearchHit = 0;
+  private faqSearchMiss = 0;
+  private topScoreSum = 0;
+  private topScoreCount = 0;
+  private missQueryCounter = new Map<string, MissQueryStat>();
   private watchers: FSWatcher[] = [];
   private reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -99,11 +124,61 @@ export class KnowledgeService implements OnModuleInit, OnModuleDestroy {
   }
 
   searchFaqs(message: string): ScoredFaq[] {
-    return this.searcher(message);
+    const results = this.searcher(message);
+    this.recordFaqSearch(message, results);
+    return results;
   }
 
   findInquiry(message: string): Inquiry | null {
     const inquiryId = extractInquiryId(message);
     return inquiryId ? this.inquiryIndex.get(normalize(inquiryId)) || null : null;
+  }
+
+  /** 知识库检索运行时统计：命中率、平均 Top1 分数、高频未命中问句。 */
+  getStats(limit = 20): KnowledgeStatsSnapshot {
+    const total = this.faqSearchTotal;
+    const hit = this.faqSearchHit;
+    const miss = this.faqSearchMiss;
+    const hitRate = total ? Number(((hit / total) * 100).toFixed(2)) : 0;
+    const avgTopScore = this.topScoreCount ? Number((this.topScoreSum / this.topScoreCount).toFixed(3)) : 0;
+    const topMissQueries = [...this.missQueryCounter.values()]
+      .sort((a, b) => b.count - a.count || b.lastSeen.localeCompare(a.lastSeen))
+      .slice(0, Math.max(1, Math.min(limit, 100)));
+
+    return {
+      faqSearch: { total, hit, miss, hitRate, avgTopScore },
+      topMissQueries,
+    };
+  }
+
+  private recordFaqSearch(message: string, results: ScoredFaq[]): void {
+    this.faqSearchTotal += 1;
+    const top = results[0];
+    if (top) {
+      this.faqSearchHit += 1;
+      this.topScoreSum += top.score;
+      this.topScoreCount += 1;
+      return;
+    }
+
+    this.faqSearchMiss += 1;
+    const normalized = normalize(message);
+    if (normalized.length < MIN_TRACK_QUERY_LEN) return;
+
+    const key = normalized.slice(0, 100);
+    const text = String(message).trim().replace(/\s+/g, ' ').slice(0, 120) || key;
+    const now = new Date().toISOString();
+    const prev = this.missQueryCounter.get(key);
+    if (prev) {
+      prev.count += 1;
+      prev.lastSeen = now;
+      return;
+    }
+
+    if (this.missQueryCounter.size >= MAX_MISS_QUERY_KEYS) {
+      const oldestKey = this.missQueryCounter.keys().next().value as string | undefined;
+      if (oldestKey) this.missQueryCounter.delete(oldestKey);
+    }
+    this.missQueryCounter.set(key, { query: text, count: 1, lastSeen: now });
   }
 }

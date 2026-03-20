@@ -117,7 +117,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
 
   async buildReply(params: BuildReplyParams, onDelta?: ReplyDeltaHandler): Promise<ReplyResult> {
     const { message, history, matchedFaqs, intent, handoff, inquiry, ticket } = params;
-    const fallback = this.buildFallbackReply(matchedFaqs, handoff, inquiry, ticket);
+    const fallback = this.buildFallbackReply(matchedFaqs, handoff, inquiry, ticket, intent);
     const fallbackResult: ReplyResult = {
       text: fallback,
       ai: {
@@ -228,8 +228,13 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     matchedFaqs: ScoredFaq[],
     handoff: HandoffDecision,
     inquiry: Inquiry | null,
-    ticket: Ticket | null
+    ticket: Ticket | null,
+    intent: string
   ): string {
+    if (intent === 'out_of_scope') {
+      return '这个问题有点超出我当前知识库范围了。我主要能帮你处理开发服务、报价、合作流程、技术栈、档期和项目进展相关问题。你如果愿意，我可以把话题拉回到你的项目需求上，帮你先梳理下一步。';
+    }
+
     if (handoff.needHuman) {
       const ticketText = ticket ? `我已经帮你建好了跟进事项 ${ticket.id}，` : '我已经记下来了，';
       const inquiryText = inquiry ? `也关联上了你的${inquiry.type} ${inquiry.id}（${inquiry.title}）。` : '';

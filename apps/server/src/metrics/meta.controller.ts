@@ -58,4 +58,10 @@ export class MetaController {
   async trend() {
     return { trend: await this.metrics.getTrend(14) };
   }
+
+  @UseGuards(AgentAuthGuard)
+  @Get('knowledge/stats')
+  knowledgeStats() {
+    return this.knowledge.getStats(20);
+  }
 }

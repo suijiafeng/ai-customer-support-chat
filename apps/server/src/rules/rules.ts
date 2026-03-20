@@ -15,25 +15,111 @@ export function createFaqSearcher(faqs: Faq[]) {
 
   return function searchFaqs(message: string): ScoredFaq[] {
     const normalized = normalize(message);
-    const msgBigrams = bigrams(normalized);
+    const variants = expandQueryVariants(normalized);
+    const msgBigramsList = variants.map((v) => bigrams(v));
+    const minScore = normalized.length <= 6 ? 0.85 : 1;
 
     return indexedFaqs
       .map((faq) => {
         // 关键词完整命中（权重高）
         const keywordScore = faq.normalizedKeywords.reduce((score, keyword) => {
-          return normalized.includes(keyword) ? score + 3 : score;
+          return variants.some((variant) => variant.includes(keyword)) ? score + 3 : score;
         }, 0);
         // Bigram 重叠率：分子 = 共有 bigram 数，分母 = 两者 bigram 总数的均值（Dice 系数）
-        const bigramScore = bigramDice(faq.questionBigrams, msgBigrams);
+        const bigramScore = msgBigramsList.reduce(
+          (best, grams) => Math.max(best, bigramDice(faq.questionBigrams, grams)),
+          0
+        );
         const score = keywordScore + bigramScore;
 
         return { ...faq, score };
       })
-      .filter((faq) => faq.score >= 1)
+      .filter((faq) => faq.score >= minScore)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
       .map(({ normalizedQuestion, normalizedKeywords, questionBigrams, ...faq }) => faq);
   };
+}
+
+const QUERY_REPLACEMENTS: Array<[string, string]> = [
+  ['空档', '档期'],
+  ['有空吗', '有档期吗'],
+  ['联系本人', '联系开发者本人'],
+  ['联系真人', '联系开发者本人'],
+  ['人工', '开发者本人'],
+  ['vue3', 'vue'],
+  ['nextjs', 'next.js'],
+  ['next', 'next.js'],
+  ['小页面', '落地页'],
+  ['小站', '官网'],
+];
+
+const BUSINESS_TERMS = [
+  '开发',
+  '网站',
+  '官网',
+  '页面',
+  '小程序',
+  '后台',
+  '系统',
+  '技术栈',
+  '前端',
+  '后端',
+  '报价',
+  '预算',
+  '排期',
+  '档期',
+  '合作',
+  '项目',
+  '咨询',
+  '作品集',
+  '案例',
+  'seo',
+  '部署',
+  '域名',
+];
+
+const OUT_OF_SCOPE_TERMS = [
+  '天气',
+  '双色球',
+  '彩票',
+  '股票',
+  '基金',
+  '币价',
+  '比特币',
+  '理财',
+  '算命',
+  '星座',
+  '占卜',
+  '塔罗',
+  '减肥',
+  '食谱',
+  '做饭',
+  '医生',
+  '处方',
+  '病情',
+  '法律咨询',
+  '离婚',
+  '合同纠纷',
+  '贷款',
+  '信用卡',
+  '考试答案',
+  '写作业',
+  '代写',
+];
+
+/**
+ * 轻量查询扩展：保留原始归一化串，同时生成少量同义替换变体。
+ * 目的：提升口语/别名问法召回，不引入外部依赖或复杂索引。
+ */
+export function expandQueryVariants(normalized: string): string[] {
+  const variants = new Set<string>([normalized]);
+  for (const [from, to] of QUERY_REPLACEMENTS) {
+    if (normalized.includes(from)) {
+      variants.add(normalized.replace(from, to));
+    }
+  }
+  return [...variants];
 }
 
 export function detectIntent(message: string, matchedFaqs: ScoredFaq[] = []): string {
@@ -48,6 +134,9 @@ export function detectIntent(message: string, matchedFaqs: ScoredFaq[] = []): st
   }
   if (extractInquiryId(message) || hasAny(normalized, ['项目进展', '咨询进展', '项目编号', '咨询编号', '项目状态'])) {
     return 'inquiry_status';
+  }
+  if (isOutOfScopeQuery(normalized)) {
+    return 'out_of_scope';
   }
   if (hasAny(normalized, ['报价', '多少钱', '价格', '费用', '预算', '怎么收费'])) {
     return 'pricing';
@@ -68,6 +157,13 @@ export function detectIntent(message: string, matchedFaqs: ScoredFaq[] = []): st
   return matchedFaqs[0]?.intent || 'general';
 }
 
+/**
+ * 边界识别：命中明显非开发咨询领域词，且不存在业务信号时，标记为 out_of_scope。
+ */
+export function isOutOfScopeQuery(normalized: string): boolean {
+  return hasAny(normalized, OUT_OF_SCOPE_TERMS) && !hasAny(normalized, BUSINESS_TERMS);
+}
+
 export interface HandoffDecision {
   needHuman: boolean;
   reason: string;
@@ -83,6 +179,9 @@ export function shouldHandoff(
 ): HandoffDecision {
   if (intent === 'human_handoff') {
     return { needHuman: true, reason: '访客明确要求联系开发者本人' };
+  }
+  if (intent === 'out_of_scope') {
+    return { needHuman: false, reason: '问题超出知识库边界，给出范围说明并引导回业务咨询' };
   }
   if (inquiry) {
     return { needHuman: false, reason: '项目或咨询查询已命中' };

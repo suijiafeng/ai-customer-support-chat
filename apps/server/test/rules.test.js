@@ -43,7 +43,19 @@ test('detectIntent recognizes explicit handoff, inquiry lookup and service topic
   assert.equal(detectIntent('我要转人工', []), 'human_handoff');
   assert.equal(detectIntent('查询项目 P1001', []), 'inquiry_status');
   assert.equal(detectIntent('项目怎么收费', []), 'pricing');
+  assert.equal(detectIntent('今天上海天气怎么样', []), 'out_of_scope');
   assert.equal(detectIntent('我要投诉', []), 'general');
+});
+
+test('boundary regression: out-of-scope queries should be rejected while business queries remain in scope', () => {
+  assert.equal(detectIntent('帮我看下今天北京天气', []), 'out_of_scope');
+  assert.equal(detectIntent('给我推荐一只股票', []), 'out_of_scope');
+  assert.equal(detectIntent('帮我算个塔罗', []), 'out_of_scope');
+
+  // 含业务词时应保持在知识库咨询域内，不要误判为越界
+  assert.notEqual(detectIntent('做天气展示网站怎么报价', []), 'out_of_scope');
+  assert.equal(detectIntent('股票数据看板开发怎么收费', []), 'pricing');
+  assert.equal(detectIntent('医疗项目后台系统合作流程', []), 'collaboration');
 });
 
 test('findInquiryByMessage returns matching project data', () => {
@@ -59,6 +71,10 @@ test('shouldHandoff only escalates explicit requests to contact the developer', 
   assert.deepEqual(shouldHandoff('项目 Z9999 进度怎么样', 'inquiry_status', [], 'neutral', null), {
     needHuman: false,
     reason: '未查询到项目或咨询编号，继续由助手引导',
+  });
+  assert.deepEqual(shouldHandoff('给我推荐一只股票', 'out_of_scope', [], 'neutral', null), {
+    needHuman: false,
+    reason: '问题超出知识库边界，给出范围说明并引导回业务咨询',
   });
   assert.deepEqual(shouldHandoff('这个体验太差了我要投诉', 'general', [], 'negative', null), {
     needHuman: false,
