@@ -18,8 +18,8 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
     try {
       onLogin(await login(agentNo.trim(), password));
-    } catch {
-      setError('工号或密码错误');
+    } catch (err: any) {
+      setError(err?.status === 429 ? '尝试过于频繁，请稍后再试' : '工号或密码错误');
     } finally {
       setLoading(false);
     }

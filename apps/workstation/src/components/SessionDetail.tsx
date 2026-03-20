@@ -52,6 +52,8 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
             <div><dt>名称</dt><dd>{session.displayName}</dd></div>
             {session.profile?.contact && <div><dt>联系方式</dt><dd>{session.profile.contact}</dd></div>}
             {session.visitor?.code && <div><dt>访客标识</dt><dd className="mono">{session.visitor.code}</dd></div>}
+            {session.visitor?.ip && <div><dt>IP 地址</dt><dd className="mono">{session.visitor.ip}</dd></div>}
+            {session.visitor?.device && <div><dt>设备</dt><dd>{session.visitor.device}</dd></div>}
             <div><dt>会话状态</dt><dd><span className={`tag tag-${statusTag(session.status)}`}>{statusText(session.status)}</span></dd></div>
             <div><dt>优先级</dt><dd>{session.priority === 'high' ? '🔥 高' : '普通'}</dd></div>
             <div><dt>消息数</dt><dd>{session.messageCount}</dd></div>
@@ -65,7 +67,6 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
               <div><dt>最近意图</dt><dd>{wf.intent}</dd></div>
               <div><dt>情绪</dt><dd>{SENTIMENT_TEXT[wf.sentiment] || wf.sentiment}</dd></div>
               <div><dt>需要人工</dt><dd>{wf.needHuman ? '是' : '否'}</dd></div>
-              {wf.reason && <div><dt>判定原因</dt><dd>{wf.reason}</dd></div>}
               <div><dt>AI 回复</dt><dd>{wf.ai?.used ? `${wf.ai.provider} ${wf.ai.model}` : '本地规则'}</dd></div>
             </dl>
             {wf.sources?.length > 0 && (

@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { LIMITS } from '@assistflow/shared';
-import type { ChatResponse, Workflow } from '@assistflow/shared';
+import type { ChatResponse, VisitorInfo, Workflow } from '@assistflow/shared';
 import { AiService, type ReplyDeltaHandler } from '../ai/ai.service.js';
 import { KnowledgeService } from '../knowledge/knowledge.service.js';
 import { detectIntent, detectSentiment, shouldHandoff } from '../rules/rules.js';
 import {
+  inferVisitorFromSessionId,
   normalizeAttachments,
   normalizeProfile,
   normalizeVisitor,
+  parseDevice,
+  type ClientMeta,
 } from '../common/normalize.js';
 import { SessionsService } from '../sessions/sessions.service.js';
 import { SseService } from '../sse/sse.service.js';
@@ -24,11 +27,24 @@ export class ChatService {
     private readonly sse: SseService
   ) {}
 
-  async handleChat(body: any, onDelta?: ReplyDeltaHandler): Promise<ChatResponse | { error: string }> {
+  async handleChat(
+    body: any,
+    onDelta?: ReplyDeltaHandler,
+    clientMeta?: ClientMeta
+  ): Promise<ChatResponse | { error: string }> {
     const message = String(body?.message || '').trim();
     const sessionId = String(body?.sessionId || 'default');
     const profile = body?.profile ? normalizeProfile(body.profile) : null;
-    const visitor = normalizeVisitor(body?.visitor);
+    // 访客元信息：客户端只提供 code；IP/设备由服务端按请求采集，避免伪造
+    const baseVisitor = normalizeVisitor(body?.visitor) ?? inferVisitorFromSessionId(sessionId);
+    const visitor: VisitorInfo | null = baseVisitor
+      ? {
+          ...baseVisitor,
+          ip: clientMeta?.ip ?? baseVisitor.ip ?? null,
+          device: parseDevice(clientMeta?.userAgent) ?? baseVisitor.device ?? null,
+          location: baseVisitor.location ?? null,
+        }
+      : null;
     const attachments = normalizeAttachments(body?.attachments);
     const clientMessageId = String(body?.clientMessageId || '').slice(0, 64) || null;
     const storedHistory = this.sessions.getMessages(sessionId);

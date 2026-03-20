@@ -45,3 +45,40 @@ export function inferVisitorFromSessionId(sessionId: string): VisitorInfo | null
     createdAt: null,
   };
 }
+
+/** 请求侧元信息：真实客户端 IP 与 User-Agent（由服务端采集，客户端不可伪造）。 */
+export interface ClientMeta {
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+/** 从 User-Agent 粗略解析「系统 · 浏览器」标签，仅供客服侧识别，不追求精确，无外部依赖。 */
+export function parseDevice(userAgent?: string | null): string | null {
+  const ua = String(userAgent || '').trim();
+  if (!ua) return null;
+  const os = /iphone/i.test(ua)
+    ? 'iPhone'
+    : /ipad/i.test(ua)
+      ? 'iPad'
+      : /android/i.test(ua)
+        ? 'Android'
+        : /windows/i.test(ua)
+          ? 'Windows'
+          : /macintosh|mac os x/i.test(ua)
+            ? 'macOS'
+            : /linux/i.test(ua)
+              ? 'Linux'
+              : '未知系统';
+  const browser = /edg\//i.test(ua)
+    ? 'Edge'
+    : /opr\/|opera/i.test(ua)
+      ? 'Opera'
+      : /chrome\//i.test(ua)
+        ? 'Chrome'
+        : /firefox\//i.test(ua)
+          ? 'Firefox'
+          : /safari\//i.test(ua)
+            ? 'Safari'
+            : '未知浏览器';
+  return `${os} · ${browser}`;
+}

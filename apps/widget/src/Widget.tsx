@@ -49,6 +49,10 @@ const QUICK_MESSAGES = [
 // 流式中断后等待会话 SSE 推回最终结果的兜底时长：超时仍未收到则把消息标为失败可重试
 const STREAM_FALLBACK_MS = 12000;
 
+// 前端限流：10 秒滑动窗口内最多 5 条（与服务端一致），超限先本地拦截并倒计时
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 10000;
+
 /**
  * 流式对话：POST /api/chat/stream 返回 SSE。
  * 逐块解析 delta 事件交给 onDelta，结束返回 done 事件的完整响应。
@@ -70,7 +74,11 @@ async function streamChat(
     throw Object.assign(new Error(err?.message || 'request failed'), { phase: 'request' });
   }
   if (!response.ok || !response.body) {
-    throw Object.assign(new Error(`stream failed: ${response.status}`), { phase: 'request' });
+    throw Object.assign(new Error(`stream failed: ${response.status}`), {
+      phase: 'request',
+      status: response.status,
+      retryAfter: Number(response.headers.get('retry-after')) || 0,
+    });
   }
 
   const reader = response.body.getReader();
@@ -150,6 +158,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(0); // 限流倒计时（秒）：>0 时禁止发送
   const [connection, setConnection] = useState<'syncing' | 'synced'>('syncing');
   const [messages, setMessagesState] = useState<UiMessage[]>([]);
   const [pending, setPending] = useState<PendingImage[]>([]); // 待发送图片附件
@@ -163,6 +172,8 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   const [atBottom, setAtBottom] = useState(true);
   const [unread, setUnread] = useState(0); // 关闭状态下收到的新回复数（FAB 红点）
   const seenInboundRef = useRef(0); // 已读的 AI/客服消息数
+  const sendTimesRef = useRef<number[]>([]); // 最近发送时间戳：前端限流计数
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const listEl = useRef<HTMLDivElement | null>(null);
   const taEl = useRef<HTMLTextAreaElement | null>(null);
@@ -214,7 +225,11 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     async (url: string, options?: RequestInit) => {
       const response = await fetch(`${apiBase}${url}`, options);
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data) throw new Error(data?.error || `request failed: ${response.status}`);
+      if (!response.ok || !data)
+        throw Object.assign(new Error(data?.error || `request failed: ${response.status}`), {
+          status: response.status,
+          retryAfter: Number(response.headers.get('retry-after')) || 0,
+        });
       return data;
     },
     [apiBase]
@@ -250,9 +265,37 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     }
   }, [siteKey, activate]);
 
+  // 启动/刷新限流倒计时：每秒递减，到 0 自动清除
+  const startCooldown = useCallback((seconds: number) => {
+    setCooldown(seconds);
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    cooldownTimerRef.current = setInterval(() => {
+      setCooldown((s) => {
+        if (s <= 1) {
+          if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+          cooldownTimerRef.current = null;
+          sendTimesRef.current = []; // 倒计时结束：重置计数，可继续发送
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  }, []);
+
   const send = useCallback(async (textOverride?: string) => {
     const text = (textOverride ?? input).trim();
     if ((!text && pending.length === 0) || sending) return;
+    // 前端先拦截：发送过快（与服务端 chat 限速对齐）时，保留输入框内容、不发请求，只给倒计时；后端为最后一道防线
+    const nowTs = Date.now();
+    const recent = sendTimesRef.current.filter((t) => nowTs - t < RATE_LIMIT_WINDOW_MS);
+    if (recent.length >= RATE_LIMIT_MAX) {
+      sendTimesRef.current = recent;
+      if (!cooldownTimerRef.current) {
+        startCooldown(Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (nowTs - recent[0])) / 1000)));
+      }
+      return; // 不清空 input/pending，内容保留在输入框
+    }
+    sendTimesRef.current = [...recent, nowTs];
     const attachments = pending;
     setSending(true);
     try {
@@ -308,6 +351,18 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
           }, STREAM_FALLBACK_MS);
           return;
         }
+        // 服务端限流（429）：再回退一次性接口也会被限流，直接提示访客稍后再试
+        if (err?.status === 429) {
+          setMessagesState((m) =>
+            m
+              .filter((msg) => msg.id !== aiMsgId)
+              .map((msg) =>
+                msg.id === userMsgId ? { ...msg, status: 'failed' as const, retryText: text } : msg
+              )
+          );
+          startCooldown(err?.retryAfter > 0 ? err.retryAfter : 10);
+          return;
+        }
         // 请求阶段失败（流式接口不可用等）：回退一次性接口；服务端按 clientMessageId 幂等
         data = await requestJson('/api/chat', {
           method: 'POST',
@@ -316,7 +371,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
         });
       }
       setMessages(data.messages || [], true);
-    } catch {
+    } catch (err: any) {
       // 彻底失败：把乐观访客气泡标为「失败」并提供一键重试（移除未完成的 AI 空气泡）
       const inflight = inflightRef.current;
       setMessagesState((m) =>
@@ -328,12 +383,15 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               : msg
           )
       );
+      if (err?.status === 429) {
+        startCooldown(err?.retryAfter > 0 ? err.retryAfter : 10);
+      }
       scrollToBottom();
     } finally {
       inflightRef.current = null;
       setSending(false);
     }
-  }, [input, pending, sending, ensureSession, requestJson, setMessages, scrollToBottom]);
+  }, [input, pending, sending, ensureSession, requestJson, setMessages, scrollToBottom, startCooldown]);
 
   // 失败重试：移除失败气泡，按原文重发
   const retrySend = useCallback((msg: UiMessage) => {
@@ -382,6 +440,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     return () => {
       sessionEvents.current?.close();
       window.removeEventListener('resize', onResize);
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
     };
   }, [siteKey, activate]);
 
@@ -500,10 +559,11 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
+        if (cooldown > 0) return; // 倒计时中禁用 Enter 等快捷键发送
         send();
       }
     },
-    [send]
+    [send, cooldown]
   );
 
   const toggle = useCallback(() => {
@@ -652,12 +712,30 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               </div>
             )}
 
+            {cooldown > 0 && (
+              <div
+                role="status"
+                style={{
+                  margin: '0 12px 8px',
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  color: '#92400e',
+                  background: '#fef3c7',
+                  border: '1px solid #fde68a',
+                  borderRadius: 8,
+                }}
+              >
+                {`消息发送太频繁啦，请等 ${cooldown} 秒再试～`}
+              </div>
+            )}
             <div className="composer">
               <textarea
                 rows={2}
                 placeholder="输入消息，Enter 发送…"
                 ref={taEl}
                 value={input}
+                maxLength={2000}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKey}
                 onPaste={onPaste}
@@ -687,7 +765,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                 <button
                   className="send"
                   onClick={() => send()}
-                  disabled={sending || (!input.trim() && pending.length === 0)}
+                  disabled={sending || cooldown > 0 || (!input.trim() && pending.length === 0)}
                 >
                   {sending ? '发送中' : '发送'}
                 </button>

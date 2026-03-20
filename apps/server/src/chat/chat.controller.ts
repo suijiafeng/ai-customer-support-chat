@@ -5,17 +5,15 @@ import {
   InternalServerErrorException,
   Logger,
   Post,
+  Req,
   Res,
-  UseGuards,
 } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import type { ClientMeta } from '../common/normalize.js';
 import { ChatService } from './chat.service.js';
 
 const MAX_MESSAGE_LENGTH = 2000;
 
-@UseGuards(ThrottlerGuard)
-@Throttle({ chat: { ttl: 60000, limit: 20 } })
 @Controller('api/chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
@@ -23,11 +21,11 @@ export class ChatController {
   constructor(private readonly chat: ChatService) {}
 
   @Post()
-  async chatHandler(@Body() body: any) {
+  async chatHandler(@Body() body: any, @Req() req: Request) {
     this.assertHasContent(body);
 
     try {
-      return await this.chat.handleChat(body);
+      return await this.chat.handleChat(body, undefined, this.clientMeta(req));
     } catch (error: any) {
       this.logger.error(`[POST /api/chat] 处理失败: ${error?.stack || error}`);
       throw new InternalServerErrorException({
@@ -43,7 +41,7 @@ export class ChatController {
    * 与 POST /api/chat 同构）。规则回复/未启用 AI 时没有 delta，直接一个 done。
    */
   @Post('stream')
-  async chatStream(@Body() body: any, @Res() res: Response) {
+  async chatStream(@Body() body: any, @Res() res: Response, @Req() req: Request) {
     this.assertHasContent(body);
 
     res.writeHead(200, {
@@ -58,7 +56,11 @@ export class ChatController {
     };
 
     try {
-      const result = await this.chat.handleChat(body, (delta) => emit('delta', { text: delta }));
+      const result = await this.chat.handleChat(
+        body,
+        (delta) => emit('delta', { text: delta }),
+        this.clientMeta(req)
+      );
       emit('done', result);
     } catch (error: any) {
       this.logger.error(`[POST /api/chat/stream] 处理失败: ${error?.stack || error}`);
@@ -69,6 +71,11 @@ export class ChatController {
     } finally {
       res.end();
     }
+  }
+
+  /** 采集请求侧元信息：真实客户端 IP（依赖 trust proxy）与 User-Agent。 */
+  private clientMeta(req: Request): ClientMeta {
+    return { ip: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null };
   }
 
   private assertHasContent(body: any) {

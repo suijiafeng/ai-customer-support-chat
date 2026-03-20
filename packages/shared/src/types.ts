@@ -100,6 +100,12 @@ export interface Workflow {
 export interface VisitorInfo {
   code: string;
   createdAt: string | null;
+  /** 服务端按真实客户端 IP 采集（仅客服可见，公开接口会剥离） */
+  ip?: string | null;
+  /** 由 User-Agent 解析的「系统 · 浏览器」标签（仅客服可见） */
+  device?: string | null;
+  /** 预留：由 IP 推断的地理位置；未启用 GeoIP 时为 null（仅客服可见） */
+  location?: string | null;
 }
 
 export interface Profile {

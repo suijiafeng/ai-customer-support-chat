@@ -18,8 +18,6 @@ import { TicketsService } from './tickets/tickets.service.js';
 @Module({
   imports: [
     ThrottlerModule.forRoot([
-      // chat 限速：每分钟每 IP 最多 20 条消息
-      { name: 'chat', ttl: 60000, limit: 20 },
       // login 限速：每分钟每 IP 最多 5 次尝试，防暴力破解
       { name: 'login', ttl: 60000, limit: 5 },
     ]),

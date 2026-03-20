@@ -71,7 +71,9 @@ export class SessionsController {
     if (agent && !this.sessions.canView(session, agent)) {
       throw new ForbiddenException({ error: 'session is handled by another agent' });
     }
-    return { session, messages };
+    const payload = { session, messages };
+    // 公开访客请求（无客服身份）剥离 IP/设备/位置，避免凭 sessionId 读到他人元信息
+    return agent ? payload : this.redactVisitor(payload);
   }
 
   @Sse(':sessionId/events')
@@ -85,7 +87,14 @@ export class SessionsController {
     }
     return this.sse
       .sessionStream(sessionId, this.sessions.getSessionPayload(sessionId))
-      .pipe(map((event) => ({ type: event.type, data: event.data as object })));
+      .pipe(
+        map((event) => ({
+          type: event.type,
+          data: (agent
+            ? event.data
+            : this.redactVisitor(event.data as { session: Session | null })) as object,
+        }))
+      );
   }
 
   @UseGuards(AgentAuthGuard)
@@ -238,6 +247,14 @@ export class SessionsController {
     this.notify(sessionId);
 
     return { session: updatedSession };
+  }
+
+  /** 公开（无客服身份）响应剥离访客敏感元信息：仅保留 code/createdAt（白名单，更安全）。 */
+  private redactVisitor<T extends { session: Session | null }>(payload: T): T {
+    const session = payload.session;
+    if (!session?.visitor) return payload;
+    const { code, createdAt } = session.visitor;
+    return { ...payload, session: { ...session, visitor: { code, createdAt } } };
   }
 
   /** 从请求里解析客服身份（Bearer 头的 JWT 或 ?ticket= 的 SSE 短票据），无凭证返回 null。 */
