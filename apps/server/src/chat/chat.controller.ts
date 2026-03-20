@@ -75,7 +75,15 @@ export class ChatController {
 
   /** 采集请求侧元信息：真实客户端 IP（依赖 trust proxy）与 User-Agent。 */
   private clientMeta(req: Request): ClientMeta {
-    return { ip: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null };
+    const xffRaw = req.headers['x-forwarded-for'];
+    const xff = Array.isArray(xffRaw) ? xffRaw[0] : xffRaw;
+    const forwardedIp = String(xff || '')
+      .split(',')[0]
+      .trim();
+    const realIp = String(req.headers['x-real-ip'] || '').trim();
+    const ipRaw = forwardedIp || realIp || req.ip || '';
+    const ip = ipRaw.startsWith('::ffff:') ? ipRaw.slice(7) : ipRaw;
+    return { ip: ip || null, userAgent: req.headers['user-agent'] ?? null };
   }
 
   private assertHasContent(body: any) {
