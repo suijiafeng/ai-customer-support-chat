@@ -18,10 +18,13 @@
     "start:demo": "npm run build && concurrently --kill-others -n server,demo -c green,yellow \"node --experimental-sqlite --disable-warning=ExperimentalWarning apps/server/dist/main.js\" \"npm run preview --workspace assistflow-demo\"",
     "test": "npm test --workspace @assistflow/server",
     "smoke": "node scripts/smoke-test.js",
+    "kb:drafts": "node scripts/miss-to-faq.js",
+    "shots": "node scripts/project-shots.js",
     "predev:all": "npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation",
     "dev:all": "concurrently --kill-others-on-fail -n shared,server,widget,workstation,demo -c blue,green,magenta,cyan,yellow \"npm run dev --workspace @assistflow/shared\" \"npm run dev --workspace @assistflow/server\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\" \"npm run dev --workspace assistflow-demo\""
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "playwright": "^1.54.1"
   }
 }
