@@ -70,6 +70,16 @@ export interface Faq {
   answer: string;
   keywords: string[];
   intent?: string;
+  /** 面向对象（可选）：如 new_lead / existing_client / hiring */
+  audience?: string;
+  /** 访客旅程阶段（可选）：如 discovery / scoping / quoting / delivery / support */
+  stage?: string;
+  /** 需要人工确认的边界提示（可选） */
+  confidenceNote?: string;
+  /** 扩展标签（可选）：用于运营筛选与分组 */
+  tags?: string[];
+  /** 最近复审日期（可选，YYYY-MM-DD） */
+  lastReviewedAt?: string;
 }
 
 export interface FaqSource {
