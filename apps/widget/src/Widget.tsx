@@ -183,6 +183,8 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   const emojiRef = useRef<HTMLElement | null>(null);
   const sessionEvents = useRef<EventSource | null>(null);
   const sessionIdRef = useRef(''); // 访客标识：首次发送消息后才惰性生成，存于本地并带完整性校验
+  // 本次发送的乐观消息对（访客消息 id 即 clientMessageId + 流式 AI 气泡 id）
+  const inflightRef = useRef<{ userId: string; aiId: string } | null>(null);
   const pdown = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
   const atBottomRef = useRef(true);
 
@@ -198,7 +200,23 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       const merged = sessionIdRef.current
         ? messageArchive.merge(sessionIdRef.current, list)
         : list;
-      setMessagesState(normalizeMessages(merged));
+      setMessagesState((current) => {
+        const next = normalizeMessages(merged);
+        if (force) return next;
+        // 非权威更新（SSE 快照等）：保留服务端尚未确认的本地乐观消息，
+        // 避免发送中收到旧快照把「我的消息 + 流式 AI 气泡」整体冲掉
+        const confirmed = new Set<string>();
+        for (const m of Array.isArray(list) ? list : []) {
+          if (m?.id) confirmed.add(String(m.id));
+          if (m?.clientMessageId) confirmed.add(String(m.clientMessageId));
+        }
+        for (const m of next) confirmed.add(m.id);
+        // 服务端把「访客消息 + AI 回复」一起落库：访客消息一旦确认，配对的流式气泡同样让位
+        const inflight = inflightRef.current;
+        if (inflight && confirmed.has(inflight.userId)) confirmed.add(inflight.aiId);
+        const optimistic = current.filter((m) => !(m as any).actor && !confirmed.has(m.id));
+        return optimistic.length ? [...next, ...optimistic] : next;
+      });
       if (force || atBottomRef.current) scrollToBottom();
     },
     [scrollToBottom]
@@ -262,6 +280,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
         clientMessageId: userMsgId,
       };
       const aiMsgId = newId();
+      inflightRef.current = { userId: userMsgId, aiId: aiMsgId };
       const now = new Date().toISOString();
       setInput('');
       setPending([]);
@@ -306,6 +325,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       ]);
       scrollToBottom();
     } finally {
+      inflightRef.current = null;
       setSending(false);
     }
   }, [input, pending, sending, ensureSession, requestJson, setMessages, scrollToBottom]);
@@ -585,7 +605,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
               </div>
             )}
 
-            {(showQuick || messages.length === 0) && !sending && (
+            {showQuick && !sending && (
               <div className="quick-pop" role="menu" aria-label="快捷提问">
                 {QUICK_MESSAGES.map((text) => (
                   <button key={text} role="menuitem" onClick={() => send(text)}>
