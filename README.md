@@ -9,6 +9,22 @@
 ![SSE](https://img.shields.io/badge/realtime-SSE-2457c5)
 ![Local FAQ](https://img.shields.io/badge/default-local%20FAQ-f59e0b)
 
+## 快速开始（推荐）
+
+```bash
+npm install
+npm run start -- dev
+```
+
+启动后可直接访问：
+
+- Widget 演示页：`http://localhost:5175/`
+- 工作台：`http://localhost:5174/`
+- 健康检查：`http://localhost:3001/api/health`
+
+> 若你使用 `npm run start`（prod）并遇到端口占用，可改用 `npm run start -- dev`，
+> 或在截图命令里通过 `--base` 指向当前可访问地址（如 `http://localhost:3002`）。
+
 ## 核心场景
 
 负面情绪、投诉、知识库未命中和查询不到编号都不会自动转本人。系统会继续使用 FAQ 回答，或提示访客补充信息。
@@ -174,6 +190,34 @@ FAQ 位于 `apps/server/data/faqs.json`：
 
 修改数据后需要重启服务。
 
+### 知识库治理（建议）
+
+- FAQ 可选元字段（用于运营治理，不影响现有检索）：
+  - `audience`: 面向对象（如 `new_lead` / `existing_client`）
+  - `stage`: 访客阶段（如 `discovery` / `scoping` / `quoting` / `delivery` / `support`）
+  - `confidenceNote`: 需要人工确认的边界提示
+  - `tags`: 运营标签
+  - `lastReviewedAt`: 最近复审日期（`YYYY-MM-DD`）
+
+- 未命中转 FAQ 草稿（先人工复核再入库）：
+
+```bash
+# 从知识库统计导出（或手工整理）的 miss.json 生成 FAQ 草稿
+npm run kb:drafts -- --input miss.json --top 20 --out faq-drafts.json
+```
+
+`miss.json` 支持两种格式：
+
+```json
+[{"query":"你们支持驻场吗","count":8,"lastSeen":"2026-06-28T12:00:00.000Z"}]
+```
+
+或：
+
+```json
+{"topMissQueries":[{"query":"你们支持驻场吗","count":8,"lastSeen":"2026-06-28T12:00:00.000Z"}]}
+```
+
 ## 对话流程
 
 ```mermaid
@@ -219,8 +263,8 @@ npm test                       # 单元测试（rules/store/auth/config）
 node --experimental-sqlite --disable-warning=ExperimentalWarning apps/server/dist/main.js &
 npm run smoke                  # 接口回归用例（含鉴权、归属过滤；启动前会轮询就绪）
 node scripts/dialog-test.js    # 访客↔客服对话时序回归
-```
 
+```
 `SMOKE_BASE_URL` 可指向其他环境（默认 http://localhost:3001）。
 
 ## 当前限制
