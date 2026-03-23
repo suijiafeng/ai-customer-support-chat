@@ -353,6 +353,10 @@ button { font-family: inherit; }
 .note-compose textarea { width: 100%; border: 1px solid #d9dde6; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; resize: vertical; outline: none; }
 .note-compose textarea:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.1); }
 .claim-like-btn { align-self: flex-end; min-width: 92px; height: 34px; padding: 0 16px; border: 0; border-radius: 8px; background: #2457c5; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
+.key-form { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.key-form input { flex: 1; min-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 11px; font-size: 13px; outline: none; }
+.key-form input:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.14); }
+.key-form .claim-like-btn { align-self: auto; }
 .claim-like-btn:disabled { background: #a0cfff; cursor: not-allowed; }
 .ticket-modal-foot { margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; justify-content: flex-end; }
 

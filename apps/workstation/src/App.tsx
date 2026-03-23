@@ -7,6 +7,7 @@ import Login from './components/Login.js';
 import AgentMenu from './components/AgentMenu.js';
 import TicketsPanel from './components/TicketsPanel.js';
 import MetricsPanel from './components/MetricsPanel.js';
+import WidgetKeysPanel from './components/WidgetKeysPanel.js';
 import { FeedbackHost } from './ui/feedback.js';
 
 export default function App() {
@@ -25,7 +26,7 @@ export default function App() {
   );
 }
 
-type View = 'sessions' | 'tickets' | 'metrics';
+type View = 'sessions' | 'tickets' | 'metrics' | 'widget-keys';
 
 const VIEWS: Array<{ key: View; label: string }> = [
   { key: 'sessions', label: '会话接待' },
@@ -38,6 +39,8 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
   const [activeId, setActiveId] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false); // 移动端抽屉
   const [view, setView] = useState<View>('sessions');
+  // Widget 密钥管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
+  const views = agent.role === 'admin' ? [...VIEWS, { key: 'widget-keys' as const, label: 'Widget 密钥' }] : VIEWS;
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.sessionId === activeId) || null,
@@ -62,7 +65,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
           >☰</button>
           <span className="brand">AssistFlow 客服工作台</span>
           <nav className="view-tabs" aria-label="功能页签">
-            {VIEWS.map((v) => (
+            {views.map((v) => (
               <button
                 key={v.key}
                 aria-current={view === v.key}
@@ -94,6 +97,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
           <TicketsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
         )}
         {view === 'metrics' && <MetricsPanel />}
+        {view === 'widget-keys' && agent.role === 'admin' && <WidgetKeysPanel />}
       </div>
     </div>
   );

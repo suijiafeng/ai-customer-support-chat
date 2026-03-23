@@ -54,6 +54,12 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
             {session.visitor?.code && <div><dt>访客标识</dt><dd className="mono">{session.visitor.code}</dd></div>}
             {session.visitor?.ip && <div><dt>IP 地址</dt><dd className="mono">{session.visitor.ip}</dd></div>}
             {session.visitor?.device && <div><dt>设备</dt><dd>{session.visitor.device}</dd></div>}
+            {session.visitor?.pageUrl && (
+              <div>
+                <dt>发起页面</dt>
+                <dd><a href={session.visitor.pageUrl} target="_blank" rel="noopener noreferrer">{session.visitor.pageUrl}</a></dd>
+              </div>
+            )}
             <div><dt>会话状态</dt><dd><span className={`tag tag-${statusTag(session.status)}`}>{statusText(session.status)}</span></dd></div>
             <div><dt>优先级</dt><dd>{session.priority === 'high' ? '🔥 高' : '普通'}</dd></div>
             <div><dt>消息数</dt><dd>{session.messageCount}</dd></div>

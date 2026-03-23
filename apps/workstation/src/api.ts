@@ -1,8 +1,8 @@
 import type { Message } from '@assistflow/shared';
 import { fmtTime, linkParts } from '@assistflow/shared';
 
-// 后端基地址：与工作台同源，留空即可
-export const API = '';
+// 后端基地址：默认与工作台同源（留空）；独立部署时通过 VITE_API_BASE 指向 server 域名
+export const API = import.meta.env.VITE_API_BASE || '';
 
 export { fmtTime, linkParts };
 export type { LinkPart } from '@assistflow/shared';
