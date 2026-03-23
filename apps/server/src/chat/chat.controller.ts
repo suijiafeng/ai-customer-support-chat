@@ -7,19 +7,26 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { SkipThrottle, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { ClientMeta } from '../common/normalize.js';
 import { ChatService } from './chat.service.js';
 
 const MAX_MESSAGE_LENGTH = 2000;
 
+// ThrottlerGuard 会对全局注册的每个具名限流组逐一校验，而不仅是 @Throttle 里覆盖的那组，
+// 因此这里显式跳过 login 组，避免聊天接口被更严格的登录限流（5/分钟）误伤。
+@SkipThrottle({ login: true })
 @Controller('api/chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
   constructor(private readonly chat: ChatService) {}
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ chat: { ttl: 60000, limit: 20 } })
   @Post()
   async chatHandler(@Body() body: any, @Req() req: Request) {
     this.assertHasContent(body);
@@ -40,6 +47,8 @@ export class ChatController {
    * AI（DeepSeek）回复边生成边推 `delta` 事件；结束推 `done`（完整 ChatResponse，
    * 与 POST /api/chat 同构）。规则回复/未启用 AI 时没有 delta，直接一个 done。
    */
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ chat: { ttl: 60000, limit: 20 } })
   @Post('stream')
   async chatStream(@Body() body: any, @Res() res: Response, @Req() req: Request) {
     this.assertHasContent(body);

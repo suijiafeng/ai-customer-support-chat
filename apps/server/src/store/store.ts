@@ -14,6 +14,7 @@ import { createRequire } from 'node:module';
 import pg from 'pg';
 import type { DailyMetricPoint, Message, Session, Ticket } from '@assistflow/shared';
 import { appConfig } from '../config.js';
+import { notifyWriteFailure } from './alert.js';
 
 const { Pool } = pg;
 
@@ -125,6 +126,7 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
         stats.writeErrors += 1;
         stats.lastError = `${label}: ${error?.message || error}`;
         console.error(`[store] ${label} 持久化失败：${error?.message || error}`);
+        notifyWriteFailure(label, error);
       });
   }
 
@@ -308,6 +310,7 @@ function createSqliteStore(dbPath: string): Store {
       stats.writeErrors += 1;
       stats.lastError = `${label}: ${error?.message || error}`;
       console.error(`[store] ${label} 持久化失败：${error?.message || error}`);
+      notifyWriteFailure(label, error);
     }
     return Promise.resolve();
   }

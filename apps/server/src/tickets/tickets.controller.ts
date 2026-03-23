@@ -3,7 +3,6 @@ import {
   Body,
   ConflictException,
   Controller,
-  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -12,12 +11,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Ticket } from '@assistflow/shared';
 import { AgentAuthGuard } from '../auth/auth.guard.js';
 import type { AuthenticatedAgent } from '../auth/auth.service.js';
 import { MetricsService } from '../metrics/metrics.service.js';
-import { SessionsService } from '../sessions/sessions.service.js';
-import { SseService } from '../sse/sse.service.js';
+import { SessionTicketService } from '../workflow/session-ticket.service.js';
 import { TicketsService } from './tickets.service.js';
 
 @UseGuards(AgentAuthGuard)
@@ -25,37 +22,14 @@ import { TicketsService } from './tickets.service.js';
 export class TicketsController {
   constructor(
     private readonly tickets: TicketsService,
-    private readonly sessions: SessionsService,
-    private readonly metrics: MetricsService,
-    private readonly sse: SseService
+    private readonly workflow: SessionTicketService,
+    private readonly metrics: MetricsService
   ) {}
-
-  /** 工单归属取自其会话的接待客服；响应时附带 ownerAgentId/Name。 */
-  private withOwner(ticket: Ticket): Ticket {
-    const session = this.sessions.get(ticket.sessionId);
-    return {
-      ...ticket,
-      ownerAgentId: session?.assignedAgentId ?? null,
-      ownerAgentName: session?.assignedAgentName ?? null,
-    };
-  }
-
-  /**
-   * 鉴权：管理员可操作任意工单；普通客服可操作「归属自己的」或「未认领（池中）」的工单。
-   * 未认领工单对应接待大厅里的会话，谁都可跟进，与会话池一致。
-   */
-  private assertCanOperate(ticket: Ticket, agent: AuthenticatedAgent) {
-    if (agent.role === 'admin') return;
-    const ownerId = this.sessions.get(ticket.sessionId)?.assignedAgentId ?? null;
-    if (ownerId !== null && ownerId !== agent.id) {
-      throw new ForbiddenException({ error: 'ticket belongs to another agent' });
-    }
-  }
 
   @Get()
   listTickets(@Req() req: any) {
     const agent = req.agent as AuthenticatedAgent;
-    const all = this.tickets.list().map((t) => this.withOwner(t));
+    const all = this.tickets.list().map((t) => this.workflow.withOwner(t));
     // 普通客服可见：自己的 + 未认领（池中）；管理员可见全部
     const scoped =
       agent.role === 'admin'
@@ -71,13 +45,13 @@ export class TicketsController {
     if (!ticket) {
       throw new NotFoundException({ error: 'ticket not found' });
     }
-    this.assertCanOperate(ticket, agent);
+    this.workflow.assertCanOperate(ticket, agent);
     const text = String(body?.text || '').trim();
     if (!text) {
       throw new BadRequestException({ error: 'note text required' });
     }
     const updated = this.tickets.addNote(ticket, { agentId: agent.id, agentName: agent.name, text });
-    return { ticket: this.withOwner(updated) };
+    return { ticket: this.workflow.withOwner(updated) };
   }
 
   @Patch(':ticketId')
@@ -87,7 +61,7 @@ export class TicketsController {
     if (!ticket) {
       throw new NotFoundException({ error: 'ticket not found' });
     }
-    this.assertCanOperate(ticket, req.agent as AuthenticatedAgent);
+    this.workflow.assertCanOperate(ticket, req.agent as AuthenticatedAgent);
 
     const nextStatus = body?.status ? String(body.status) : ticket.status;
     const nextPriority = body?.priority ? String(body.priority) : ticket.priority;
@@ -111,18 +85,11 @@ export class TicketsController {
       priority: nextPriority,
       resolution: body?.resolution,
     });
-    const session = this.sessions.syncFromTicket(updatedTicket);
-
-    this.sse.notifyQueue(this.sessions.getSessionsPayload());
-    if (updatedTicket.sessionId) {
-      this.sse.notifySession(
-        updatedTicket.sessionId,
-        this.sessions.getSessionPayload(updatedTicket.sessionId)
-      );
-    }
+    const session = this.workflow.syncTicketToSession(updatedTicket);
+    this.workflow.notify(updatedTicket.sessionId);
 
     return {
-      ticket: this.withOwner(updatedTicket),
+      ticket: this.workflow.withOwner(updatedTicket),
       session,
       metrics: this.metrics.buildMetrics(),
     };

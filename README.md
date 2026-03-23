@@ -156,6 +156,7 @@ docker run -d --name assistflow -p 3001:3001 \
 | `SQLITE_PATH` | `DATA_DIR/assistflow.db` | SQLite 库文件路径（Docker 镜像内为 `/data/assistflow.db`） |
 | `DATA_DIR` | `apps/server/data` | faqs/inquiries/agents 数据目录 |
 | `NODE_ENV` | — | `production` 时收紧错误信息并强制 AUTH_SECRET |
+| `ALERT_WEBHOOK_URL` | — | 持久化写入失败时的告警 webhook（接受 JSON POST `{ text }`，如 Slack Incoming Webhook）；留空不告警，同一 5 分钟窗口内最多触发一次 |
 
 > 配置文件：`.env` 为可提交的安全兜底，私有配置与密钥写入 `.env.local`（已 gitignore）。加载优先级：真实环境变量 > `.env.local` > `.env`。SQLite 默认启用，需 Node 以 `--experimental-sqlite` 启动（`npm run start` 与 Docker 镜像已自动带上）。
 

@@ -13,8 +13,8 @@ import {
   type ClientMeta,
 } from '../common/normalize.js';
 import { SessionsService } from '../sessions/sessions.service.js';
-import { SseService } from '../sse/sse.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
+import { SessionTicketService } from '../workflow/session-ticket.service.js';
 
 /** 访客对话编排：自原 POST /api/chat 处理器平移。 */
 @Injectable()
@@ -24,7 +24,7 @@ export class ChatService {
     private readonly knowledge: KnowledgeService,
     private readonly sessions: SessionsService,
     private readonly tickets: TicketsService,
-    private readonly sse: SseService
+    private readonly sessionTicket: SessionTicketService
   ) {}
 
   async handleChat(
@@ -111,7 +111,7 @@ export class ChatService {
 
       this.sessions.setConversation(sessionId, nextHistory);
       this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor, forceStatus: 'assigned' });
-      this.notify(sessionId);
+      this.sessionTicket.notify(sessionId);
 
       return {
         sessionId,
@@ -150,7 +150,7 @@ export class ChatService {
 
       this.sessions.setConversation(sessionId, nextHistory);
       this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor });
-      this.notify(sessionId);
+      this.sessionTicket.notify(sessionId);
 
       return {
         sessionId,
@@ -203,7 +203,7 @@ export class ChatService {
 
     this.sessions.setConversation(sessionId, nextHistory);
     this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor });
-    this.notify(sessionId);
+    this.sessionTicket.notify(sessionId);
 
     return {
       sessionId,
@@ -212,10 +212,5 @@ export class ChatService {
       messages: nextHistory,
       ...workflow,
     };
-  }
-
-  private notify(sessionId: string) {
-    this.sse.notifySession(sessionId, this.sessions.getSessionPayload(sessionId));
-    this.sse.notifyQueue(this.sessions.getSessionsPayload());
   }
 }

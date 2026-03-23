@@ -14,12 +14,15 @@ import { SseService } from './sse/sse.service.js';
 import { StoreService } from './store/store.service.js';
 import { TicketsController } from './tickets/tickets.controller.js';
 import { TicketsService } from './tickets/tickets.service.js';
+import { SessionTicketService } from './workflow/session-ticket.service.js';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([
       // login 限速：每分钟每 IP 最多 5 次尝试，防暴力破解
       { name: 'login', ttl: 60000, limit: 5 },
+      // chat 限速：每分钟每 IP 最多 20 次，/api/chat 会触发真实 LLM 调用（计费），防止被刷爆账单
+      { name: 'chat', ttl: 60000, limit: 20 },
     ]),
   ],
   controllers: [AuthController, ChatController, SessionsController, TicketsController, MetaController],
@@ -32,6 +35,7 @@ import { TicketsService } from './tickets/tickets.service.js';
     SessionsService,
     TicketsService,
     MetricsService,
+    SessionTicketService,
     ChatService,
   ],
 })

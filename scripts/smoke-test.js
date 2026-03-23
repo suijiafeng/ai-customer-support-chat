@@ -7,6 +7,7 @@ let agentToken2 = null;  // 客服 9528
 const inquirySessionId = `${runId}-inquiry`;
 const faqMissSessionId = `${runId}-faq-miss`;
 const ticketSessionId = `${runId}-ticket`;
+const patchTicketSessionId = `${runId}-patch-ticket`;
 let ticketId = null;
 
 const cases = [
@@ -196,6 +197,34 @@ const cases = [
       && data.session?.priority === 'normal'
       && data.session?.ticketId === ticketId,
   },
+  {
+    name: 'PATCH ticket transitions cascade to session (processing)',
+    run: async () => {
+      const handoff = await post('/api/chat', {
+        sessionId: patchTicketSessionId,
+        message: '我要转人工',
+        visitor: { code: `${runId}-patch` },
+      });
+      return patch(`/api/tickets/${handoff.ticket.id}`, { status: 'processing' });
+    },
+    assert: (data) => data.ticket?.status === 'processing'
+      && data.ticket?.ownerAgentId === null
+      && data.session?.status === 'assigned'
+      && Boolean(data.metrics),
+  },
+  {
+    name: 'PATCH ticket transitions cascade to session (resolved)',
+    run: async () => {
+      const current = await get(`/api/sessions/${patchTicketSessionId}`);
+      return patch(`/api/tickets/${current.session.ticketId}`, {
+        status: 'resolved',
+        resolution: '冒烟测试 PATCH',
+      });
+    },
+    assert: (data) => data.ticket?.status === 'resolved'
+      && data.session?.status === 'closed'
+      && Boolean(data.metrics),
+  },
 ];
 
 // 等待服务就绪后再跑用例（避免 `npm start &` 仍在构建/启动时冒烟连接失败）
@@ -243,6 +272,16 @@ async function get(path, options) {
 async function post(path, body, options) {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(options) },
+    body: JSON.stringify(body),
+  });
+
+  return response.json();
+}
+
+async function patch(path, body, options) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders(options) },
     body: JSON.stringify(body),
   });

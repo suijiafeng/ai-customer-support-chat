@@ -25,7 +25,17 @@ function isValidFormat(id: unknown): id is string {
   return typeof id === 'string' && ID_PATTERN.test(id);
 }
 
+// 优先用密码学安全随机源生成 ID（该 ID 是访客会话的唯一凭证，Math.random 熵不足且可被预测）。
 function generateId(): string {
+  const cryptoObj = typeof crypto !== 'undefined' ? crypto : undefined;
+  if (cryptoObj?.randomUUID) {
+    return ID_PREFIX + cryptoObj.randomUUID().replace(/-/g, '');
+  }
+  if (cryptoObj?.getRandomValues) {
+    const bytes = cryptoObj.getRandomValues(new Uint8Array(16));
+    return ID_PREFIX + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  // 极老浏览器兜底：无 Web Crypto 时退化为原方案，保证功能不中断
   return ID_PREFIX + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 

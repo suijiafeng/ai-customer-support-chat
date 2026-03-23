@@ -20,14 +20,14 @@ import { AuthService, type AuthenticatedAgent } from '../auth/auth.service.js';
 import { MetricsService } from '../metrics/metrics.service.js';
 import { normalizeAttachments, normalizeProfile } from '../common/normalize.js';
 import { SseService } from '../sse/sse.service.js';
-import { TicketsService } from '../tickets/tickets.service.js';
+import { SessionTicketService } from '../workflow/session-ticket.service.js';
 import { SessionsService } from './sessions.service.js';
 
 @Controller('api/sessions')
 export class SessionsController {
   constructor(
     private readonly sessions: SessionsService,
-    private readonly tickets: TicketsService,
+    private readonly workflow: SessionTicketService,
     private readonly metrics: MetricsService,
     private readonly sse: SseService,
     private readonly auth: AuthService
@@ -115,14 +115,12 @@ export class SessionsController {
     if (session.status === 'closed') {
       return {
         session,
-        tickets: this.tickets.all.filter(
-          (ticket) => ticket.sessionId === sessionId && ticket.status === 'resolved'
-        ),
+        tickets: this.workflow.resolvedTicketsForSession(sessionId),
         metrics: this.metrics.buildMetrics(),
       };
     }
 
-    const resolvedTickets = this.tickets.resolveForSession(sessionId, resolution);
+    const resolvedTickets = this.workflow.resolveSessionTickets(sessionId, resolution);
     const updatedSession: Session = {
       ...session,
       status: 'closed',
@@ -141,7 +139,7 @@ export class SessionsController {
     };
 
     this.sessions.setSession(updatedSession);
-    this.notify(sessionId);
+    this.workflow.notify(sessionId);
 
     return {
       session: updatedSession,
@@ -191,7 +189,7 @@ export class SessionsController {
         attachments,
       })
     );
-    const linkedTicket = this.tickets.moveOpenToProcessing(sessionId);
+    const linkedTicket = this.workflow.advanceTicketOnFirstReply(sessionId);
     const updatedSession: Session = {
       ...session,
       status: 'assigned',
@@ -210,7 +208,7 @@ export class SessionsController {
 
     this.sessions.setConversation(sessionId, nextMessages);
     this.sessions.setSession(updatedSession);
-    this.notify(sessionId);
+    this.workflow.notify(sessionId);
 
     return {
       session: updatedSession,
@@ -244,7 +242,7 @@ export class SessionsController {
     };
 
     this.sessions.setSession(updatedSession);
-    this.notify(sessionId);
+    this.workflow.notify(sessionId);
 
     return { session: updatedSession };
   }
@@ -264,10 +262,5 @@ export class SessionsController {
     if (bearer) return this.auth.verify(bearer);
     const ticket = String((req.query as any)?.ticket || '');
     return ticket ? this.auth.verifySseTicket(ticket) : null;
-  }
-
-  private notify(sessionId: string) {
-    this.sse.notifySession(sessionId, this.sessions.getSessionPayload(sessionId));
-    this.sse.notifyQueue(this.sessions.getSessionsPayload());
   }
 }

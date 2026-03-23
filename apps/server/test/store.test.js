@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { newDb } from 'pg-mem';
 import { createStore } from '../dist/store/store.js';
+import { resetAlertCooldownForTest } from '../dist/store/alert.js';
 
 // 用 pg-mem 模拟 Postgres，无需真实数据库即可验证存储层。
 function freshStore() {
@@ -86,6 +88,42 @@ test('stats 默认无写错误', async () => {
   await store.init();
   assert.equal(store.stats().writeErrors, 0);
   assert.equal(store.stats().lastError, null);
+});
+
+test('写入失败触发 webhook 告警，冷却期内不重复触发', async () => {
+  const db = newDb();
+  const { Pool } = db.adapters.createPg();
+  const pool = new Pool();
+  const store = createStore({ pool });
+  await store.init();
+  await pool.query('DROP TABLE sessions'); // 制造后续写入必然失败
+
+  const received = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      received.push(JSON.parse(body));
+      res.end('ok');
+    });
+  });
+  await new Promise((resolve) => server.listen(0, resolve));
+  const { port } = server.address();
+
+  resetAlertCooldownForTest();
+  process.env.ALERT_WEBHOOK_URL = `http://127.0.0.1:${port}`;
+  try {
+    await store.saveSession({ sessionId: 's1' }); // 第一次失败 → 应触发一次告警
+    await store.saveSession({ sessionId: 's2' }); // 冷却期内的第二次失败 → 不应重复触发
+    await new Promise((resolve) => setTimeout(resolve, 100)); // 等待 fire-and-forget 的 fetch 落地
+
+    assert.equal(received.length, 1);
+    assert.match(received[0].text, /持久化写入失败/);
+    assert.equal(store.stats().writeErrors, 2); // 计数器本身不受冷却影响，仍如实累计
+  } finally {
+    delete process.env.ALERT_WEBHOOK_URL;
+    server.close();
+  }
 });
 
 test('delete 方法移除对应记录', async () => {

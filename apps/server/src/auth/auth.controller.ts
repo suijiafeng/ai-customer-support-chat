@@ -1,8 +1,10 @@
 import { Body, Controller, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { SkipThrottle, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AgentAuthGuard } from './auth.guard.js';
 import { AuthService, type AuthenticatedAgent } from './auth.service.js';
 
+// 跳过 chat 限流组：ThrottlerGuard 会对所有全局注册的具名组逐一校验，登录/票据接口只应受 login 组约束。
+@SkipThrottle({ chat: true })
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
