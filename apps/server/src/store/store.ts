@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import pg from 'pg';
-import type { DailyMetricPoint, Message, Session, Ticket } from '@assistflow/shared';
+import type { DailyMetricPoint, Message, Session, Ticket, WidgetKey } from '@assistflow/shared';
 import { appConfig } from '../config.js';
 import { notifyWriteFailure } from './alert.js';
 
@@ -22,6 +22,7 @@ export interface PersistedData {
   sessions: Array<[string, Session]>;
   conversations: Array<[string, Message[]]>;
   tickets: Ticket[];
+  widgetKeys: WidgetKey[];
 }
 
 export interface StoreStats {
@@ -41,6 +42,8 @@ export interface Store {
   deleteConversation(sessionId: string): Promise<void>;
   saveTicket(ticket: Ticket): Promise<void>;
   deleteTicket(ticketId: string): Promise<void>;
+  saveWidgetKey(key: WidgetKey): Promise<void>;
+  deleteWidgetKey(key: string): Promise<void>;
   /** 单条回读（内存淘汰后仍可从库取回，DB 为读的权威源） */
   getSession(sessionId: string): Promise<Session | null>;
   getConversation(sessionId: string): Promise<Message[] | null>;
@@ -103,6 +106,7 @@ function resolveDriver(opt: CreateStoreOptions): StoreDriver {
   if (opt.pool) return 'postgres';
   if (opt.connectionString === null) return 'memory';
   if (opt.connectionString && String(opt.connectionString).trim()) return 'postgres';
+  if (String(process.env.DATABASE_URL || '').trim()) return 'postgres';
   return 'sqlite';
 }
 
@@ -159,14 +163,21 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
           data JSONB NOT NULL,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS widget_keys (
+          key TEXT PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`);
     },
 
-    // 启动时一次性载入内存。tickets 按 updated_at 升序，保持与内存数组的插入顺序近似。
+    // 启动时一次性载入内存。tickets/widget_keys 按 updated_at 升序，保持与内存数组的插入顺序近似。
     async loadAll() {
-      const [sessionsRes, conversationsRes, ticketsRes] = await Promise.all([
+      const [sessionsRes, conversationsRes, ticketsRes, widgetKeysRes] = await Promise.all([
         pool.query('SELECT session_id, data FROM sessions'),
         pool.query('SELECT session_id, messages FROM conversations'),
         pool.query('SELECT data FROM tickets ORDER BY updated_at ASC'),
+        pool.query('SELECT data FROM widget_keys ORDER BY updated_at ASC'),
       ]);
 
       return {
@@ -175,6 +186,7 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
           (row) => [row.session_id, row.messages] as [string, Message[]]
         ),
         tickets: ticketsRes.rows.map((row) => row.data as Ticket),
+        widgetKeys: widgetKeysRes.rows.map((row) => row.data as WidgetKey),
       };
     },
 
@@ -241,6 +253,28 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
       return fireAndForget(
         pool.query('DELETE FROM tickets WHERE id = $1', [ticketId]),
         `delete ticket ${ticketId}`
+      );
+    },
+
+    saveWidgetKey(key) {
+      if (!key?.key) return Promise.resolve();
+      return fireAndForget(
+        pool.query(
+          `INSERT INTO widget_keys (key, data, updated_at)
+           VALUES ($1, $2, now())
+           ON CONFLICT (key)
+           DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+          [key.key, JSON.stringify(key)]
+        ),
+        `widget key ${key.key}`
+      );
+    },
+
+    deleteWidgetKey(key) {
+      if (!key) return Promise.resolve();
+      return fireAndForget(
+        pool.query('DELETE FROM widget_keys WHERE key = $1', [key]),
+        `delete widget key ${key}`
       );
     },
 
@@ -332,6 +366,9 @@ function createSqliteStore(dbPath: string): Store {
       db.exec(
         `CREATE TABLE IF NOT EXISTS metrics_daily (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)`
       );
+      db.exec(
+        `CREATE TABLE IF NOT EXISTS widget_keys (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)`
+      );
     },
 
     async loadAll() {
@@ -347,7 +384,11 @@ function createSqliteStore(dbPath: string): Store {
         .prepare('SELECT data FROM tickets ORDER BY updated_at ASC')
         .all()
         .map((row: any) => JSON.parse(row.data) as Ticket);
-      return { sessions, conversations, tickets };
+      const widgetKeys = db
+        .prepare('SELECT data FROM widget_keys ORDER BY updated_at ASC')
+        .all()
+        .map((row: any) => JSON.parse(row.data) as WidgetKey);
+      return { sessions, conversations, tickets, widgetKeys };
     },
 
     saveSession(session) {
@@ -407,6 +448,25 @@ function createSqliteStore(dbPath: string): Store {
       );
     },
 
+    saveWidgetKey(key) {
+      if (!key?.key) return Promise.resolve();
+      return safe(`widget key ${key.key}`, () =>
+        db
+          .prepare(
+            `INSERT INTO widget_keys (key, data, updated_at) VALUES (?, ?, ?)
+             ON CONFLICT(key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
+          )
+          .run(key.key, JSON.stringify(key), Date.now())
+      );
+    },
+
+    deleteWidgetKey(key) {
+      if (!key) return Promise.resolve();
+      return safe(`delete widget key ${key}`, () =>
+        db.prepare('DELETE FROM widget_keys WHERE key = ?').run(key)
+      );
+    },
+
     async getSession(sessionId) {
       const row: any = db.prepare('SELECT data FROM sessions WHERE session_id = ?').get(sessionId);
       return row ? (JSON.parse(row.data) as Session) : null;
@@ -450,13 +510,15 @@ function createNoopStore(): Store {
     enabled: false,
     stats: () => ({ writeErrors: 0, lastError: null }),
     init: noop,
-    loadAll: async () => ({ sessions: [], conversations: [], tickets: [] }),
+    loadAll: async () => ({ sessions: [], conversations: [], tickets: [], widgetKeys: [] }),
     saveSession: noop,
     deleteSession: noop,
     saveConversation: noop,
     deleteConversation: noop,
     saveTicket: noop,
     deleteTicket: noop,
+    saveWidgetKey: noop,
+    deleteWidgetKey: noop,
     getSession: async () => null,
     getConversation: async () => null,
     getTicket: async () => null,

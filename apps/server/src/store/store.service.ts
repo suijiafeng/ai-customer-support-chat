@@ -11,7 +11,7 @@ import { createStore } from './store.js';
 export class StoreService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StoreService.name);
   private store: Store = createStore();
-  private persisted: PersistedData = { sessions: [], conversations: [], tickets: [] };
+  private persisted: PersistedData = { sessions: [], conversations: [], tickets: [], widgetKeys: [] };
 
   get enabled(): boolean {
     return this.store.enabled;
@@ -35,7 +35,7 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
     } catch (error: any) {
       this.logger.error(`初始化失败，降级为纯内存模式：${error?.message || error}`);
       this.store = createStore({ connectionString: null });
-      this.persisted = { sessions: [], conversations: [], tickets: [] };
+      this.persisted = { sessions: [], conversations: [], tickets: [], widgetKeys: [] };
     }
   }
 
@@ -50,6 +50,8 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
   deleteConversation = (id: string) => this.store.deleteConversation(id);
   saveTicket = (ticket: Parameters<Store['saveTicket']>[0]) => this.store.saveTicket(ticket);
   deleteTicket = (id: string) => this.store.deleteTicket(id);
+  saveWidgetKey = (key: Parameters<Store['saveWidgetKey']>[0]) => this.store.saveWidgetKey(key);
+  deleteWidgetKey = (key: string) => this.store.deleteWidgetKey(key);
 
   // 单条回读（内存淘汰后仍可从库取回）
   loadSession = (id: string) => this.store.getSession(id);

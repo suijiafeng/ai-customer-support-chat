@@ -16,7 +16,7 @@ test('未配置 DATABASE_URL 时回退为 no-op 存储', async () => {
   const store = createStore({ connectionString: null });
   assert.equal(store.enabled, false);
   const data = await store.loadAll();
-  assert.deepEqual(data, { sessions: [], conversations: [], tickets: [] });
+  assert.deepEqual(data, { sessions: [], conversations: [], tickets: [], widgetKeys: [] });
   // no-op 方法不应抛错
   await store.saveSession({ sessionId: 's1' });
   await store.saveTicket({ id: 't1' });

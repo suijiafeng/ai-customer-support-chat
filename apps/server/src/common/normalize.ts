@@ -32,6 +32,7 @@ export function normalizeVisitor(value: any = {}): VisitorInfo | null {
   return {
     code,
     createdAt: value?.createdAt || null,
+    pageUrl: String(value?.pageUrl || '').trim().slice(0, 500) || null,
   };
 }
 

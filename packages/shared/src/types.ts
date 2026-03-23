@@ -116,6 +116,17 @@ export interface VisitorInfo {
   device?: string | null;
   /** 预留：由 IP 推断的地理位置；未启用 GeoIP 时为 null（仅客服可见） */
   location?: string | null;
+  /** 访客发起对话时所在页面 URL（仅客服可见，公开接口会剥离） */
+  pageUrl?: string | null;
+}
+
+/** widget 接入密钥：每个站点/客户一个，workstation 里由 admin 管理，用于校验 /api/chat 请求来源 */
+export interface WidgetKey {
+  key: string;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Profile {

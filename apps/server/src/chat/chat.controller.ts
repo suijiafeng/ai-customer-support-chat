@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   InternalServerErrorException,
   Logger,
   Post,
@@ -12,6 +13,7 @@ import {
 import { SkipThrottle, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { ClientMeta } from '../common/normalize.js';
+import { WidgetKeysService } from '../widget-keys/widget-keys.service.js';
 import { ChatService } from './chat.service.js';
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -23,13 +25,17 @@ const MAX_MESSAGE_LENGTH = 2000;
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly chat: ChatService) {}
+  constructor(
+    private readonly chat: ChatService,
+    private readonly widgetKeys: WidgetKeysService
+  ) {}
 
   @UseGuards(ThrottlerGuard)
   @Throttle({ chat: { ttl: 60000, limit: 20 } })
   @Post()
   async chatHandler(@Body() body: any, @Req() req: Request) {
     this.assertHasContent(body);
+    this.assertValidSiteKey(body);
 
     try {
       return await this.chat.handleChat(body, undefined, this.clientMeta(req));
@@ -52,6 +58,7 @@ export class ChatController {
   @Post('stream')
   async chatStream(@Body() body: any, @Res() res: Response, @Req() req: Request) {
     this.assertHasContent(body);
+    this.assertValidSiteKey(body);
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -105,6 +112,13 @@ export class ChatController {
     }
     if (message.length > MAX_MESSAGE_LENGTH) {
       throw new BadRequestException({ error: `message too long (max ${MAX_MESSAGE_LENGTH} characters)` });
+    }
+  }
+
+  /** 校验 widget 接入密钥：不存在/未启用一律拒绝，避免未注册站点接入客服。 */
+  private assertValidSiteKey(body: any) {
+    if (!this.widgetKeys.isValid(body?.siteKey)) {
+      throw new ForbiddenException({ error: 'invalid_site_key' });
     }
   }
 }

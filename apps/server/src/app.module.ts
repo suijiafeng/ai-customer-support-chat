@@ -15,6 +15,8 @@ import { StoreService } from './store/store.service.js';
 import { TicketsController } from './tickets/tickets.controller.js';
 import { TicketsService } from './tickets/tickets.service.js';
 import { SessionTicketService } from './workflow/session-ticket.service.js';
+import { WidgetKeysController } from './widget-keys/widget-keys.controller.js';
+import { WidgetKeysService } from './widget-keys/widget-keys.service.js';
 
 @Module({
   imports: [
@@ -25,7 +27,14 @@ import { SessionTicketService } from './workflow/session-ticket.service.js';
       { name: 'chat', ttl: 60000, limit: 20 },
     ]),
   ],
-  controllers: [AuthController, ChatController, SessionsController, TicketsController, MetaController],
+  controllers: [
+    AuthController,
+    ChatController,
+    SessionsController,
+    TicketsController,
+    MetaController,
+    WidgetKeysController,
+  ],
   providers: [
     AuthService,
     StoreService,
@@ -36,6 +45,7 @@ import { SessionTicketService } from './workflow/session-ticket.service.js';
     TicketsService,
     MetricsService,
     SessionTicketService,
+    WidgetKeysService,
     ChatService,
   ],
 })
