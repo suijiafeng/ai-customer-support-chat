@@ -74,6 +74,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     messages,
     sending,
     atBottom,
+    keyInvalid,
     listEl,
     scrollToBottom,
     resetAtBottom,
@@ -320,6 +321,24 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                 {`消息发送太频繁啦，请等 ${cooldown} 秒再试～`}
               </div>
             )}
+            {keyInvalid ? (
+              <div className="composer" role="status">
+                <div
+                  style={{
+                    margin: '4px 0',
+                    padding: '10px 12px',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    color: '#991b1b',
+                    background: '#fee2e2',
+                    border: '1px solid #fecaca',
+                    borderRadius: 8,
+                  }}
+                >
+                  客服暂不可用，请联系网站管理员
+                </div>
+              </div>
+            ) : (
             <div className="composer">
               <textarea
                 rows={2}
@@ -362,6 +381,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
                 </button>
               </div>
             </div>
+            )}
           </div>
         </>
       )}

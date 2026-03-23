@@ -44,6 +44,7 @@ export function useChatSession({
   const [messages, setMessagesState] = useState<UiMessage[]>([]);
   const [sending, setSending] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
+  const [keyInvalid, setKeyInvalid] = useState(false); // widget 接入密钥无效/停用：重试无意义，需和普通失败区分
 
   const listEl = useRef<HTMLDivElement | null>(null);
   const sessionEvents = useRef<EventSource | null>(null);
@@ -99,6 +100,7 @@ export function useChatSession({
         throw Object.assign(new Error(data?.error || `request failed: ${response.status}`), {
           status: response.status,
           retryAfter: Number(response.headers.get('retry-after')) || 0,
+          code: data?.error,
         });
       return data;
     },
@@ -152,7 +154,8 @@ export function useChatSession({
           sessionId: sessionIdRef.current,
           message: text,
           attachments,
-          visitor: { code: sessionIdRef.current },
+          siteKey,
+          visitor: { code: sessionIdRef.current, pageUrl: window.location.href },
           // 幂等键：服务端据此对重试去重，避免「AI 失败 + 重发」产生重复气泡
           clientMessageId: userMsgId,
         };
@@ -179,6 +182,12 @@ export function useChatSession({
             if (atBottomRef.current) scrollToBottom();
           });
         } catch (err: any) {
+          if (err?.code === 'invalid_site_key') {
+            // 密钥无效/停用：不是普通发送失败，重试没有意义，撤回乐观气泡并转入"客服不可用"状态
+            setMessagesState((m) => m.filter((msg) => msg.id !== userMsgId && msg.id !== aiMsgId));
+            setKeyInvalid(true);
+            return;
+          }
           if (err?.phase === 'stream') {
             // 流已建立但中断：服务端大概率仍在处理并会落库，最终结果由会话 SSE 推回来。
             // 移除未完成的 AI 气泡等待同步，不立刻重发（误重发也会被服务端幂等去重兜底）。
@@ -216,8 +225,14 @@ export function useChatSession({
         }
         setMessages(data.messages || [], true);
       } catch (err: any) {
-        // 彻底失败：把乐观访客气泡标为「失败」并提供一键重试（移除未完成的 AI 空气泡）
         const inflight = inflightRef.current;
+        if (err?.code === 'invalid_site_key') {
+          // 兜底：一次性接口回退这条路上才发现密钥无效，同样撤回乐观气泡
+          setMessagesState((m) => m.filter((msg) => msg.id !== inflight?.userId && msg.id !== inflight?.aiId));
+          setKeyInvalid(true);
+          return;
+        }
+        // 彻底失败：把乐观访客气泡标为「失败」并提供一键重试（移除未完成的 AI 空气泡）
         setMessagesState((m) =>
           m
             .filter((msg) => msg.id !== inflight?.aiId)
@@ -240,6 +255,7 @@ export function useChatSession({
       input,
       pending,
       sending,
+      siteKey,
       checkRateLimit,
       ensureSession,
       setInput,
@@ -289,6 +305,7 @@ export function useChatSession({
     messages,
     sending,
     atBottom,
+    keyInvalid,
     listEl,
     scrollToBottom,
     resetAtBottom,

@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import './embed.css';
 
-const WIDGET_SRC = '/widget/widget.js';
+// 默认消费同源托管的 widget 产物；独立部署时通过 VITE_WIDGET_SRC 指向实际部署地址
+const WIDGET_SRC = import.meta.env.VITE_WIDGET_SRC || '/widget/widget.js';
+const WORKSTATION_URL = import.meta.env.VITE_WORKSTATION_URL || '/workstation/';
 
 /**
  * Widget 嵌入演示：模拟第三方网站，通过 <script src="/widget/widget.js"> 消费
@@ -16,6 +18,8 @@ export default function EmbedDemo() {
     script.dataset.assistflow = '';
     script.dataset.key = 'demo-site';
     script.dataset.title = 'AssistFlow AI 客服系统';
+    // 独立部署时 demo 与 server 不同源，widget 默认的 window.location.origin 回退不再适用
+    if (import.meta.env.VITE_API_BASE) script.dataset.apiBase = import.meta.env.VITE_API_BASE;
     document.body.appendChild(script);
   }, []);
 
@@ -26,7 +30,7 @@ export default function EmbedDemo() {
           <span className="brand-mark">AF</span>
           <span>模拟宿主网站</span>
         </div>
-        <a href="/workstation/" target="_blank" rel="noopener">打开客服工作台 →</a>
+        <a href={WORKSTATION_URL} target="_blank" rel="noopener">打开客服工作台 →</a>
       </header>
 
       <main>
