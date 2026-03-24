@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @assistflow/shared && npm run build --workspace @assistflow/server && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation && npm run build --workspace assistflow-demo",
+    "build:server": "npm run build --workspace @assistflow/shared && npm run build --workspace @assistflow/server",
     "start": "node scripts/start.js",
     "start:dev": "npm run dev:all",
     "start:prod": "npm run build && node --experimental-sqlite --disable-warning=ExperimentalWarning apps/server/dist/main.js",

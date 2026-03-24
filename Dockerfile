@@ -1,4 +1,5 @@
-# 多阶段构建：workspaces 全量构建 → 运行镜像只带 server 产物与前端 dist
+# 多阶段构建：只构建 server（+ 其依赖的 shared 包）→ 运行镜像是纯 API 服务。
+# widget/workstation/demo 各自独立静态部署，不在这个镜像里（见 README「拆分部署」）。
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -12,10 +13,10 @@ COPY apps/demo/package.json ./apps/demo/
 
 RUN npm ci
 
-COPY packages ./packages
-COPY apps ./apps
+COPY packages/shared ./packages/shared
+COPY apps/server ./apps/server
 
-RUN npm run build
+RUN npm run build:server
 
 FROM node:22-alpine AS runtime
 
@@ -34,9 +35,6 @@ RUN npm ci --omit=dev --workspace @assistflow/server --include-workspace-root=fa
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/server/data ./apps/server/data
-COPY --from=builder /app/apps/widget/dist ./apps/widget/dist
-COPY --from=builder /app/apps/workstation/dist ./apps/workstation/dist
-COPY --from=builder /app/apps/demo/dist ./apps/demo/dist
 
 EXPOSE 3001
 

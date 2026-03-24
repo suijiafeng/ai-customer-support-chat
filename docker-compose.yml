@@ -1,0 +1,89 @@
+# 自托管一体化编排：postgres + server + workstation + widget + demo 各自独立容器。
+# 对应 README「拆分部署」的做法，只是用 compose 在同一台机器上把它们跑起来，
+# 而不是分别推到不同的静态托管平台。生产仍建议按 README 把 workstation/widget/demo
+# 放到 CDN/静态托管，server 单独部署（可继续用这里的 postgres，也可换外部 Postgres）。
+#
+# 持久化默认用本地 postgres 服务；如需改回零配置 SQLite，设置 DB_DRIVER=sqlite
+# 并可以整体去掉 postgres 服务（DATABASE_URL 不再需要）。
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-assistflow}
+      POSTGRES_USER: ${POSTGRES_USER:-assistflow}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?请设置 POSTGRES_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-assistflow} -d ${POSTGRES_DB:-assistflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      AUTH_SECRET: "${AUTH_SECRET:?请设置 AUTH_SECRET，例如 openssl rand -hex 32}"
+      AI_ENABLED: ${AI_ENABLED:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-}
+      DB_DRIVER: ${DB_DRIVER:-}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-assistflow}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assistflow}?sslmode=disable}
+      NODE_ENV: production
+    volumes:
+      - server_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  workstation:
+    build:
+      context: .
+      dockerfile: apps/workstation/Dockerfile
+      args:
+        VITE_API_BASE: ${WORKSTATION_API_BASE:-http://localhost:3001}
+        VITE_BASE_PATH: /
+    ports:
+      - "8081:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  widget:
+    build:
+      context: .
+      dockerfile: apps/widget/Dockerfile
+    ports:
+      - "8082:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  demo:
+    build:
+      context: .
+      dockerfile: apps/demo/Dockerfile
+      args:
+        VITE_WIDGET_SRC: ${DEMO_WIDGET_SRC:-http://localhost:8082/widget.js}
+        VITE_API_BASE: ${DEMO_API_BASE:-http://localhost:3001}
+        VITE_WORKSTATION_URL: ${DEMO_WORKSTATION_URL:-http://localhost:8081/}
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+      - widget
+      - workstation
+    restart: unless-stopped
+
+volumes:
+  server_data:
+  postgres_data:
