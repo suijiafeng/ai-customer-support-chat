@@ -4,9 +4,9 @@ import * as echarts from 'echarts';
 import { fmtTime, requestJson } from '../api.js';
 
 const MAX_DAYS = 14;
-const CHART_H = 240; // 三张图统一高度
+const CHART_H = 168; // 三张图统一高度：压缩概览区，给下方跟进事项留出空间
 
-/** 数据看板：ECharts 可视化（柱状图 / 饼图 / 折线图），进入时拉取，每 15 秒自动刷新。 */
+/** 数据概览区块（运营中心上半部）：ECharts 可视化（柱状图 / 饼图 / 折线图），进入时拉取，每 15 秒自动刷新。 */
 export default function MetricsPanel() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   // 每日趋势改由后端按天落库、聚合返回（团队级、跨端一致）
@@ -42,12 +42,12 @@ export default function MetricsPanel() {
       { label: '处理中工单', value: metrics.tickets.processing, color: '#6366f1' },
     ];
     return {
-      grid: { left: 92, right: 24, top: 12, bottom: 28 },
+      grid: { left: 92, right: 24, top: 8, bottom: 22 },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       xAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#eef2f7' } } },
       yAxis: { type: 'category', data: rows.map((r) => r.label), axisLabel: { color: '#475569' }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
       series: [{
-        type: 'bar', barWidth: 16,
+        type: 'bar', barWidth: 12,
         data: rows.map((r) => ({ value: r.value, itemStyle: { color: r.color, borderRadius: [0, 6, 6, 0] } })),
         label: { show: true, position: 'right', color: '#0f172a' },
       }],
@@ -80,7 +80,7 @@ export default function MetricsPanel() {
   const lineOption = useMemo<echarts.EChartsOption>(() => ({
     tooltip: { trigger: 'axis' },
     legend: { top: 0, textStyle: { color: '#475569' } },
-    grid: { left: 36, right: 18, top: 32, bottom: 26 },
+    grid: { left: 36, right: 18, top: 28, bottom: 22 },
     xAxis: { type: 'category', boundaryGap: false, data: history.map((h) => h.date.slice(5)), axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
     yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#eef2f7' } } },
     series: [
@@ -90,43 +90,46 @@ export default function MetricsPanel() {
     ],
   }), [history]);
 
-  if (error) {
-    return <main className="panel-page"><div className="empty"><span className="ico" aria-hidden="true">⚠️</span>指标加载失败<button className="retry-btn" onClick={load}>重试</button></div></main>;
-  }
-  if (!metrics) {
-    return <main className="panel-page"><div className="empty">加载中…</div></main>;
-  }
-
-  const pieHasData = metrics.totals.sessions > 0;
+  const pieHasData = !!metrics && metrics.totals.sessions > 0;
   const barHasData =
+    !!metrics &&
     metrics.queue.waitingHuman + metrics.queue.assigned + metrics.tickets.open + metrics.tickets.processing > 0;
   const lineHasData = history.some((h) => h.waiting + h.assigned + h.activeSessions > 0);
 
   return (
-    <main className="panel-page">
+    <section className="panel-block" aria-label="数据概览">
       <div className="panel-toolbar">
-        <span className="metrics-time">更新于 {fmtTime(metrics.generatedAt)}（15 秒自动刷新）</span>
-        <button className="ghost-btn" onClick={load}>刷新</button>
+        <h2 className="block-title">数据概览</h2>
+        <div className="toolbar-right">
+          {metrics && <span className="metrics-time">更新于 {fmtTime(metrics.generatedAt)}（15 秒自动刷新）</span>}
+          <button className="ghost-btn" onClick={load}>刷新</button>
+        </div>
       </div>
 
-      <div className="chart-grid">
-        <section className="chart-card">
-          <h3>会话状态分布（饼图）</h3>
-          {pieHasData && pieOption ? <EChart option={pieOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} />}
-        </section>
+      {error ? (
+        <div className="empty"><span className="ico" aria-hidden="true">⚠️</span>指标加载失败<button className="retry-btn" onClick={load}>重试</button></div>
+      ) : !metrics ? (
+        <div className="empty">加载中…</div>
+      ) : (
+        <div className="chart-grid">
+          <section className="chart-card">
+            <h3>会话状态分布（饼图）</h3>
+            {pieHasData && pieOption ? <EChart option={pieOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} />}
+          </section>
 
-        <section className="chart-card">
-          <h3>待办负载（柱状图）</h3>
-          {barHasData && barOption ? <EChart option={barOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} />}
-        </section>
+          <section className="chart-card">
+            <h3>待办负载（柱状图）</h3>
+            {barHasData && barOption ? <EChart option={barOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} />}
+          </section>
 
-        <section className="chart-card">
-          <h3>每日趋势（折线图）</h3>
-          {lineHasData ? <EChart option={lineOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} text="正在采集数据…" />}
-          <p className="chart-note">以天为单位，由后端按天落库并聚合，最多展示最近 {MAX_DAYS} 天（团队级、跨端一致）。</p>
-        </section>
-      </div>
-    </main>
+          <section className="chart-card">
+            <h3>每日趋势（折线图）</h3>
+            {lineHasData ? <EChart option={lineOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} text="正在采集数据…" />}
+            <p className="chart-note">按天聚合，最多展示最近 {MAX_DAYS} 天。</p>
+          </section>
+        </div>
+      )}
+    </section>
   );
 }
 

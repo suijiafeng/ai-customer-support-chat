@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { SessionSummary, Ticket } from '@assistflow/shared';
-import { requestJson, statusTag, statusText } from '../api.js';
+import { intentText, requestJson } from '../api.js';
 import { showToast, confirmDialog } from '../ui/feedback.js';
 
 const SENTIMENT_TEXT: Record<string, string> = { positive: '😊 积极', neutral: '😐 中性', negative: '😟 消极' };
@@ -49,7 +49,6 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
         <section>
           <h4>访客</h4>
           <dl>
-            <div><dt>名称</dt><dd>{session.displayName}</dd></div>
             {session.profile?.contact && <div><dt>联系方式</dt><dd>{session.profile.contact}</dd></div>}
             {session.visitor?.code && <div><dt>访客标识</dt><dd className="mono">{session.visitor.code}</dd></div>}
             {session.visitor?.ip && <div><dt>IP 地址</dt><dd className="mono">{session.visitor.ip}</dd></div>}
@@ -60,9 +59,7 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
                 <dd><a href={session.visitor.pageUrl} target="_blank" rel="noopener noreferrer">{session.visitor.pageUrl}</a></dd>
               </div>
             )}
-            <div><dt>会话状态</dt><dd><span className={`tag tag-${statusTag(session.status)}`}>{statusText(session.status)}</span></dd></div>
             <div><dt>优先级</dt><dd>{session.priority === 'high' ? '🔥 高' : '普通'}</dd></div>
-            <div><dt>消息数</dt><dd>{session.messageCount}</dd></div>
           </dl>
         </section>
 
@@ -70,9 +67,8 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
           <section>
             <h4>AI 诊断</h4>
             <dl>
-              <div><dt>最近意图</dt><dd>{wf.intent}</dd></div>
+              <div><dt>最近意图</dt><dd>{intentText(wf.intent)}</dd></div>
               <div><dt>情绪</dt><dd>{SENTIMENT_TEXT[wf.sentiment] || wf.sentiment}</dd></div>
-              <div><dt>需要人工</dt><dd>{wf.needHuman ? '是' : '否'}</dd></div>
               <div><dt>AI 回复</dt><dd>{wf.ai?.used ? `${wf.ai.provider} ${wf.ai.model}` : '本地规则'}</dd></div>
             </dl>
             {wf.sources?.length > 0 && (

@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { fmtTime, linkParts } from '@assistflow/shared';
 import { Markdown } from './markdown.js';
 import { newId, type PendingImage } from './chatApi.js';
-import { useDraggablePanel } from './hooks/useDraggablePanel.js';
+import { useDraggablePanel, type ResizeDir } from './hooks/useDraggablePanel.js';
+import { useDraggableFab } from './hooks/useDraggableFab.js';
 import { useEmojiPicker } from './hooks/useEmojiPicker.js';
 import { useSendCooldown } from './hooks/useSendCooldown.js';
 import { useChatSession } from './hooks/useChatSession.js';
@@ -16,6 +17,9 @@ interface WidgetProps {
 const imageEnabled = false; // 是否启用图片发送（后端未实现相关接口，暂时隐藏入口）
 
 // 访客快捷消息：使用内置 FAQ 问题原文，确保一键发送后能命中对应回复。
+// 窗口八个方向的拉伸手柄（四边 + 四角）
+const RESIZE_DIRS: ResizeDir[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+
 const QUICK_MESSAGES = [
   '项目怎么报价？',
   '咨询项目前需要准备什么？',
@@ -40,12 +44,19 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     mobile,
     panelPos,
     setPanelPos,
+    panelSize,
     dragging,
     panelRef: panelEl,
     onHeadDown,
     onHeadMove,
     onHeadUp,
+    onResizeDown,
+    onResizeMove,
+    onResizeUp,
   } = useDraggablePanel();
+
+  const { fabRef, fabPos, fabDragging, onFabDown, onFabMove, onFabUp, consumeDrag } =
+    useDraggableFab();
 
   const { cooldown, checkRateLimit, startCooldown } = useSendCooldown();
 
@@ -171,11 +182,18 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
     });
   }, [setPanelPos, resetAtBottom, scrollToBottom]);
 
-  // 窗口内联定位：拖动后用 left/top，否则留空由 CSS 居中（移动端始终全屏）
-  const panelStyle: React.CSSProperties =
-    panelPos && !mobile
+  // 窗口内联定位：拖动后用 left/top，否则留空由 CSS 居中；拉伸过的宽高持续生效（移动端始终全屏）
+  const panelStyle: React.CSSProperties = {
+    ...(panelSize && !mobile ? { width: panelSize.w, height: panelSize.h } : {}),
+    ...(panelPos && !mobile
       ? { left: panelPos.x, top: panelPos.y, right: 'auto', bottom: 'auto', margin: 0 }
-      : {};
+      : {}),
+  };
+
+  // 悬浮球：拖动后改为 fixed + left/top，吸附/拖动位置均由 hook 计算
+  const fabStyle: React.CSSProperties | undefined = fabPos
+    ? { position: 'fixed', left: fabPos.x, top: fabPos.y, right: 'auto', bottom: 'auto' }
+    : undefined;
 
   return (
     <div className="afw">
@@ -183,6 +201,17 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
         <>
           <button className="backdrop" type="button" aria-label="关闭聊天窗口" onClick={toggle} />
           <div className={`panel${dragging ? ' dragging' : ''}`} ref={panelEl} style={panelStyle}>
+            {!mobile &&
+              RESIZE_DIRS.map((dir) => (
+                <div
+                  key={dir}
+                  className={`rs rs-${dir}`}
+                  onPointerDown={(e) => onResizeDown(e, dir)}
+                  onPointerMove={onResizeMove}
+                  onPointerUp={onResizeUp}
+                  onPointerCancel={onResizeUp}
+                />
+              ))}
             <div
               className="head"
               onPointerDown={onHeadDown}
@@ -386,7 +415,20 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
         </>
       )}
       {!open && (
-        <button className="fab" onClick={toggle} aria-label={unread > 0 ? `有 ${unread} 条新消息` : '打开客服'}>
+        <button
+          className={`fab${fabDragging ? ' dragging' : ''}`}
+          ref={fabRef}
+          style={fabStyle}
+          onPointerDown={onFabDown}
+          onPointerMove={onFabMove}
+          onPointerUp={onFabUp}
+          onPointerCancel={onFabUp}
+          onClick={() => {
+            if (consumeDrag()) return; // 拖拽结束触发的 click 不打开窗口
+            toggle();
+          }}
+          aria-label={unread > 0 ? `有 ${unread} 条新消息` : '打开客服'}
+        >
           💬
           {unread > 0 && <span className="fab-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>

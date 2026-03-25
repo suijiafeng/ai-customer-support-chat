@@ -120,14 +120,26 @@ export interface VisitorInfo {
   pageUrl?: string | null;
 }
 
-/** widget 接入密钥：每个站点/客户一个，workstation 里由 admin 管理，用于校验 /api/chat 请求来源 */
-export interface WidgetKey {
-  key: string;
+/** 租户：每个接入站点/客户一个，workstation 里由 admin 管理；key（租户密钥）用于校验 /api/chat 请求来源 */
+export interface Tenant {
+  /** 租户ID：创建时自动生成（旧数据在服务端启动时补齐，老后端返回的行可能缺失） */
+  id?: string;
+  /** 租户名称 */
   name: string;
+  /** 租户域名（接入站点的域名，创建时可选填写） */
+  domain?: string;
+  /** 备注（创建时可选填写） */
+  remark?: string;
+  /** 租户密钥：自动生成，16 位大小写字母+数字、按 4 位一组用 - 分隔；widget 嵌入代码的 data-key 用它 */
+  key: string;
+  /** 状态：启用/停用 */
   active: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+/** @deprecated 旧命名，等同 Tenant，保留兼容既有引用 */
+export type WidgetKey = Tenant;
 
 export interface Profile {
   name: string;

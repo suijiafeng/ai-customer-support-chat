@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Ticket } from '@assistflow/shared';
-import { fmtTime, requestJson, type AgentIdentity } from '../api.js';
+import { fmtTime, intentText, requestJson, type AgentIdentity } from '../api.js';
 import { showToast } from '../ui/feedback.js';
 
 const STATUS_TEXT: Record<string, string> = { open: '待处理', processing: '处理中', resolved: '已解决' };
@@ -18,7 +18,7 @@ interface TicketsPanelProps {
   onOpenSession: (sessionId: string) => void;
 }
 
-/** 跟进事项管理：归属过滤 + 状态流转 + 优先级 + 详情/备注。 */
+/** 跟进事项区块（运营中心下半部）：归属过滤 + 状态流转 + 优先级 + 详情/备注。 */
 export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps) {
   const isAdmin = agent.role === 'admin';
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -82,20 +82,23 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
   const canOperate = (t: Ticket) => isAdmin || t.ownerAgentId === agent.id || t.ownerAgentId == null;
 
   return (
-    <main className="panel-page">
+    <section className="panel-block" aria-label="跟进事项">
       <div className="panel-toolbar">
-        <div className="filter-tabs" role="tablist">
-          {(['all', 'open', 'processing', 'resolved'] as const).map((key) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={filter === key}
-              className={filter === key ? 'active' : ''}
-              onClick={() => setFilter(key)}
-            >
-              {key === 'all' ? '全部' : STATUS_TEXT[key]}（{counts[key]}）
-            </button>
-          ))}
+        <div className="toolbar-left">
+          <h2 className="block-title">跟进事项</h2>
+          <div className="filter-tabs" role="tablist">
+            {(['all', 'open', 'processing', 'resolved'] as const).map((key) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={filter === key}
+                className={filter === key ? 'active' : ''}
+                onClick={() => setFilter(key)}
+              >
+                {key === 'all' ? '全部' : STATUS_TEXT[key]}（{counts[key]}）
+              </button>
+            ))}
+          </div>
         </div>
         <div className="toolbar-right">
           {isAdmin && (
@@ -169,7 +172,7 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
           onOpenSession={onOpenSession}
         />
       )}
-    </main>
+    </section>
   );
 }
 
@@ -210,7 +213,7 @@ function TicketDetail({
         </div>
         <dl className="ticket-detail">
           <div><dt>事由</dt><dd>{ticket.reason || '—'}</dd></div>
-          <div><dt>意图</dt><dd>{ticket.intent || '—'}</dd></div>
+          <div><dt>意图</dt><dd>{intentText(ticket.intent)}</dd></div>
           <div><dt>关联咨询</dt><dd className="mono">{ticket.inquiryId || '—'}</dd></div>
           <div><dt>负责客服</dt><dd>{ticket.ownerAgentName || '未认领'}</dd></div>
           <div><dt>最近消息</dt><dd>{ticket.lastMessage || '—'}</dd></div>

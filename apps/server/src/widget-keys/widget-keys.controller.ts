@@ -3,7 +3,7 @@ import { AgentAuthGuard } from '../auth/auth.guard.js';
 import type { AuthenticatedAgent } from '../auth/auth.service.js';
 import { WidgetKeysService } from './widget-keys.service.js';
 
-/** Widget 接入密钥管理：仅 admin 可创建/启停/删除。 */
+/** 租户管理（原 Widget 接入密钥）：仅 admin 可创建/启停/删除。 */
 @UseGuards(AgentAuthGuard)
 @Controller('api/widget-keys')
 export class WidgetKeysController {
@@ -24,13 +24,18 @@ export class WidgetKeysController {
   @Post()
   create(@Body() body: any, @Req() req: any) {
     this.assertAdmin(req.agent as AuthenticatedAgent);
-    return { key: this.widgetKeys.create(body?.key, body?.name) };
+    return { key: this.widgetKeys.create(body?.name, body?.key, body?.remark, body?.domain) };
   }
 
   @Patch(':key')
-  setActive(@Param('key') key: string, @Body() body: any, @Req() req: any) {
+  update(@Param('key') key: string, @Body() body: any, @Req() req: any) {
     this.assertAdmin(req.agent as AuthenticatedAgent);
-    return { key: this.widgetKeys.setActive(key, Boolean(body?.active)) };
+    const patch: { name?: string; domain?: string; remark?: string; active?: boolean } = {};
+    if (body?.name !== undefined) patch.name = body.name;
+    if (body?.domain !== undefined) patch.domain = body.domain;
+    if (body?.remark !== undefined) patch.remark = body.remark;
+    if (body?.active !== undefined) patch.active = Boolean(body.active);
+    return { key: this.widgetKeys.update(key, patch) };
   }
 
   @Delete(':key')

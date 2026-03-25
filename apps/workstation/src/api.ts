@@ -106,6 +106,54 @@ export const statusTag = (s: string): string =>
 export const statusText = (s: string): string =>
   ({ bot: 'AI 回答', waiting_human: '待跟进', assigned: '接待中', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[s] || s;
 
+// ---- 意图代码 → 人话 ----
+// FAQ / 流程意图（与 server data/faqs.json 及 chat.service 的取值对应）
+const INTENT_TEXT: Record<string, string> = {
+  pricing: '咨询项目报价',
+  services: '咨询服务内容',
+  portfolio: '想看过往作品案例',
+  collaboration: '咨询合作流程',
+  availability: '询问近期档期',
+  contact: '想获取联系方式',
+  about: '想了解开发者',
+  tech_stack: '咨询技术栈',
+  hiring: '招聘 / 工作机会',
+  human_handoff: '要求人工客服',
+  inquiry_status: '查询咨询进度',
+  out_of_scope: '问题超出服务范围',
+  general: '一般咨询',
+  duplicate: '重复发送相同消息',
+  agent_conversation: '人工接待中的对话',
+  testing: '测试性提问',
+};
+
+// 闲聊子意图（chat.service 以 small_talk: 前缀上报）
+const SMALL_TALK_TEXT: Record<string, string> = {
+  greeting: '打招呼',
+  bye: '道别',
+  thanks: '表达感谢',
+  praise: '夸赞',
+  mood: '倾诉情绪',
+  joke: '开玩笑',
+  chitchat: '闲聊',
+  ack: '简单附和',
+  emoji_only: '只发了表情',
+  meaningless: '无明确含义的消息',
+  poke: '随口试探',
+  testing: '测试性提问',
+  who_are_you: '询问助手身份',
+};
+
+/** 把意图代码翻译成访客的真实来意；未知代码原样展示以便排查 */
+export function intentText(intent?: string | null): string {
+  if (!intent) return '—';
+  if (intent.startsWith('small_talk:')) {
+    const sub = intent.slice('small_talk:'.length);
+    return SMALL_TALK_TEXT[sub] ? `闲聊 · ${SMALL_TALK_TEXT[sub]}` : '闲聊';
+  }
+  return INTENT_TEXT[intent] || intent;
+}
+
 export interface PendingAttachment {
   id: string;
   dataUrl: string;

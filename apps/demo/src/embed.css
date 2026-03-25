@@ -131,7 +131,7 @@
       align-items: center;
       animation: guide-in 350ms ease-out both,
                  guide-bob 1.8s ease-in-out 350ms infinite;
-      bottom: 24px;
+      bottom: 128px;
       display: flex;
       gap: 8px;
       pointer-events: none;
@@ -165,7 +165,7 @@
 
     /* 浮球处的脉冲光圈：独立定位，与浮球(.fab 46px @ right/bottom 20px)同心 */
     .embed-page .fab-ping {
-      bottom: 20px;
+      bottom: 128px;
       height: 46px;
       pointer-events: none;
       position: fixed;

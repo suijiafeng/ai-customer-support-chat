@@ -5,9 +5,8 @@ import SessionQueue from './components/SessionQueue.js';
 import ChatPanel from './components/ChatPanel.js';
 import Login from './components/Login.js';
 import AgentMenu from './components/AgentMenu.js';
-import TicketsPanel from './components/TicketsPanel.js';
-import MetricsPanel from './components/MetricsPanel.js';
-import WidgetKeysPanel from './components/WidgetKeysPanel.js';
+import OperationsPanel from './components/OperationsPanel.js';
+import TenantsPanel from './components/TenantsPanel.js';
 import { FeedbackHost } from './ui/feedback.js';
 
 export default function App() {
@@ -26,12 +25,12 @@ export default function App() {
   );
 }
 
-type View = 'sessions' | 'tickets' | 'metrics' | 'widget-keys';
+type View = 'sessions' | 'ops' | 'tenants';
 
 const VIEWS: Array<{ key: View; label: string }> = [
   { key: 'sessions', label: '会话接待' },
-  { key: 'tickets', label: '跟进事项' },
-  { key: 'metrics', label: '数据看板' },
+  // 运营中心 = 原「跟进事项」+「数据看板」两个页签的合并
+  { key: 'ops', label: '运营中心' },
 ];
 
 function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () => void }) {
@@ -39,8 +38,8 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
   const [activeId, setActiveId] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false); // 移动端抽屉
   const [view, setView] = useState<View>('sessions');
-  // Widget 密钥管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
-  const views = agent.role === 'admin' ? [...VIEWS, { key: 'widget-keys' as const, label: 'Widget 密钥' }] : VIEWS;
+  // 租户管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
+  const views = agent.role === 'admin' ? [...VIEWS, { key: 'tenants' as const, label: '租户管理' }] : VIEWS;
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.sessionId === activeId) || null,
@@ -63,8 +62,13 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
             aria-expanded={queueOpen}
             onClick={() => setQueueOpen((v) => !v)}
           >☰</button>
-          <span className="brand">AssistFlow 客服工作台</span>
-          <nav className="view-tabs" aria-label="功能页签">
+          {/* 点击品牌名回到默认页签（会话接待） */}
+          <button className="brand" type="button" onClick={() => setView('sessions')}>
+            AssistFlow 客服工作台
+          </button>
+        </div>
+        <div className="menu-wraper">
+           <nav className="view-tabs" aria-label="功能页签">
             {views.map((v) => (
               <button
                 key={v.key}
@@ -76,8 +80,8 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
               </button>
             ))}
           </nav>
-        </div>
         <AgentMenu agent={agent} sessions={sessions} onLogout={onLogout} />
+        </div>
       </header>
       <div className="body">
         {view === 'sessions' && (
@@ -93,11 +97,10 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
             <ChatPanel session={activeSession} agent={agent} />
           </>
         )}
-        {view === 'tickets' && (
-          <TicketsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
+        {view === 'ops' && (
+          <OperationsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
         )}
-        {view === 'metrics' && <MetricsPanel />}
-        {view === 'widget-keys' && agent.role === 'admin' && <WidgetKeysPanel />}
+        {view === 'tenants' && agent.role === 'admin' && <TenantsPanel />}
       </div>
     </div>
   );

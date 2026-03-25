@@ -6,13 +6,17 @@ export default `
   font-size: 13px; padding: 8px 10px; text-align: left; font-family: inherit; }
 .quick-pop button:hover { background: #f1f5f9; }
 
-.afw { position: fixed; right: 20px; bottom: 20px; z-index: 2147483000;
+.afw { position: fixed; right: 20px; bottom: 128px; z-index: 2147483000;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
 .fab { width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
-  background: #2457c5; color: #fff; font-size: 14px;
-  box-shadow: 0 8px 22px rgba(36,87,197,.4); transition: transform .15s ease, box-shadow .15s ease; }
+  background: #2457c5; color: #fff; font-size: 14px; touch-action: none;
+  box-shadow: 0 8px 22px rgba(36,87,197,.4);
+  transition: transform .15s ease, box-shadow .15s ease, left .22s ease, top .22s ease; }
 .fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 28px rgba(36,87,197,.45); }
 .fab:active { transform: scale(.96); }
+/* 拖动中：关闭位移过渡（跟手），松手后过渡生效产生吸附动画 */
+.fab.dragging { transition: none; cursor: grabbing; }
+.fab.dragging:hover, .fab.dragging:active { transform: none; }
 .fab { position: relative; }
 .fab-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px;
@@ -33,6 +37,16 @@ export default `
   display: flex; flex-direction: column; overflow: hidden; z-index: 2147483002;
   animation: afw-pop .18s cubic-bezier(.2,.8,.2,1); }
 @keyframes afw-pop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+/* 窗口边缘/角落的拉伸手柄（移动端全屏时不渲染） */
+.rs { position: absolute; z-index: 9; touch-action: none; background: transparent; }
+.rs-n { top: 0; left: 14px; right: 14px; height: 6px; cursor: ns-resize; }
+.rs-s { bottom: 0; left: 14px; right: 14px; height: 6px; cursor: ns-resize; }
+.rs-e { top: 14px; bottom: 14px; right: 0; width: 6px; cursor: ew-resize; }
+.rs-w { top: 14px; bottom: 14px; left: 0; width: 6px; cursor: ew-resize; }
+.rs-ne { top: 0; right: 0; width: 14px; height: 14px; cursor: nesw-resize; }
+.rs-nw { top: 0; left: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+.rs-se { bottom: 0; right: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+.rs-sw { bottom: 0; left: 0; width: 14px; height: 14px; cursor: nesw-resize; }
 .head { background: #2457c5; color: #fff; padding: 13px 16px;
   font-weight: 600; display: flex; justify-content: space-between; align-items: center;
   cursor: grab; touch-action: none; user-select: none; }
@@ -134,7 +148,7 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 /* 移动端：竖屏手机全屏 */
 @media (max-width: 480px) {
   .afw { right: 0; bottom: 0; }
-  .fab { position: fixed; right: 18px; bottom: 18px; }
+  .fab { position: fixed; right: 18px; bottom: 44px; }
   .panel { position: fixed; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; bottom: 0; }
   .col { max-width: 82%; }
   .emoji-pop { bottom: 96px; }
@@ -143,7 +157,7 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 /* 矮屏（横屏手机等）：高度不足时也走全屏，避免被裁切 */
 @media (max-height: 560px) {
   .afw { right: 0; bottom: 0; }
-  .fab { position: fixed; right: 18px; bottom: 18px; }
+  .fab { position: fixed; right: 18px; bottom: 44px; }
   .panel { position: fixed; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; bottom: 0; }
   .emoji-pop { bottom: 96px; height: 60vh; }
 }
