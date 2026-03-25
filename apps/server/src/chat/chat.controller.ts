@@ -35,7 +35,7 @@ export class ChatController {
   @Post()
   async chatHandler(@Body() body: any, @Req() req: Request) {
     this.assertHasContent(body);
-    this.assertValidSiteKey(body);
+    this.assertValidSiteKey(body, req);
 
     try {
       return await this.chat.handleChat(body, undefined, this.clientMeta(req));
@@ -58,7 +58,7 @@ export class ChatController {
   @Post('stream')
   async chatStream(@Body() body: any, @Res() res: Response, @Req() req: Request) {
     this.assertHasContent(body);
-    this.assertValidSiteKey(body);
+    this.assertValidSiteKey(body, req);
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -115,10 +115,21 @@ export class ChatController {
     }
   }
 
-  /** 校验 widget 接入密钥：不存在/未启用一律拒绝，避免未注册站点接入客服。 */
-  private assertValidSiteKey(body: any) {
-    if (!this.widgetKeys.isValid(body?.siteKey)) {
-      throw new ForbiddenException({ error: 'invalid_site_key' });
+  /**
+   * 校验 widget 接入身份：密钥（data-key）+ 租户ID（data-name）必须匹配；
+   * 租户配置了域名时还要校验请求来源域名（Origin 优先，退化到 Referer）。
+   */
+  private assertValidSiteKey(body: any, req: Request) {
+    const source = (req.headers.origin as string) || (req.headers.referer as string) || '';
+    let originHost: string | null = null;
+    try {
+      originHost = source ? new URL(source).hostname.toLowerCase() : null;
+    } catch {
+      originHost = null;
+    }
+    const verdict = this.widgetKeys.verify(body?.siteKey, body?.tenantId, originHost);
+    if (verdict !== 'ok') {
+      throw new ForbiddenException({ error: verdict });
     }
   }
 }

@@ -29,6 +29,18 @@ function newTenantKey(): string {
   return chars.join('').replace(/(.{4})(?=.)/g, '$1-');
 }
 
+/** 归一化域名：去协议 / 路径 / 端口，转小写；空值返回 '' */
+function normalizeHost(value?: string | null): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .split('/')[0]
+    .split(':')[0];
+}
+
+export type TenantVerifyResult = 'ok' | 'invalid_site_key' | 'invalid_tenant' | 'domain_not_allowed';
+
 /** 租户管理：内存态 + 写穿透，租户密钥供 ChatController 校验访客请求来源。 */
 @Injectable()
 export class WidgetKeysService implements OnModuleInit {
@@ -36,7 +48,8 @@ export class WidgetKeysService implements OnModuleInit {
 
   constructor(private readonly store: StoreService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    await this.store.whenReady; // 等启动快照就绪，避免把非空库误判为空库（见 StoreService.whenReady）
     for (const key of this.store.getPersisted().widgetKeys) {
       // 旧数据没有租户ID：启动时补齐并落库
       if (!key.id) {
@@ -52,7 +65,8 @@ export class WidgetKeysService implements OnModuleInit {
     if (this.keys.size === 0) {
       const now = new Date().toISOString();
       const seed: Tenant = {
-        id: newTenantId(),
+        // 固定 ID：demo 演示站的嵌入代码需要写死 data-name，随机 ID 会让演示开箱即坏
+        id: 'tn_demo0000',
         key: 'demo-site',
         name: 'Demo 站点（内置，建议替换）',
         active: true,
@@ -72,6 +86,28 @@ export class WidgetKeysService implements OnModuleInit {
   isValid(key: string | undefined | null): boolean {
     if (!key) return false;
     return this.keys.get(String(key).trim())?.active === true;
+  }
+
+  /**
+   * 访客请求三段校验：
+   * 1. 密钥（data-key）存在且启用；
+   * 2. 租户ID（data-name）与密钥所属租户匹配（必填）；
+   * 3. 租户配置了域名时，请求来源域名必须匹配（支持子域名）；未配置则跳过。
+   */
+  verify(
+    key: string | undefined | null,
+    tenantId: string | undefined | null,
+    originHost: string | null
+  ): TenantVerifyResult {
+    const tenant = key ? this.keys.get(String(key).trim()) : undefined;
+    if (!tenant || !tenant.active) return 'invalid_site_key';
+    if (!tenantId || String(tenantId).trim() !== tenant.id) return 'invalid_tenant';
+    const domain = normalizeHost(tenant.domain);
+    if (domain) {
+      if (!originHost) return 'domain_not_allowed';
+      if (originHost !== domain && !originHost.endsWith(`.${domain}`)) return 'domain_not_allowed';
+    }
+    return 'ok';
   }
 
   /** 创建租户：名称必填、域名/备注可选；租户ID / 租户密钥由服务端自动生成（也允许显式传 key 以兼容脚本导入） */

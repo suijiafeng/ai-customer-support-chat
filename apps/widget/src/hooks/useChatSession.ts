@@ -7,6 +7,9 @@ import { newId, normalizeMessages, streamChat, type PendingImage, type UiMessage
 const STREAM_FALLBACK_MS = 12000;
 
 // 访客侧对话归档：服务端窗口外的旧消息留在本地，重启/淘汰不丢界面历史
+// 租户身份校验失败的错误码：密钥无效/停用、租户ID不匹配、来源域名不在允许范围
+const IDENTITY_ERRORS = ['invalid_site_key', 'invalid_tenant', 'domain_not_allowed'];
+
 const messageArchive = createMessageArchive(
   typeof window !== 'undefined' ? window.localStorage : undefined,
   'assistflow.history'
@@ -15,6 +18,7 @@ const messageArchive = createMessageArchive(
 interface UseChatSessionParams {
   apiBase: string;
   siteKey: string;
+  tenantId: string;
   input: string;
   setInput: (value: string) => void;
   pending: PendingImage[];
@@ -32,6 +36,7 @@ interface UseChatSessionParams {
 export function useChatSession({
   apiBase,
   siteKey,
+  tenantId,
   input,
   setInput,
   pending,
@@ -155,6 +160,7 @@ export function useChatSession({
           message: text,
           attachments,
           siteKey,
+          tenantId,
           visitor: { code: sessionIdRef.current, pageUrl: window.location.href },
           // 幂等键：服务端据此对重试去重，避免「AI 失败 + 重发」产生重复气泡
           clientMessageId: userMsgId,
@@ -182,8 +188,9 @@ export function useChatSession({
             if (atBottomRef.current) scrollToBottom();
           });
         } catch (err: any) {
-          if (err?.code === 'invalid_site_key') {
-            // 密钥无效/停用：不是普通发送失败，重试没有意义，撤回乐观气泡并转入"客服不可用"状态
+          if (IDENTITY_ERRORS.includes(err?.code)) {
+            // 租户身份校验失败（密钥/租户ID/域名）：不是普通发送失败，重试没有意义，
+            // 撤回乐观气泡并转入"客服不可用"状态
             setMessagesState((m) => m.filter((msg) => msg.id !== userMsgId && msg.id !== aiMsgId));
             setKeyInvalid(true);
             return;
@@ -226,8 +233,8 @@ export function useChatSession({
         setMessages(data.messages || [], true);
       } catch (err: any) {
         const inflight = inflightRef.current;
-        if (err?.code === 'invalid_site_key') {
-          // 兜底：一次性接口回退这条路上才发现密钥无效，同样撤回乐观气泡
+        if (IDENTITY_ERRORS.includes(err?.code)) {
+          // 兜底：一次性接口回退这条路上才发现租户身份无效，同样撤回乐观气泡
           setMessagesState((m) => m.filter((msg) => msg.id !== inflight?.userId && msg.id !== inflight?.aiId));
           setKeyInvalid(true);
           return;
@@ -256,6 +263,7 @@ export function useChatSession({
       pending,
       sending,
       siteKey,
+      tenantId,
       checkRateLimit,
       ensureSession,
       setInput,

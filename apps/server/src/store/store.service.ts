@@ -13,6 +13,17 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
   private store: Store = createStore();
   private persisted: PersistedData = { sessions: [], conversations: [], tickets: [], widgetKeys: [] };
 
+  private readyResolve!: () => void;
+  /**
+   * 启动快照就绪信号：loadAll 完成（或降级兜底后）resolve。
+   * Nest 对同一模块内的 onModuleInit 是并行执行的，任何消费 getPersisted() 的服务
+   * 必须先 await 此 Promise——否则会读到空快照并误以为库是空的（SQLite 同步加载
+   * 恰好掩盖了这个竞态，Postgres 异步加载在生产必现）。
+   */
+  readonly whenReady: Promise<void> = new Promise((resolve) => {
+    this.readyResolve = resolve;
+  });
+
   get enabled(): boolean {
     return this.store.enabled;
   }
@@ -36,6 +47,8 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`初始化失败，降级为纯内存模式：${error?.message || error}`);
       this.store = createStore({ connectionString: null });
       this.persisted = { sessions: [], conversations: [], tickets: [], widgetKeys: [] };
+    } finally {
+      this.readyResolve(); // 无论成功或降级，快照均已定型，放行依赖方
     }
   }
 

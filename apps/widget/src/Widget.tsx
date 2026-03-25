@@ -12,6 +12,8 @@ interface WidgetProps {
   apiBase: string;
   title: string;
   siteKey: string;
+  /** 租户ID（data-name），与 siteKey 成对，后端校验两者匹配 */
+  tenantId: string;
 }
 
 const imageEnabled = false; // 是否启用图片发送（后端未实现相关接口，暂时隐藏入口）
@@ -29,7 +31,7 @@ const QUICK_MESSAGES = [
   '如何联系你？',
 ];
 
-export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
+export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState<PendingImage[]>([]); // 待发送图片附件
@@ -95,6 +97,7 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
   } = useChatSession({
     apiBase,
     siteKey,
+    tenantId,
     input,
     setInput,
     pending,

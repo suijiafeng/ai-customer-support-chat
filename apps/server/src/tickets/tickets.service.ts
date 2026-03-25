@@ -16,7 +16,8 @@ export class TicketsService implements OnModuleInit {
 
   constructor(private readonly store: StoreService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    await this.store.whenReady; // 等启动快照就绪（见 StoreService.whenReady）
     for (const ticket of this.store.getPersisted().tickets) {
       this.insertTicket(ticket);
     }

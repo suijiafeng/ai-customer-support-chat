@@ -17,6 +17,7 @@ export default function EmbedDemo() {
     script.src = WIDGET_SRC;
     script.dataset.assistflow = '';
     script.dataset.key = 'demo-site';
+    script.dataset.name = 'tn_demo0000'; // 内置 demo 租户的固定租户ID，与 data-key 成对校验
     script.dataset.title = 'AssistFlow AI 客服系统';
     // 独立部署时 demo 与 server 不同源，widget 默认的 window.location.origin 回退不再适用
     if (import.meta.env.VITE_API_BASE) script.dataset.apiBase = import.meta.env.VITE_API_BASE;

@@ -26,7 +26,8 @@ export class SessionsService implements OnModuleInit {
 
   constructor(private readonly store: StoreService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    await this.store.whenReady; // 等启动快照就绪（见 StoreService.whenReady）
     const persisted = this.store.getPersisted();
     for (const [id, data] of persisted.sessions) this.sessions.set(id, data);
     for (const [id, messages] of persisted.conversations) this.conversations.set(id, messages);
