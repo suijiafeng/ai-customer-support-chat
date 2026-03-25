@@ -39,7 +39,7 @@ const cases = [
       const response = await fetch(`${baseUrl}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: `${runId}-stream`, message: '在吗' }),
+        body: JSON.stringify({ sessionId: `${runId}-stream`, message: '在吗', siteKey: 'demo-site' }),
       });
       const text = await response.text();
       const block = text.split('\n\n').find((b) => b.includes('event: done'));
@@ -57,6 +57,7 @@ const cases = [
       const payload = {
         sessionId: `${runId}-idem`,
         message: '项目怎么报价？',
+        siteKey: 'demo-site',
         clientMessageId: `${runId}-msg-1`,
       };
       const first = await post('/api/chat', payload);
@@ -82,6 +83,7 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: inquirySessionId,
       message: '帮我查一下项目 P1001',
+      siteKey: 'demo-site',
       visitor: { code: `${runId}-1` },
     }),
     assert: (data) => data.intent === 'inquiry_status'
@@ -97,6 +99,7 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: faqMissSessionId,
       message: '这个体验太差了，我要投诉',
+      siteKey: 'demo-site',
       visitor: { code: `${runId}-complaint` },
     }),
     assert: (data) => data.needHuman === false
@@ -108,6 +111,7 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
       message: '我要转人工',
+      siteKey: 'demo-site',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => {
@@ -158,6 +162,7 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
       message: '开发者接入后这条不需要 AI 自动回复',
+      siteKey: 'demo-site',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent === true
@@ -183,6 +188,7 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
       message: '再帮我查一下项目 P1001',
+      siteKey: 'demo-site',
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent !== true
@@ -203,6 +209,7 @@ const cases = [
       const handoff = await post('/api/chat', {
         sessionId: patchTicketSessionId,
         message: '我要转人工',
+        siteKey: 'demo-site',
         visitor: { code: `${runId}-patch` },
       });
       return patch(`/api/tickets/${handoff.ticket.id}`, { status: 'processing' });
@@ -224,6 +231,37 @@ const cases = [
     assert: (data) => data.ticket?.status === 'resolved'
       && data.session?.status === 'closed'
       && Boolean(data.metrics),
+  },
+  {
+    name: 'chat with unregistered site key is rejected',
+    run: () => post('/api/chat', {
+      sessionId: `${runId}-badkey`,
+      message: '你好',
+      siteKey: `${runId}-never-registered`,
+    }),
+    assert: (data) => data.error === 'invalid_site_key',
+  },
+  {
+    name: 'admin can create and use a new widget key; disabling it blocks chat',
+    run: async () => {
+      const created = await post('/api/widget-keys', { key: `${runId}-wk`, name: '冒烟测试站点' });
+      const chatOk = await post('/api/chat', {
+        sessionId: `${runId}-wk-session`,
+        message: '你好',
+        siteKey: `${runId}-wk`,
+      });
+      await patch(`/api/widget-keys/${runId}-wk`, { active: false });
+      const chatAfterDisable = await post('/api/chat', {
+        sessionId: `${runId}-wk-session`,
+        message: '还在吗',
+        siteKey: `${runId}-wk`,
+      });
+      return { created, chatOk, chatAfterDisable };
+    },
+    assert: ({ created, chatOk, chatAfterDisable }) => created.key?.key === `${runId}-wk`
+      && created.key?.active === true
+      && Boolean(chatOk.reply || chatOk.session)
+      && chatAfterDisable.error === 'invalid_site_key',
   },
 ];
 

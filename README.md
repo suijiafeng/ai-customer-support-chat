@@ -279,3 +279,46 @@ node scripts/dialog-test.js    # 访客↔客服对话时序回归
 ## 部署
 
 仓库包含 `Dockerfile` 和 `render.yaml`。部署时默认使用本地 FAQ；如需启用模型，在平台环境变量中设置 `AI_ENABLED=true` 和对应 API Key。
+
+默认 `Dockerfile` 只构建 server（纯 API），widget/workstation/demo 不在镜像里，需要按下面的方式各自独立部署。
+
+### 拆分部署（server / workstation / widget / demo 各自独立）
+
+**server**：按上面的 Docker 说明构建部署即可（`docker build` 用的就是收窄后的 server-only 镜像）。CORS 默认全开，**不建议收紧 `CORS_ORIGINS`**——`/api/chat` 需要能被任意第三方网站的 widget 跨域调用，收紧会连带堵死这个能力。
+
+**workstation**（客服工作台）：在静态托管平台（Cloudflare Pages / Vercel / Netlify 等）连接本仓库，配置：
+- 构建命令：`npm ci && npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-workstation`（必须从仓库根目录跑 `npm ci`，让 npm workspaces 的符号链接生效）
+- 产物目录：`apps/workstation/dist`
+- 环境变量：`VITE_API_BASE=https://<server 部署域名>`、`VITE_BASE_PATH=/`（默认构建产物假设被 server 挂在 `/workstation/` 子路径下，独立部署要显式设成根路径）
+
+**widget**（嵌入组件）：
+- 构建命令：`npm ci && npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-widget`
+- 产物目录：`apps/widget/dist`（只有一个 `widget.js`），上传到静态托管/CDN 即可，不需要环境变量
+- 第三方网站嵌入方式不变：`<script src="https://<widget 部署域名>/widget.js" data-api-base="https://<server 部署域名>" data-key="你的站点标识"></script>`
+
+**demo**（widget 嵌入演示站，可选，不部署也不影响 server/workstation/widget 正常工作）：
+- 构建命令：`npm ci && npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-demo`
+- 产物目录：`apps/demo/dist`
+- 环境变量：`VITE_WIDGET_SRC=https://<widget 部署域名>/widget.js`、`VITE_API_BASE=https://<server 部署域名>`、`VITE_WORKSTATION_URL=https://<workstation 部署域名>`
+
+以上环境变量不设置时都会回退成"由 server 同源托管"的默认行为，本地 `npm run dev:all`、`npm run start`、`npm run start -- demo` 不受影响。
+
+### 一键自托管（docker compose）
+
+不想分别推到多个静态托管平台时，可以用 `docker-compose.yml` 在同一台机器上把 postgres + 四个部分作为独立容器跑起来（server 仍是纯 API，workstation/widget/demo 各自 nginx 托管静态产物；持久化默认用 compose 里自带的 Postgres）：
+
+```bash
+export AUTH_SECRET=$(openssl rand -hex 32)
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+docker compose up --build
+```
+
+- server: http://localhost:3001
+- workstation: http://localhost:8081
+- widget: http://localhost:8082/widget.js
+- demo: http://localhost:8080
+- postgres: 容器内网络 `postgres:5432`（不对外暴露端口），数据落盘在 `postgres_data` 具名卷
+
+默认持久化用本地 Postgres（`DATABASE_URL` 按 `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` 自动拼好，连到 compose 里的 `postgres` 服务）。想接外部 Postgres（Neon/Supabase）就设 `DATABASE_URL` 覆盖；想改回零配置 SQLite 就设 `DB_DRIVER=sqlite`（此时可以从 `docker-compose.yml` 里去掉 `postgres` 服务与 `server` 的 `depends_on`）。
+
+其余可覆盖的环境变量：构建时注入的跨服务地址 `WORKSTATION_API_BASE`、`DEMO_WIDGET_SRC`、`DEMO_API_BASE`、`DEMO_WORKSTATION_URL`（默认已指向上面几个本地端口）；透传给 server 的 `AI_ENABLED`/`AI_PROVIDER`/`OPENAI_API_KEY`/`DEEPSEEK_API_KEY`。生产场景仍建议按上面「拆分部署」把 workstation/widget/demo 放到 CDN。
