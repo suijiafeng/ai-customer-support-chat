@@ -15,10 +15,6 @@ import { extractInquiryId } from '../rules/rules.js';
 import { inferVisitorFromSessionId } from '../common/normalize.js';
 import { StoreService } from '../store/store.service.js';
 
-/**
- * 会话与对话内存状态（运行时事实来源）+ 写穿透。
- * session↔ticket 的同步在这里收口（syncFromTicket / resolve），其他模块不直接改 session。
- */
 @Injectable()
 export class SessionsService implements OnModuleInit {
   private readonly sessions = new Map<string, Session>();
@@ -27,7 +23,7 @@ export class SessionsService implements OnModuleInit {
   constructor(private readonly store: StoreService) {}
 
   async onModuleInit() {
-    await this.store.whenReady; // 等启动快照就绪（见 StoreService.whenReady）
+    await this.store.whenReady;
     const persisted = this.store.getPersisted();
     for (const [id, data] of persisted.sessions) this.sessions.set(id, data);
     for (const [id, messages] of persisted.conversations) this.conversations.set(id, messages);
@@ -57,20 +53,11 @@ export class SessionsService implements OnModuleInit {
     return this.sessions.get(sessionId)?.status === 'assigned';
   }
 
-  /**
-   * 某客服能否看到该会话：管理员看全部；普通客服只看公共池（未被认领）+ 自己已认领的。
-   * Node 单线程，读写在同一同步函数内，认领无竞态。
-   */
   canView(session: Session, agent: { id: string; role: string }): boolean {
     if (agent.role === 'admin') return true;
     return !session.assignedAgentId || session.assignedAgentId === agent.id;
   }
 
-
-  /**
-   * 写穿透封装：库为持久权威源，内存仅作热缓存。
-   * 超出上限时只淘汰内存缓存、**不删库**（库保留全量历史，淘汰项可按需回读）。
-   */
   setSession(session: Session): Session {
     this.sessions.set(session.sessionId, session);
     this.store.saveSession(session);
@@ -85,22 +72,18 @@ export class SessionsService implements OnModuleInit {
     return messages;
   }
 
-  /**
-   * 取会话详情：内存命中直接返回；未命中（已淘汰）从库回读并回填缓存。
-   * 让「内存淘汰 / 重启」后历史仍可访问，DB 成为读的权威源。
-   */
   async loadDetail(sessionId: string): Promise<{ session: Session | null; messages: Message[] }> {
     let session = this.sessions.get(sessionId) ?? null;
     let messages = this.conversations.get(sessionId);
     if (!session) {
       session = await this.store.loadSession(sessionId);
-      if (session) this.sessions.set(sessionId, session); // 回填缓存
+      if (session) this.sessions.set(sessionId, session);
     }
     if (messages === undefined) {
       const loaded = await this.store.loadConversation(sessionId);
       if (loaded) {
         messages = loaded;
-        this.conversations.set(sessionId, loaded); // 回填缓存
+        this.conversations.set(sessionId, loaded);
       }
     }
     return { session, messages: messages ?? [] };
@@ -139,8 +122,9 @@ export class SessionsService implements OnModuleInit {
     profile?: Profile | null;
     visitor?: VisitorInfo | null;
     forceStatus?: Session['status'];
+    tenantKey?: string | null;
   }): Session {
-    const { sessionId, message, workflow, profile, visitor, forceStatus } = params;
+    const { sessionId, message, workflow, profile, visitor, forceStatus, tenantKey } = params;
     const now = new Date().toISOString();
     const current = this.sessions.get(sessionId);
     const nextProfile = profile || current?.profile || null;
@@ -169,18 +153,14 @@ export class SessionsService implements OnModuleInit {
       workflow,
       createdAt: current?.createdAt || now,
       updatedAt: now,
+      tenantKey: tenantKey ?? current?.tenantKey ?? null,
     };
-
     return this.setSession(session);
   }
 
-  /** 工单状态变化 → 会话状态同步的唯一入口。 */
   syncFromTicket(ticket: Ticket): Session | null {
     const session = this.sessions.get(ticket.sessionId);
-    if (!session) {
-      return null;
-    }
-
+    if (!session) return null;
     const isResolved = ticket.status === 'resolved';
     const nextSession: Session = {
       ...session,
@@ -200,7 +180,6 @@ export class SessionsService implements OnModuleInit {
       resolvedAt: isResolved ? ticket.resolvedAt : session.resolvedAt,
       updatedAt: new Date().toISOString(),
     };
-
     return this.setSession(nextSession);
   }
 
@@ -234,16 +213,9 @@ export class SessionsService implements OnModuleInit {
     profile: Profile | null,
     visitor: VisitorInfo | null
   ): string {
-    if (profile?.name) {
-      return profile.name;
-    }
-    if (visitor?.code) {
-      return `访客 ${visitor.code}`;
-    }
-    if (inquiryId) {
-      return `咨询 ${inquiryId}`;
-    }
-
+    if (profile?.name) return profile.name;
+    if (visitor?.code) return `访客 ${visitor.code}`;
+    if (inquiryId) return `咨询 ${inquiryId}`;
     const suffix =
       sessionId.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase() ||
       String(this.sessions.size + 1).padStart(2, '0');
@@ -261,7 +233,6 @@ export class SessionsService implements OnModuleInit {
     };
   }
 
-  /** 队列 SSE 按客服可见性过滤（推送的是全量快照，按订阅者再裁剪）。 */
   filterPayloadForAgent(
     payload: { sessions: SessionSummary[] },
     agent: { id: string; role: string }
@@ -279,16 +250,9 @@ export class SessionsService implements OnModuleInit {
 }
 
 function resolveSessionStatus(current: Session | undefined, workflow: Workflow): Session['status'] {
-  if (current?.status === 'closed') {
-    return workflow.needHuman ? 'waiting_human' : 'bot';
-  }
-  if (current?.status === 'assigned') {
-    return 'assigned';
-  }
-  if (workflow.needHuman) {
-    return 'waiting_human';
-  }
-
+  if (current?.status === 'closed') return workflow.needHuman ? 'waiting_human' : 'bot';
+  if (current?.status === 'assigned') return 'assigned';
+  if (workflow.needHuman) return 'waiting_human';
   return current?.status || 'bot';
 }
 
@@ -297,22 +261,13 @@ function sortSessions(a: Session, b: Session): number {
   const statusRank: Record<string, number> = { waiting_human: 0, bot: 1, assigned: 2, closed: 3 };
   const rankA = priorityRank[a.priority] ?? 1;
   const rankB = priorityRank[b.priority] ?? 1;
-
-  if (rankA !== rankB) {
-    return rankA - rankB;
-  }
-
+  if (rankA !== rankB) return rankA - rankB;
   const statusA = statusRank[a.status] ?? 9;
   const statusB = statusRank[b.status] ?? 9;
-
-  if (statusA !== statusB) {
-    return statusA - statusB;
-  }
-
+  if (statusA !== statusB) return statusA - statusB;
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 }
 
-// 仅淘汰内存缓存（库保留全量历史，不在此删库）
 function trimMap<K, V>(map: Map<K, V>, maxEntries: number) {
   while (map.size > maxEntries) {
     const firstKey = map.keys().next().value as K;

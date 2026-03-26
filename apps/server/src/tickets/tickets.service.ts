@@ -5,25 +5,21 @@ import type { Inquiry, Ticket } from '@assistflow/shared';
 import { extractInquiryId, hasAny, normalize } from '../rules/rules.js';
 import { StoreService } from '../store/store.service.js';
 
-/** 工单内存状态 + 状态机 + 写穿透。 */
 @Injectable()
 export class TicketsService implements OnModuleInit {
   private readonly tickets: Ticket[] = [];
-  /** O(1) 按 id 查找索引 */
   private readonly ticketById = new Map<string, Ticket>();
-  /** O(1) 按 sessionId 查找索引（Set 保证 O(1) 删除） */
   private readonly ticketsBySession = new Map<string, Set<Ticket>>();
 
   constructor(private readonly store: StoreService) {}
 
   async onModuleInit() {
-    await this.store.whenReady; // 等启动快照就绪（见 StoreService.whenReady）
+    await this.store.whenReady;
     for (const ticket of this.store.getPersisted().tickets) {
       this.insertTicket(ticket);
     }
   }
 
-  /** 内部：同步维护 tickets 数组 + 两个 Map 索引。 */
   private insertTicket(ticket: Ticket): void {
     this.tickets.push(ticket);
     this.ticketById.set(ticket.id, ticket);
@@ -35,7 +31,6 @@ export class TicketsService implements OnModuleInit {
     }
   }
 
-  /** 内部：从索引中移除最旧的工单（淘汰内存缓存时用）。 */
   private evictOldest(): void {
     const oldest = this.tickets.shift();
     if (!oldest) return;
@@ -81,9 +76,12 @@ export class TicketsService implements OnModuleInit {
     const { sessionId, message, intent, reason, inquiry } = params;
     const inquiryId = inquiry?.id || extractInquiryId(message) || null;
     const set = this.ticketsBySession.get(sessionId);
-    const existingTicket = set && [...set].find(
-      (ticket) => ticket.status === 'open' && ticket.intent === intent && ticket.inquiryId === inquiryId
-    ) || undefined;
+    const existingTicket =
+      (set &&
+        [...set].find(
+          (ticket) => ticket.status === 'open' && ticket.intent === intent && ticket.inquiryId === inquiryId
+        )) ||
+      undefined;
 
     if (existingTicket) {
       existingTicket.lastMessage = message;
@@ -93,9 +91,7 @@ export class TicketsService implements OnModuleInit {
       return existingTicket;
     }
 
-    const priority = hasAny(normalize(message), ['紧急', '尽快', '马上', '今天联系'])
-      ? 'high'
-      : 'normal';
+    const priority = hasAny(normalize(message), ['紧急', '尽快', '马上', '今天联系']) ? 'high' : 'normal';
     const ticket: Ticket = {
       id: `T-${randomUUID().slice(0, 8).toUpperCase()}`,
       sessionId,
@@ -110,10 +106,7 @@ export class TicketsService implements OnModuleInit {
     };
 
     this.insertTicket(ticket);
-    // 仅淘汰内存缓存，库保留全量工单历史（淘汰项可按需回读）
-    while (this.tickets.length > LIMITS.MAX_TICKETS) {
-      this.evictOldest();
-    }
+    while (this.tickets.length > LIMITS.MAX_TICKETS) this.evictOldest();
     this.store.saveTicket(ticket);
     return ticket;
   }
@@ -123,30 +116,18 @@ export class TicketsService implements OnModuleInit {
     updates: { status?: string; priority?: string; resolution?: unknown } = {}
   ): Ticket {
     const now = new Date().toISOString();
-
-    if (updates.status) {
-      ticket.status = updates.status as Ticket['status'];
-    }
-    if (updates.priority) {
-      ticket.priority = updates.priority as Ticket['priority'];
-    }
+    if (updates.status) ticket.status = updates.status as Ticket['status'];
+    if (updates.priority) ticket.priority = updates.priority as Ticket['priority'];
     if (typeof updates.resolution === 'string' && updates.resolution.trim()) {
       ticket.resolution = updates.resolution.trim().slice(0, 120);
     }
-
     ticket.updatedAt = now;
-    if (ticket.status === 'processing' && !ticket.acceptedAt) {
-      ticket.acceptedAt = now;
-    }
-    if (ticket.status === 'resolved') {
-      ticket.resolvedAt = ticket.resolvedAt || now;
-    }
-
+    if (ticket.status === 'processing' && !ticket.acceptedAt) ticket.acceptedAt = now;
+    if (ticket.status === 'resolved') ticket.resolvedAt = ticket.resolvedAt || now;
     this.store.saveTicket(ticket);
     return ticket;
   }
 
-  /** 追加处理备注（按时间累积，最多保留 50 条）。 */
   addNote(ticket: Ticket, note: { agentId: string; agentName: string; text: string }): Ticket {
     const entry = {
       id: randomUUID(),
@@ -164,9 +145,7 @@ export class TicketsService implements OnModuleInit {
   moveOpenToProcessing(sessionId: string): Ticket | null {
     const set = this.ticketsBySession.get(sessionId);
     const ticket = (set && [...set].find((item) => item.status === 'open')) ?? null;
-    if (!ticket) {
-      return null;
-    }
+    if (!ticket) return null;
     return this.update(ticket, { status: 'processing' });
   }
 

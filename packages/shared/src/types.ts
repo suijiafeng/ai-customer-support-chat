@@ -166,6 +166,18 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
+  /** 发起会话时使用的租户密钥（用于按租户统计，新会话写入，旧数据为 undefined） */
+  tenantKey?: string | null;
+}
+
+/** 租户详情统计（GET /api/widget-keys/:key/stats 响应） */
+export interface TenantStats {
+  totalSessions: number;
+  recentSessions: number;
+  statusBreakdown: Record<SessionStatus, number>;
+  deviceBreakdown: { mobile: number; desktop: number; unknown: number };
+  topSources: Array<{ url: string; count: number }>;
+  dailySessions: Array<{ date: string; count: number }>;
 }
 
 /** 队列视图里的会话（附带消息数） */

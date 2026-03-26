@@ -16,7 +16,6 @@ import { SessionsService } from '../sessions/sessions.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { SessionTicketService } from '../workflow/session-ticket.service.js';
 
-/** 访客对话编排：自原 POST /api/chat 处理器平移。 */
 @Injectable()
 export class ChatService {
   constructor(
@@ -35,7 +34,6 @@ export class ChatService {
     const message = String(body?.message || '').trim();
     const sessionId = String(body?.sessionId || 'default');
     const profile = body?.profile ? normalizeProfile(body.profile) : null;
-    // 访客元信息：客户端只提供 code；IP/设备由服务端按请求采集，避免伪造
     const baseVisitor = normalizeVisitor(body?.visitor) ?? inferVisitorFromSessionId(sessionId);
     const visitor: VisitorInfo | null = baseVisitor
       ? {
@@ -47,16 +45,14 @@ export class ChatService {
       : null;
     const attachments = normalizeAttachments(body?.attachments);
     const clientMessageId = String(body?.clientMessageId || '').slice(0, 64) || null;
+    const tenantKey = String(body?.siteKey || '').trim() || null;
     const storedHistory = this.sessions.getMessages(sessionId);
     const history = storedHistory.slice(-LIMITS.MAX_AI_HISTORY);
 
-    // 幂等：同一 clientMessageId 重复提交（客户端重试）直接返回已有结果，不重复入库/回复
     if (clientMessageId) {
       const dupIndex = storedHistory.findIndex((m) => m.clientMessageId === clientMessageId);
       if (dupIndex !== -1) {
-        const existingReply = storedHistory
-          .slice(dupIndex + 1)
-          .find((m) => m.role === 'assistant');
+        const existingReply = storedHistory.slice(dupIndex + 1).find((m) => m.role === 'assistant');
         const session = this.sessions.get(sessionId) || this.sessions.createEmptySession(sessionId);
         const workflow: Workflow = session.workflow ?? {
           ai: {
@@ -84,8 +80,6 @@ export class ChatService {
       }
     }
 
-    // 允许「纯图片」消息：有文字或有图片即可（空校验由 controller 处理）
-
     if (this.sessions.isHumanAssigned(sessionId)) {
       const activeTicket = this.tickets.getLatestForSession(sessionId);
       const nextHistory = this.sessions.appendMessages(
@@ -108,11 +102,9 @@ export class ChatService {
         ticket: activeTicket,
         sources: [],
       };
-
       this.sessions.setConversation(sessionId, nextHistory);
-      this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor, forceStatus: 'assigned' });
+      this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor, forceStatus: 'assigned', tenantKey });
       this.sessionTicket.notify(sessionId);
-
       return {
         sessionId,
         reply: '',
@@ -123,7 +115,6 @@ export class ChatService {
       };
     }
 
-    // 口水话/测试消息（在吗、测试、111、谢谢…）直接内置回复，不走 FAQ/AI、不建跟进事项
     const smallTalk = message && attachments.length === 0 ? this.knowledge.matchSmallTalk(message) : null;
     if (smallTalk) {
       const workflow: Workflow = {
@@ -147,11 +138,9 @@ export class ChatService {
         this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments, clientMessageId }),
         this.sessions.createMessage({ role: 'assistant', actor: 'ai', content: smallTalk.reply })
       );
-
       this.sessions.setConversation(sessionId, nextHistory);
-      this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor });
+      this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor, tenantKey });
       this.sessionTicket.notify(sessionId);
-
       return {
         sessionId,
         reply: smallTalk.reply,
@@ -200,11 +189,9 @@ export class ChatService {
         score: Number(faq.score.toFixed(2)),
       })),
     };
-
     this.sessions.setConversation(sessionId, nextHistory);
-    this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor });
+    this.sessions.upsertSession({ sessionId, message, workflow, profile, visitor, tenantKey });
     this.sessionTicket.notify(sessionId);
-
     return {
       sessionId,
       reply,

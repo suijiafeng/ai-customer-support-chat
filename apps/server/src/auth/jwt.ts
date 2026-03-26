@@ -1,4 +1,3 @@
-// 轻量 JWT（HS256）与口令哈希工具：纯函数，无外部依赖，便于单测。
 import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 
 function b64url(input: Buffer | string): string {
@@ -27,10 +26,7 @@ export function signToken(
   return `${header}.${body}.${sig}`;
 }
 
-/**
- * SSE 短时一次性票据：EventSource 无法带请求头，只能用 query 传递；
- * 改用 60s 短 TTL 的专用票据（kind:'sse'），避免长效 JWT 暴露在 URL/日志里。
- */
+// SSE 用 ?ticket= 传递凭证（EventSource 无法自定义请求头），60s 短 TTL 避免长效 JWT 进 URL
 export function signSseTicket(
   payload: { sub: string; name: string; role: AgentRole },
   secret: string,
@@ -57,8 +53,7 @@ export function verifyToken(token: string, secret: string): AgentClaims | null {
     const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (typeof claims.sub !== 'string' || typeof claims.exp !== 'number') return null;
     if (claims.exp <= Math.floor(Date.now() / 1000)) return null;
-    // 兼容旧 token：缺省按普通客服处理
-    if (claims.role !== 'admin') claims.role = 'agent';
+    if (claims.role !== 'admin') claims.role = 'agent'; // 兼容旧 token
     return claims as AgentClaims;
   } catch {
     return null;

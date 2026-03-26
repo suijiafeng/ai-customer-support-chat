@@ -38,6 +38,12 @@ export class WidgetKeysController {
     return { key: this.widgetKeys.update(key, patch) };
   }
 
+  @Get(':key/stats')
+  stats(@Param('key') key: string, @Req() req: any) {
+    this.assertAdmin(req.agent as AuthenticatedAgent);
+    return { stats: this.widgetKeys.getStats(key) };
+  }
+
   @Delete(':key')
   remove(@Param('key') key: string, @Req() req: any) {
     this.assertAdmin(req.agent as AuthenticatedAgent);

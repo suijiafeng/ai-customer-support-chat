@@ -1,4 +1,3 @@
-// 入参规范化（自原 index.js 的 normalizeXxx 系列平移，契约不变）。
 import { randomUUID } from 'node:crypto';
 import { LIMITS } from '@assistflow/shared';
 import type { Attachment, Profile, VisitorInfo } from '@assistflow/shared';
@@ -26,9 +25,7 @@ export function normalizeProfile(value: any = {}): Profile {
 
 export function normalizeVisitor(value: any = {}): VisitorInfo | null {
   const code = String(value?.code || '').trim().slice(0, 20);
-  if (!code) {
-    return null;
-  }
+  if (!code) return null;
   return {
     code,
     createdAt: value?.createdAt || null,
@@ -38,22 +35,15 @@ export function normalizeVisitor(value: any = {}): VisitorInfo | null {
 
 export function inferVisitorFromSessionId(sessionId: string): VisitorInfo | null {
   const match = String(sessionId).match(/customer-([a-z0-9]+)/i);
-  if (!match) {
-    return null;
-  }
-  return {
-    code: match[1].toUpperCase(),
-    createdAt: null,
-  };
+  if (!match) return null;
+  return { code: match[1].toUpperCase(), createdAt: null };
 }
 
-/** 请求侧元信息：真实客户端 IP 与 User-Agent（由服务端采集，客户端不可伪造）。 */
 export interface ClientMeta {
   ip?: string | null;
   userAgent?: string | null;
 }
 
-/** 从 User-Agent 粗略解析「系统 · 浏览器」标签，仅供客服侧识别，不追求精确，无外部依赖。 */
 export function parseDevice(userAgent?: string | null): string | null {
   const ua = String(userAgent || '').trim();
   if (!ua) return null;

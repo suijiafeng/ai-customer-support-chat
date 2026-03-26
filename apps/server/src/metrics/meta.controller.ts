@@ -41,7 +41,6 @@ export class MetaController {
 
   @Get('faqs')
   faqs() {
-    // 过滤掉仅供内部使用的 keywords 字段，避免暴露搜索实现细节
     return {
       faqs: this.knowledge.faqs.map(({ keywords: _keywords, ...rest }) => rest),
     };

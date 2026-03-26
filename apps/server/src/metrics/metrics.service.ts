@@ -4,7 +4,6 @@ import { SessionsService } from '../sessions/sessions.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { StoreService } from '../store/store.service.js';
 
-/** 服务端本地日期 YYYY-MM-DD */
 function localDate(d = new Date()): string {
   return d.toLocaleDateString('en-CA');
 }
@@ -20,7 +19,6 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    // 启动即记一次今日快照，之后每 30 分钟刷新当天点，保证无人查看也有数据
     this.recordDaily();
     this.timer = setInterval(() => this.recordDaily(), 30 * 60 * 1000);
   }
@@ -29,7 +27,6 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  /** 按天 upsert 当前快照（同一天多次只更新当天值） */
   recordDaily(): void {
     const m = this.buildMetrics();
     const point: DailyMetricPoint = {
@@ -41,7 +38,6 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
     this.store.saveDailyMetric(point);
   }
 
-  /** 读取最近 N 天的趋势（团队级、跨端一致，由库聚合） */
   getTrend(days = 14): Promise<DailyMetricPoint[]> {
     return this.store.loadDailyMetrics(days);
   }

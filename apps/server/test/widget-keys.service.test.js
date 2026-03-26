@@ -37,13 +37,13 @@ const row = (extra = {}) => ({
   ...extra,
 });
 
-test('空表启动时自动种一个 demo-site 租户（固定ID、启用状态）', async () => {
+test('空表启动时自动种一个 demo 租户（固定ID与密钥、启用状态）', async () => {
   const { svc, store } = await makeService([]);
 
   const keys = svc.list();
   assert.equal(keys.length, 1);
-  assert.equal(keys[0].key, 'demo-site');
-  assert.equal(keys[0].id, 'tn_demo0000');
+  assert.equal(keys[0].key, 'd0KX6-CDtI-Gaxc-fR1K');
+  assert.equal(keys[0].id, 'tn_846ad88eee');
   assert.equal(keys[0].active, true);
   assert.equal(store.saved.length, 1);
 });

@@ -2,11 +2,6 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 
-/**
- * 客服侧接口守卫：Authorization: Bearer <jwt>；
- * SSE（EventSource 无法带请求头）允许 ?token= 传递。
- * 通过后把客服身份挂到 req.agent，业务端不再信任请求体里的身份。
- */
 @Injectable()
 export class AgentAuthGuard implements CanActivate {
   constructor(private readonly auth: AuthService) {}
@@ -15,17 +10,14 @@ export class AgentAuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request & { agent?: unknown }>();
     const header = String(req.headers.authorization || '');
     const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-    // 普通接口走 Bearer 头的长效 JWT；SSE（EventSource 无法带头）走 ?ticket= 的 60s 短票据。
     let agent = bearer ? this.auth.verify(bearer) : null;
     if (!agent) {
       const ticket = String(req.query?.ticket || '');
       if (ticket) agent = this.auth.verifySseTicket(ticket);
     }
-
     if (!agent) {
       throw new UnauthorizedException({ error: 'agent authentication required' });
     }
-
     req.agent = agent;
     return true;
   }

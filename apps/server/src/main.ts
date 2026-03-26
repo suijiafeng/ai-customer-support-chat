@@ -5,18 +5,18 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import express from 'express';
 import { AppModule } from './app.module.js';
 import { appConfig } from './config.js';
+import { HttpExceptionFilter } from './common/http-exception.filter.js';
+import { ResponseInterceptor } from './common/response.interceptor.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
 
-  // 反向代理（Render/Nginx 等）后取真实客户端 IP，确保限流按用户而非代理 IP 统计。
-  // 默认 false（直连部署，防止 X-Forwarded-For 伪造）；部署在代理后时设 TRUST_PROXY=1。
   app.set('trust proxy', appConfig.trustProxy);
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new HttpExceptionFilter());
 
-  // CORS：配置 CORS_ORIGINS（逗号分隔白名单）则只放行这些来源；
-  // 未配置时放开（公开 widget 需从任意第三方站点跨域调用 /api/chat）。
   const corsOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')
     .map((s) => s.trim())
@@ -25,42 +25,23 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: '12mb' });
   app.enableShutdownHooks();
 
-  // 静态产物挂载表：后端不感知演示站的内容，只按部署配置托管构建产物。
-  // widget.js 文件名固定（无内容哈希），用 no-cache 强制浏览器每次校验
   app.use(
     '/widget',
     express.static(appConfig.staticDirs.widget, {
       setHeaders(res, filePath) {
-        if (filePath.endsWith('.js')) {
-          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        }
+        if (filePath.endsWith('.js')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       },
     })
   );
-  // 工作台构建产物（资源带哈希；index.html 用 no-cache 以便总是拉到最新哈希）
   app.use(
     '/workstation',
     express.static(appConfig.staticDirs.workstation, {
       setHeaders(res, filePath) {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        }
+        if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       },
     })
   );
 
-  // 演示站挂在根路径；后端只托管其构建产物，不感知演示内容
-  // app.use(
-  //   express.static(appConfig.staticDirs.demo, {
-  //     setHeaders(res, filePath) {
-  //       if (filePath.endsWith('.html')) {
-  //         res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-  //       }
-  //     },
-  //   })
-  // );
-
-  // 演示站是 SPA：未命中 API/静态产物的 GET 页面请求回退到 demo 入口
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
     const reserved = ['/api', '/widget', '/workstation'];
     if (
@@ -74,7 +55,12 @@ async function bootstrap() {
   });
 
   await app.listen(appConfig.port);
-  console.log(`AssistFlow server (NestJS) running at http://localhost:${appConfig.port}`);
+  console.log(`AssistFlow server running at http://localhost:${appConfig.port}`);
+
+  const httpServer = app.getHttpServer();
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => httpServer.closeAllConnections());
+  }
 }
 
 bootstrap();
