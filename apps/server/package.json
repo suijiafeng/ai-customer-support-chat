@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning dist/main.js",
-    "dev": "npm run build && concurrently --kill-others --success first \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --experimental-sqlite --disable-warning=ExperimentalWarning --watch dist/main.js\"",
+    "dev:watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "dev:serve": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch dist/main.js",
+    "dev": "npm run build && concurrently --kill-others-on-fail -n tsc,node -c blue,green \"npm run dev:watch\" \"npm run dev:serve\"",
     "test": "npm run build && node --test test/*.test.js"
   },
   "dependencies": {

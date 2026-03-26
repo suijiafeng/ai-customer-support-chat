@@ -50,15 +50,15 @@ async function bootstrap() {
   );
 
   // 演示站挂在根路径；后端只托管其构建产物，不感知演示内容
-  app.use(
-    express.static(appConfig.staticDirs.demo, {
-      setHeaders(res, filePath) {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        }
-      },
-    })
-  );
+  // app.use(
+  //   express.static(appConfig.staticDirs.demo, {
+  //     setHeaders(res, filePath) {
+  //       if (filePath.endsWith('.html')) {
+  //         res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  //       }
+  //     },
+  //   })
+  // );
 
   // 演示站是 SPA：未命中 API/静态产物的 GET 页面请求回退到 demo 入口
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {

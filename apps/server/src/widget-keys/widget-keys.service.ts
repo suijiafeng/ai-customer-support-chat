@@ -66,9 +66,9 @@ export class WidgetKeysService implements OnModuleInit {
       const now = new Date().toISOString();
       const seed: Tenant = {
         // 固定 ID：demo 演示站的嵌入代码需要写死 data-name，随机 ID 会让演示开箱即坏
-        id: 'tn_demo0000',
-        key: 'demo-site',
-        name: 'Demo 站点（内置，建议替换）',
+        id: 'tn_846ad88eee',
+        key: 'd0KX6-CDtI-Gaxc-fR1K',
+        name: 'Demo',
         active: true,
         createdAt: now,
         updatedAt: now,

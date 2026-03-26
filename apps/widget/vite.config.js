@@ -20,11 +20,28 @@ const backend = process.env.BACKEND_URL || `http://localhost:${process.env.PORT 
 function stripBundleComments() {
   return {
     name: 'strip-bundle-comments-post-build',
-    closeBundle() {
+    writeBundle() {
       const bundlePath = resolve(configDir, 'dist/widget.js');
+      const templatePath = resolve(configDir, 'index.html');
+      const htmlPath = resolve(configDir, 'dist/index.html');
       if (!existsSync(bundlePath)) return;
       const code = readFileSync(bundlePath, 'utf8');
       writeFileSync(bundlePath, code.replace(/\/\*[\s\S]*?\*\//g, ''), 'utf8');
+      if (!existsSync(templatePath)) return;
+      const template = readFileSync(templatePath, 'utf8');
+      const distHtml = template
+        .replace(
+          /<script\s+type="module">[\s\S]*?<\/script>/,
+          `<script
+    src="./widget.js"
+    data-assistflow="Demo"
+    data-title="AssistFlow AI 客服系统"
+    data-key="d0KX6-CDtI-Gaxc-fR1K"
+    data-name="tn_846ad88eee"
+  ></script>`
+        )
+        .replace('开发模式下 API 走 Vite 代理到 :3001。', '该页面会加载同目录的 widget.js。');
+      writeFileSync(htmlPath, distHtml, 'utf8');
     },
   };
 }

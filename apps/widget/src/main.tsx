@@ -12,8 +12,8 @@ function readConfig() {
   const ds: DOMStringMap = el ? el.dataset : ({} as DOMStringMap);
   return {
     apiBase: window.location.origin,
-    siteKey: "4B15-64On-dN1y-qIV4",
-    tenantId: "tn_8dfd32ad0d", // 租户ID（必填），与 data-key 成对校验
+    siteKey: "d0KX6-CDtI-Gaxc-fR1K",
+    tenantId: "tn_846ad88eee", // 租户ID（必填），与 data-key 成对校验
     title: 'AssistFlow AI 客服系统',
   };
 }
