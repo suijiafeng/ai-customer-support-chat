@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
 import { fmtTime, getLoginAt, type AgentIdentity } from '../api.js';
+import Icon from '../ui/Icon.js';
 
 interface AgentMenuProps {
   agent: AgentIdentity;
@@ -59,7 +60,7 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
       >
         <span className="avatar-badge" style={{ background: color }}>{initials}</span>
         <span className="agent-name">{agent.name}</span>
-        <span className={`caret${open ? ' up' : ''}`} aria-hidden="true">▾</span>
+        <Icon name="chevron-down" size={14} style={{ transition: 'transform .2s', transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {open && (
@@ -90,7 +91,7 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
 
           <div className="agent-actions">
             <button role="menuitem" className="danger" onClick={onLogout}>
-              ⏻ 退出登录
+              <Icon name="x" size={14} />退出登录
             </button>
           </div>
 

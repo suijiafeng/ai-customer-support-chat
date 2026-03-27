@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { fmtTime, type UiMessage } from '../api.js';
 import type { HistoryStatus } from '../hooks/useSessionMessages.js';
 import { Markdown } from '../ui/markdown.js';
+import Icon from '../ui/Icon.js';
 
 const avatarText = (from: string) => (from === 'customer' ? '访' : from === 'ai' ? 'AI' : '本');
 
@@ -89,7 +90,7 @@ export default function MessageList({ messages, customerName, status = 'ready' }
         ))}
         {!messages.length && status === 'loading' && <Skeleton />}
         {!messages.length && status === 'ready' && (
-          <div className="empty"><span className="ico" aria-hidden="true">💬</span>暂无消息，等待访客发起咨询</div>
+          <div className="empty"><Icon name="message-circle" size={28} style={{ opacity: .4, marginBottom: 4 }} />暂无消息，等待访客发起咨询</div>
         )}
       </div>
       {!atBottom && (

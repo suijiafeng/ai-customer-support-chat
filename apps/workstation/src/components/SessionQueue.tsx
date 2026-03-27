@@ -8,6 +8,23 @@ interface SessionQueueProps {
   onSelect: (id: string) => void;
   open?: boolean;
   agent?: AgentIdentity;
+  ready?: boolean;
+}
+
+function SessSkeletons({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="sk-sess">
+          <div className="sk-sess-top">
+            <div className="sk-block" style={{ flex: 1 }} />
+            <div className="sk-block" style={{ width: 36 }} />
+          </div>
+          <div className="sk-sess-sub"><div className="sk-block" /></div>
+        </div>
+      ))}
+    </>
+  );
 }
 
 // 下方“会话列表”分区的筛选（公共池已独立成上方分区，不在此列）
@@ -19,7 +36,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'closed', label: '已关闭' },
 ];
 
-export default function SessionQueue({ sessions, activeId, onSelect, open = false, agent }: SessionQueueProps) {
+export default function SessionQueue({ sessions, activeId, onSelect, open = false, agent, ready = false }: SessionQueueProps) {
   const [filter, setFilter] = useState<Filter>('all');
   const [keyword, setKeyword] = useState('');
   // 手风琴展开状态，默认都展开
@@ -87,64 +104,70 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
       </div>
 
       <div className="queue-scroll">
-        {/* 接待大厅：手风琴分区，待抢单 */}
-        <div className="queue-section queue-pool" role="group" aria-label="接待大厅">
-          <button
-            className="section-head"
-            aria-expanded={poolOpen}
-            onClick={() => setPoolOpen((v) => !v)}
-          >
-            <span className="section-title">
-              <span className={`section-caret${poolOpen ? ' open' : ''}`} aria-hidden="true">▸</span>
-              接待大厅
-            </span>
-            <span className="section-count pool">{poolTotal} 待抢单</span>
-          </button>
-          {poolOpen && (
-            <div role="list">
-              {pool.map(renderItem)}
-              {!pool.length && (
-                <div className="section-empty">{poolTotal ? '没有匹配的客户' : '接待大厅暂无待接待客户'}</div>
+        {!ready ? (
+          <SessSkeletons count={5} />
+        ) : (
+          <>
+            {/* 接待大厅：手风琴分区，待抢单 */}
+            <div className="queue-section queue-pool" role="group" aria-label="接待大厅">
+              <button
+                className="section-head"
+                aria-expanded={poolOpen}
+                onClick={() => setPoolOpen((v) => !v)}
+              >
+                <span className="section-title">
+                  <span className={`section-caret${poolOpen ? ' open' : ''}`} aria-hidden="true">▸</span>
+                  接待大厅
+                </span>
+                <span className="section-count pool">{poolTotal} 待抢单</span>
+              </button>
+              {poolOpen && (
+                <div role="list">
+                  {pool.map(renderItem)}
+                  {!pool.length && (
+                    <div className="section-empty">{poolTotal ? '没有匹配的客户' : '接待大厅暂无待接待客户'}</div>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* 会话列表：手风琴分区，已被认领 / 已关闭 */}
-        <div className="queue-section" role="group" aria-label="会话列表">
-          <button
-            className="section-head"
-            aria-expanded={listOpen}
-            onClick={() => setListOpen((v) => !v)}
-          >
-            <span className="section-title">
-              <span className={`section-caret${listOpen ? ' open' : ''}`} aria-hidden="true">▸</span>
-              会话列表
-            </span>
-            <span className="section-count">{others.length}</span>
-          </button>
-          {listOpen && (
-            <>
-              <div className="queue-filters" role="tablist">
-                {FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    role="tab"
-                    aria-selected={filter === f.key}
-                    className={filter === f.key ? 'active' : ''}
-                    onClick={() => setFilter(f.key)}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-              <div role="list">
-                {others.map(renderItem)}
-                {!others.length && <div className="section-empty">没有匹配的会话</div>}
-              </div>
-            </>
-          )}
-        </div>
+            {/* 会话列表：手风琴分区，已被认领 / 已关闭 */}
+            <div className="queue-section" role="group" aria-label="会话列表">
+              <button
+                className="section-head"
+                aria-expanded={listOpen}
+                onClick={() => setListOpen((v) => !v)}
+              >
+                <span className="section-title">
+                  <span className={`section-caret${listOpen ? ' open' : ''}`} aria-hidden="true">▸</span>
+                  会话列表
+                </span>
+                <span className="section-count">{others.length}</span>
+              </button>
+              {listOpen && (
+                <>
+                  <div className="queue-filters" role="tablist">
+                    {FILTERS.map((f) => (
+                      <button
+                        key={f.key}
+                        role="tab"
+                        aria-selected={filter === f.key}
+                        className={filter === f.key ? 'active' : ''}
+                        onClick={() => setFilter(f.key)}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div role="list">
+                    {others.map(renderItem)}
+                    {!others.length && <div className="section-empty">没有匹配的会话</div>}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </aside>
   );

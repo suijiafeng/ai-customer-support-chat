@@ -5,6 +5,7 @@ import {
   type AgentIdentity, type PendingAttachment, type UiMessage,
 } from '../api.js';
 import { showToast } from '../ui/feedback.js';
+import Icon from '../ui/Icon.js';
 
 interface ComposerProps {
   sessionId: string | null;
@@ -183,7 +184,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
                 aria-pressed={showEmoji}
                 aria-busy={emojiLoading}
                 onClick={toggleEmoji}
-              >{emojiLoading ? '…' : '😊'}</button>
+              >{emojiLoading ? '…' : <Icon name="smile" size={16} />}</button>
               <button
                 type="button"
                 className={`tool${showCanned ? ' active' : ''}`}
@@ -191,7 +192,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
                 aria-label="快捷回复"
                 aria-pressed={showCanned}
                 onClick={() => { setShowCanned((v) => !v); setShowEmoji(false); }}
-              >⚡</button>
+              ><Icon name="zap" size={16} /></button>
               <input ref={fileEl} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
               <span className="key-hint">Shift + Enter 换行</span>
             </div>
@@ -200,7 +201,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
               disabled={!canSend || loading}
               aria-busy={loading}
               onClick={send}
-            >{loading ? '发送中…' : '发送'}</button>
+            >{loading ? '发送中…' : <><Icon name="send" size={14} />发送</>}</button>
           </div>
         </div>
       </div>

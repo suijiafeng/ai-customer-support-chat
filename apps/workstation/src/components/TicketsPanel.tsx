@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Ticket } from '@assistflow/shared';
 import { fmtTime, intentText, requestJson, type AgentIdentity } from '../api.js';
 import { showToast } from '../ui/feedback.js';
+import Icon from '../ui/Icon.js';
 
 const STATUS_TEXT: Record<string, string> = { open: '待处理', processing: '处理中', resolved: '已解决' };
 const STATUS_TAG: Record<string, string> = { open: 'warning', processing: 'primary', resolved: 'success' };
@@ -18,12 +19,11 @@ interface TicketsPanelProps {
   onOpenSession: (sessionId: string) => void;
 }
 
-/** 跟进事项区块（运营中心下半部）：归属过滤 + 状态流转 + 优先级 + 详情/备注。 */
 export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps) {
   const isAdmin = agent.role === 'admin';
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filter, setFilter] = useState<'all' | 'open' | 'processing' | 'resolved'>('all');
-  const [scope, setScope] = useState<'all' | 'mine'>('all'); // 仅管理员可切换
+  const [scope, setScope] = useState<'all' | 'mine'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -78,7 +78,6 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
     resolved: scoped.filter((t) => t.status === 'resolved').length,
   };
   const detail = detailId ? tickets.find((t) => t.id === detailId) || null : null;
-  // 可操作：管理员 / 本人归属 / 未认领（池中，谁都可跟进）
   const canOperate = (t: Ticket) => isAdmin || t.ownerAgentId === agent.id || t.ownerAgentId == null;
 
   return (
@@ -107,16 +106,16 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
               <button role="tab" aria-selected={scope === 'mine'} className={scope === 'mine' ? 'active' : ''} onClick={() => setScope('mine')}>我的</button>
             </div>
           )}
-          <button className="ghost-btn" onClick={load}>刷新</button>
+          <button className="ghost-btn" onClick={load}><Icon name="refresh" size={13} />刷新</button>
         </div>
       </div>
 
       {error ? (
-        <div className="empty"><span className="ico" aria-hidden="true">⚠️</span>加载失败<button className="retry-btn" onClick={load}>重试</button></div>
+        <div className="empty"><Icon name="alert-triangle" size={28} style={{ opacity: .4, marginBottom: 4 }} />加载失败<button className="retry-btn" onClick={load}>重试</button></div>
       ) : loading ? (
-        <div className="empty">加载中…</div>
+        <TicketSkeleton isAdmin={isAdmin} />
       ) : !visible.length ? (
-        <div className="empty"><span className="ico" aria-hidden="true">🗒️</span>暂无跟进事项</div>
+        <div className="empty"><Icon name="list" size={28} style={{ opacity: .4, marginBottom: 4 }} />暂无跟进事项</div>
       ) : (
         <div className="ticket-table-wrap">
           <table className="ticket-table">
@@ -139,12 +138,12 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
                       title={canOperate(t) ? '点击切换优先级' : '非本人工单'}
                       onClick={() => patch(t, { priority: t.priority === 'high' ? 'normal' : 'high' })}
                     >
-                      {t.priority === 'high' ? '🔥 高' : '普通'}
+                      {t.priority === 'high' ? <><Icon name="flame" size={12} style={{ marginRight: 3, verticalAlign: 'text-bottom', color: '#ef4444' }} />高</> : '普通'}
                     </button>
                   </td>
                   <td className="reason">{t.reason}</td>
                   {isAdmin && <td>{t.ownerAgentName || <span className="muted">未认领</span>}</td>}
-                  <td>{t.notes?.length ? <span className="note-count">💬 {t.notes.length}</span> : <span className="muted">—</span>}</td>
+                  <td>{t.notes?.length ? <span className="note-count"><Icon name="message-circle" size={12} style={{ marginRight: 3, verticalAlign: 'text-bottom' }} />{t.notes.length}</span> : <span className="muted">—</span>}</td>
                   <td className="mono">{fmtDate(t.updatedAt)}</td>
                   <td className="ops">
                     <button className="ghost-btn" onClick={() => setDetailId(t.id)}>详情</button>
@@ -173,6 +172,32 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
         />
       )}
     </section>
+  );
+}
+
+function TicketSkeleton({ isAdmin }: { isAdmin: boolean }) {
+  const cols = isAdmin ? [10, 6, 6, 22, 8, 5, 12, 10] : [10, 6, 6, 24, 5, 12, 10];
+  return (
+    <div className="ticket-table-wrap">
+      <table className="ticket-table">
+        <thead>
+          <tr>
+            <th>编号</th><th>状态</th><th>优先级</th><th>事由</th>
+            {isAdmin && <th>负责客服</th>}
+            <th>备注</th><th>更新时间</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }, (_, i) => (
+            <tr key={i}>
+              {cols.map((w, j) => (
+                <td key={j}><div className="sk-block" style={{ height: 12, width: `${w * 4}px`, borderRadius: 4 }} /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -209,7 +234,7 @@ function TicketDetail({
         <div className="ticket-modal-head">
           <span className="mono">{ticket.id}</span>
           <span className={`tag tag-${STATUS_TAG[ticket.status]}`}>{STATUS_TEXT[ticket.status]}</span>
-          {ticket.priority === 'high' && <span className="tag tag-warning">🔥 高优先级</span>}
+          {ticket.priority === 'high' && <span className="tag tag-warning"><Icon name="flame" size={12} style={{ marginRight: 3, verticalAlign: 'text-bottom' }} />高优先级</span>}
         </div>
         <dl className="ticket-detail">
           <div><dt>事由</dt><dd>{ticket.reason || '—'}</dd></div>

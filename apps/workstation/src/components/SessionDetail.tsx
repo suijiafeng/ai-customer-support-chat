@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import type { SessionSummary, Ticket } from '@assistflow/shared';
 import { intentText, requestJson } from '../api.js';
 import { showToast, confirmDialog } from '../ui/feedback.js';
+import Icon from '../ui/Icon.js';
 
-const SENTIMENT_TEXT: Record<string, string> = { positive: '😊 积极', neutral: '😐 中性', negative: '😟 消极' };
+const SENTIMENT_TEXT: Record<string, string> = { positive: '积极', neutral: '中性', negative: '消极' };
 const TICKET_STATUS: Record<string, string> = { open: '待处理', processing: '处理中', resolved: '已解决' };
 
 interface SessionDetailProps {
@@ -12,7 +13,6 @@ interface SessionDetailProps {
   canResolve?: boolean;
 }
 
-/** 会话详情侧栏：访客资料、AI 诊断、关联工单、标记解决。 */
 export default function SessionDetail({ session, onClose, canResolve = true }: SessionDetailProps) {
   const [resolving, setResolving] = useState(false);
   const wf = session.workflow;
@@ -59,7 +59,7 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
                 <dd><a href={session.visitor.pageUrl} target="_blank" rel="noopener noreferrer">{session.visitor.pageUrl}</a></dd>
               </div>
             )}
-            <div><dt>优先级</dt><dd>{session.priority === 'high' ? '🔥 高' : '普通'}</dd></div>
+            <div><dt>优先级</dt><dd>{session.priority === 'high' ? '高' : '普通'}</dd></div>
           </dl>
         </section>
 
@@ -115,7 +115,7 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
             ? '会话已关闭'
             : !canResolve
               ? '非本人接待'
-              : resolving ? '处理中…' : '✓ 标记解决'}
+              : resolving ? '处理中…' : <><Icon name="check" size={13} />标记解决</>}
         </button>
       </div>
     </aside>

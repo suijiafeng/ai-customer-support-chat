@@ -3,6 +3,7 @@ import { fmtTime, linkParts } from '@assistflow/shared';
 import { Markdown } from './markdown.js';
 import { newId, type PendingImage } from './chatApi.js';
 import { useDraggablePanel, type ResizeDir } from './hooks/useDraggablePanel.js';
+import Icon from './Icon.js';
 import { useDraggableFab } from './hooks/useDraggableFab.js';
 import { useEmojiPicker } from './hooks/useEmojiPicker.js';
 import { useSendCooldown } from './hooks/useSendCooldown.js';
@@ -235,7 +236,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
               <div className="list" ref={listEl} onScroll={onListScroll}>
                 {messages.length === 0 && (
                   <div className="hint">
-                    你好呀，我是开发者的智能助手 👋<br />有什么想了解的直接问我，或点下方快捷提问
+                    你好呀，我是开发者的智能助手<br />有什么想了解的直接问我，或点下方快捷提问
                   </div>
                 )}
                 {messages.map((m) => (
@@ -367,7 +368,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
                     borderRadius: 8,
                   }}
                 >
-                  客服暂不可用，请联系网站管理员
+                  服务暂不可用，请联系管理员
                 </div>
               </div>
             ) : (
@@ -389,16 +390,16 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
                     title="表情"
                     aria-busy={emojiLoading}
                     onClick={toggleEmoji}
-                  >{emojiLoading ? '…' : '😊'}</button>
+                  >{emojiLoading ? '…' : <Icon name="smile" size={16} />}</button>
                   <button
                     className={`tool${showQuick ? ' active' : ''}`}
                     title="快捷提问"
                     aria-pressed={showQuick}
                     onClick={() => { setShowQuick((v) => !v); closeEmoji(); }}
-                  >⚡</button>
+                  ><Icon name="zap" size={16} /></button>
                   {imageEnabled && (
                     <>
-                      <button className="tool" title="发送图片/截图" onClick={() => fileEl.current?.click()}>🖼️</button>
+                      <button className="tool" title="发送图片/截图" onClick={() => fileEl.current?.click()}><Icon name="image" size={16} /></button>
                       <input type="file" accept="image/*" multiple hidden ref={fileEl} onChange={onPickFiles} />
                     </>
                   )}
@@ -432,7 +433,6 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
           }}
           aria-label={unread > 0 ? `有 ${unread} 条新消息` : '打开客服'}
         >
-          💬
           {unread > 0 && <span className="fab-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
       )}

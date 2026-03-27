@@ -6,6 +6,7 @@ import { API, fetchSseTicket, requestJson } from '../api.js';
 export function useQueueEvents() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [connected, setConnected] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -18,7 +19,7 @@ export function useQueueEvents() {
       const tick = async () => {
         try {
           const data = await requestJson<{ sessions: SessionSummary[] }>('/api/sessions');
-          if (!closed) setSessions(data.sessions || []);
+          if (!closed) { setSessions(data.sessions || []); setReady(true); }
         } catch {
           /* 保留上次数据 */
         }
@@ -48,7 +49,7 @@ export function useQueueEvents() {
         es = new EventSource(`${API}/api/sessions/events?ticket=${encodeURIComponent(ticket)}`);
         es.onopen = () => { setConnected(true); stopPolling(); };
         es.addEventListener('sessions', (e) => {
-          try { setSessions(JSON.parse((e as MessageEvent).data).sessions || []); } catch {}
+          try { setSessions(JSON.parse((e as MessageEvent).data).sessions || []); setReady(true); } catch {}
         });
         es.onerror = () => {
           setConnected(false);
@@ -73,5 +74,5 @@ export function useQueueEvents() {
     };
   }, []);
 
-  return { sessions, connected };
+  return { sessions, connected, ready };
 }

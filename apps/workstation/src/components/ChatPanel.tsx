@@ -3,6 +3,7 @@ import type { SessionSummary } from '@assistflow/shared';
 import MessageList from './MessageList.js';
 import Composer from './Composer.js';
 import SessionDetail from './SessionDetail.js';
+import Icon from '../ui/Icon.js';
 import { useSessionMessages, type ConnectionStatus } from '../hooks/useSessionMessages.js';
 import { type AgentIdentity } from '../api.js';
 
@@ -25,7 +26,7 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
   if (!session) {
     return (
       <main className="chat">
-        <div className="empty"><span className="ico" aria-hidden="true">🗂️</span>从左侧选择一个会话开始接待</div>
+        <div className="empty"><Icon name="inbox" size={32} style={{ opacity: .35, marginBottom: 6 }} />从左侧选择一个会话开始接待</div>
       </main>
     );
   }
@@ -59,7 +60,7 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
         <div className="chat-main">
           {status === 'error' ? (
             <div className="state-block">
-              <span className="ico" aria-hidden="true">⚠️</span>
+              <Icon name="alert-triangle" size={24} style={{ color: '#f59e0b' }} />
               <p>历史消息加载失败</p>
               <button className="retry-btn" onClick={reload}>重试</button>
             </div>
@@ -68,7 +69,7 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
           )}
           {!session.assignedAgentId && session.status !== 'closed' && (
             <div className="claim-hint-bar" role="status">
-              <span aria-hidden="true">📥</span> 该客户来自接待大厅，发送消息即接待并归入「我的会话」
+              该客户来自接待大厅，发送消息即接待并归入「我的会话」
             </div>
           )}
           <Composer sessionId={sessionId} agent={agent} onSent={applyServer} />

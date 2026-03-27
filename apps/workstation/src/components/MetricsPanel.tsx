@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DailyMetricPoint, Metrics } from '@assistflow/shared';
 import * as echarts from 'echarts';
 import { fmtTime, requestJson } from '../api.js';
+import Icon from '../ui/Icon.js';
 
 const MAX_DAYS = 14;
 const CHART_H = 168; // 三张图统一高度：压缩概览区，给下方跟进事项留出空间
@@ -107,9 +108,9 @@ export default function MetricsPanel() {
       </div>
 
       {error ? (
-        <div className="empty"><span className="ico" aria-hidden="true">⚠️</span>指标加载失败<button className="retry-btn" onClick={load}>重试</button></div>
+        <div className="empty"><Icon name="alert-triangle" size={28} style={{ opacity: .4, marginBottom: 4 }} />指标加载失败<button className="retry-btn" onClick={load}>重试</button></div>
       ) : !metrics ? (
-        <div className="empty">加载中…</div>
+        <MetricsSkeleton height={CHART_H} />
       ) : (
         <div className="chart-grid">
           <section className="chart-card">
@@ -133,11 +134,24 @@ export default function MetricsPanel() {
   );
 }
 
-/** 图表空状态占位：无数据时的默认显示。 */
+function MetricsSkeleton({ height }: { height: number }) {
+  const titles = ['会话状态分布（饼图）', '待办负载（柱状图）', '每日趋势（折线图）'];
+  return (
+    <div className="chart-grid">
+      {titles.map((title) => (
+        <section key={title} className="chart-card">
+          <h3>{title}</h3>
+          <div className="sk-block" style={{ height, width: '100%', borderRadius: 8 }} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function ChartEmpty({ height, text = '暂无数据' }: { height: number; text?: string }) {
   return (
     <div className="chart-empty" style={{ height }}>
-      <span className="ico" aria-hidden="true">📊</span>
+      <Icon name="bar-chart" size={24} style={{ opacity: .3, marginBottom: 6 }} />
       <span>{text}</span>
     </div>
   );
