@@ -112,12 +112,12 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
 
       {error ? (
         <div className="empty"><Icon name="alert-triangle" size={28} style={{ opacity: .4, marginBottom: 4 }} />加载失败<button className="retry-btn" onClick={load}>重试</button></div>
-      ) : loading ? (
-        <TicketSkeleton isAdmin={isAdmin} />
+      ) : loading && !tickets.length ? (
+        <div className="loading-center"><div className="spinner" /></div>
       ) : !visible.length ? (
         <div className="empty"><Icon name="list" size={28} style={{ opacity: .4, marginBottom: 4 }} />暂无跟进事项</div>
       ) : (
-        <div className="ticket-table-wrap">
+        <div className={`ticket-table-wrap${loading ? ' stale' : ''}`}>
           <table className="ticket-table">
             <thead>
               <tr>
@@ -172,32 +172,6 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
         />
       )}
     </section>
-  );
-}
-
-function TicketSkeleton({ isAdmin }: { isAdmin: boolean }) {
-  const cols = isAdmin ? [10, 6, 6, 22, 8, 5, 12, 10] : [10, 6, 6, 24, 5, 12, 10];
-  return (
-    <div className="ticket-table-wrap">
-      <table className="ticket-table">
-        <thead>
-          <tr>
-            <th>编号</th><th>状态</th><th>优先级</th><th>事由</th>
-            {isAdmin && <th>负责客服</th>}
-            <th>备注</th><th>更新时间</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 5 }, (_, i) => (
-            <tr key={i}>
-              {cols.map((w, j) => (
-                <td key={j}><div className="sk-block" style={{ height: 12, width: `${w * 4}px`, borderRadius: 4 }} /></td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

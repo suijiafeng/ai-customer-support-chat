@@ -110,7 +110,7 @@ export default function MetricsPanel() {
       {error ? (
         <div className="empty"><Icon name="alert-triangle" size={28} style={{ opacity: .4, marginBottom: 4 }} />指标加载失败<button className="retry-btn" onClick={load}>重试</button></div>
       ) : !metrics ? (
-        <MetricsSkeleton height={CHART_H} />
+        <div className="loading-center"><div className="spinner" /></div>
       ) : (
         <div className="chart-grid">
           <section className="chart-card">
@@ -131,20 +131,6 @@ export default function MetricsPanel() {
         </div>
       )}
     </section>
-  );
-}
-
-function MetricsSkeleton({ height }: { height: number }) {
-  const titles = ['会话状态分布（饼图）', '待办负载（柱状图）', '每日趋势（折线图）'];
-  return (
-    <div className="chart-grid">
-      {titles.map((title) => (
-        <section key={title} className="chart-card">
-          <h3>{title}</h3>
-          <div className="sk-block" style={{ height, width: '100%', borderRadius: 8 }} />
-        </section>
-      ))}
-    </div>
   );
 }
 

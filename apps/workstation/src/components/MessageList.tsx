@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { fmtTime, type UiMessage } from '../api.js';
-import type { HistoryStatus } from '../hooks/useSessionMessages.js';
 import { Markdown } from '../ui/markdown.js';
 import Icon from '../ui/Icon.js';
 
@@ -43,24 +42,10 @@ const MessageRow = memo(function MessageRow({ m, customerName }: { m: UiMessage;
   );
 });
 
-function Skeleton() {
-  // 历史加载中的占位骨架，避免空白或与“暂无消息”混淆
-  return (
-    <div className="skeleton" aria-hidden="true">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className={`sk-row${i % 2 ? ' me' : ''}`}>
-          <div className="sk-avatar" />
-          <div className="sk-bubble" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 interface MessageListProps {
   messages: UiMessage[];
   customerName?: string;
-  status?: HistoryStatus;
+  status?: 'loading' | 'ready' | 'error';
 }
 
 export default function MessageList({ messages, customerName, status = 'ready' }: MessageListProps) {
@@ -88,7 +73,6 @@ export default function MessageList({ messages, customerName, status = 'ready' }
         {messages.map((m) => (
           <MessageRow key={m.id} m={m} customerName={customerName} />
         ))}
-        {!messages.length && status === 'loading' && <Skeleton />}
         {!messages.length && status === 'ready' && (
           <div className="empty"><Icon name="message-circle" size={28} style={{ opacity: .4, marginBottom: 4 }} />暂无消息，等待访客发起咨询</div>
         )}

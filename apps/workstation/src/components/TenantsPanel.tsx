@@ -157,15 +157,15 @@ export default function TenantsPanel() {
 
       {error ? (
         <div className="empty"><Icon name="alert-triangle" size={28} style={{ opacity: .4, marginBottom: 4 }} />加载失败<button className="retry-btn" onClick={load}>重试</button></div>
-      ) : loading ? (
-        <TenantSkeleton />
+      ) : loading && !tenants.length ? (
+        <div className="loading-center"><div className="spinner" /></div>
       ) : !tenants.length ? (
         <div className="empty"><Icon name="building" size={28} style={{ opacity: .4, marginBottom: 4 }} />暂无租户，访客将无法接入客服</div>
       ) : !filtered.length ? (
         <div className="empty"><Icon name="search" size={28} style={{ opacity: .4, marginBottom: 4 }} />未找到匹配「{query.trim()}」的租户</div>
       ) : (
         <>
-          <div className="ticket-table-wrap">
+          <div className={`ticket-table-wrap${loading ? ' stale' : ''}`}>
             <table className="ticket-table tenant-table">
               <thead>
                 <tr>
@@ -219,50 +219,6 @@ export default function TenantsPanel() {
       {editing && <EditTenantModal tenant={editing} onClose={() => setEditing(null)} onUpdated={onUpdated} />}
       {viewing && <TenantStatsModal tenant={viewing} onClose={() => setViewing(null)} />}
     </main>
-  );
-}
-
-function TenantSkeleton() {
-  const cols = [14, 18, 7, 18, 14, 10, 18, 12];
-  return (
-    <div className="ticket-table-wrap">
-      <table className="ticket-table tenant-table">
-        <thead>
-          <tr>
-            <th>租户名称</th><th>租户ID</th><th>状态</th><th>创建时间</th>
-            <th>租户域名</th><th>备注</th><th>租户密钥</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 6 }, (_, i) => (
-            <tr key={i}>
-              {cols.map((w, j) => (
-                <td key={j}><div className="sk-block" style={{ height: 12, width: `${w * 4}px`, borderRadius: 4 }} /></td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function StatsSkeleton() {
-  return (
-    <div className="stats-body" style={{ pointerEvents: 'none' }}>
-      <div className="stats-cards">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="stats-card">
-            <div className="sk-block" style={{ height: 28, width: 48, borderRadius: 6, margin: '0 auto 6px' }} />
-            <div className="sk-block" style={{ height: 11, width: 56, borderRadius: 4, margin: '0 auto' }} />
-          </div>
-        ))}
-      </div>
-      <div className="stats-section" style={{ marginTop: 16 }}>
-        <div className="sk-block" style={{ height: 12, width: 120, borderRadius: 4, marginBottom: 10 }} />
-        <div className="sk-block" style={{ height: 64, width: '100%', borderRadius: 8 }} />
-      </div>
-    </div>
   );
 }
 
@@ -482,7 +438,7 @@ function TenantStatsModal({ tenant, onClose }: { tenant: Tenant; onClose: () => 
         <h3 className="dialog-title">租户详情 · {tenant.name}</h3>
 
         {loading ? (
-          <StatsSkeleton />
+          <div className="loading-center"><div className="spinner" /></div>
         ) : error ? (
           <div className="stats-loading">加载失败，请关闭后重试</div>
         ) : stats ? (
