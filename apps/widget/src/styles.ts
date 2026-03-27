@@ -69,18 +69,18 @@ export default `
   align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
   color: #fff; background: #b6bdc8; }
 .avatar.customer { background: #2457c5; }
-.avatar.ai { background: #6b7a90; }
-.avatar.agent { background: #2f855a; }
+.avatar.ai { background: #6b85b8; }
+.avatar.agent { background: #2457c5; }
 .col { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 78%; }
 .row.customer .col { align-items: flex-end; }
 .meta { font-size: 11px; color: #8a93a6; margin: 0 2px 3px; }
 .bubble { position: relative; max-width: 100%; padding: 9px 12px; border-radius: 12px; font-size: 14px;
   line-height: 1.55; word-break: break-word; box-shadow: 0 1px 2px rgba(20,30,55,.08); }
-.customer .bubble { background: #95ec69; color: #1a1a1a; border-bottom-right-radius: 4px; }
-.ai .bubble, .agent .bubble { background: #fff; color: #222; border-bottom-left-radius: 4px; }
-.system .bubble { background: #fff7e6; color: #ad6800; font-size: 12px; border-radius: 8px; box-shadow: none; }
+.customer .bubble { background: #2457c5; color: #fff; border-bottom-right-radius: 4px; }
+.ai .bubble, .agent .bubble { background: #fff; color: #1a2c4e; border-bottom-left-radius: 4px; }
+.system .bubble { background: #f0f4ff; color: #3b5bdb; font-size: 12px; border-radius: 8px; box-shadow: none; }
 .bubble a { color: #2457c5; text-decoration: underline; word-break: break-all; }
-.customer .bubble a { color: #145214; }
+.customer .bubble a { color: rgba(255,255,255,.85); }
 .time { font-size: 10px; color: #aab2c0; margin: 3px 4px 0; }
 .row.customer .time { text-align: right; }
 .typing-dots { display: inline-flex; gap: 4px; align-items: center; padding: 2px 0; }
