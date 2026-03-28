@@ -3,7 +3,7 @@ import { fmtTime, linkParts } from '@assistflow/shared';
 import { Markdown } from './markdown.js';
 import { newId, type PendingImage } from './chatApi.js';
 import { useDraggablePanel, type ResizeDir } from './hooks/useDraggablePanel.js';
-import Icon from './Icon.js';
+import EmojiPicker from './EmojiPicker.js';
 import { useDraggableFab } from './hooks/useDraggableFab.js';
 import { useEmojiPicker } from './hooks/useEmojiPicker.js';
 import { useSendCooldown } from './hooks/useSendCooldown.js';
@@ -66,8 +66,8 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
   const {
     showEmoji,
     emojiLoading,
-    emojiRef,
     toggleEmoji,
+    handleSelect: handleEmojiSelect,
     close: closeEmoji,
   } = useEmojiPicker({
     onInsert: (emoji) => {
@@ -323,7 +323,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
 
             {showEmoji && (
               <div className="emoji-pop">
-                <emoji-picker ref={emojiRef}></emoji-picker>
+                <EmojiPicker onSelect={handleEmojiSelect} />
               </div>
             )}
 
@@ -338,38 +338,13 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
             )}
 
             {cooldown > 0 && (
-              <div
-                role="status"
-                style={{
-                  margin: '0 12px 8px',
-                  padding: '8px 10px',
-                  fontSize: 13,
-                  lineHeight: 1.4,
-                  color: '#92400e',
-                  background: '#fef3c7',
-                  border: '1px solid #fde68a',
-                  borderRadius: 8,
-                }}
-              >
-                {`消息发送太频繁啦，请等 ${cooldown} 秒再试～`}
+              <div className="cooldown-bar" role="status">
+                {`发送太频繁，请等 ${cooldown} 秒再试`}
               </div>
             )}
             {keyInvalid ? (
               <div className="composer" role="status">
-                <div
-                  style={{
-                    margin: '4px 0',
-                    padding: '10px 12px',
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    color: '#991b1b',
-                    background: '#fee2e2',
-                    border: '1px solid #fecaca',
-                    borderRadius: 8,
-                  }}
-                >
-                  服务暂不可用，请联系管理员
-                </div>
+                <div className="key-invalid-bar">服务暂不可用，请联系管理员</div>
               </div>
             ) : (
             <div className="composer">
@@ -386,20 +361,25 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
               <div className="composer-foot">
                 <div className="toolbar">
                   <button
-                    className={`tool${showEmoji || emojiLoading ? ' active' : ''}`}
+                    className={`tool${showEmoji ? ' active' : ''}`}
                     title="表情"
-                    aria-busy={emojiLoading}
                     onClick={toggleEmoji}
-                  >{emojiLoading ? '…' : <Icon name="smile" size={16} />}</button>
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                  </button>
                   <button
                     className={`tool${showQuick ? ' active' : ''}`}
                     title="快捷提问"
                     aria-pressed={showQuick}
                     onClick={() => { setShowQuick((v) => !v); closeEmoji(); }}
-                  ><Icon name="zap" size={16} /></button>
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  </button>
                   {imageEnabled && (
                     <>
-                      <button className="tool" title="发送图片/截图" onClick={() => fileEl.current?.click()}><Icon name="image" size={16} /></button>
+                      <button className="tool" title="发送图片/截图" onClick={() => fileEl.current?.click()}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      </button>
                       <input type="file" accept="image/*" multiple hidden ref={fileEl} onChange={onPickFiles} />
                     </>
                   )}
@@ -433,6 +413,9 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
           }}
           aria-label={unread > 0 ? `有 ${unread} 条新消息` : '打开客服'}
         >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
           {unread > 0 && <span className="fab-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
       )}
