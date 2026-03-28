@@ -5,14 +5,17 @@ function b64url(input: Buffer | string): string {
   return Buffer.from(input).toString('base64url');
 }
 
+export type AgentRole = 'agent' | 'admin';
+
 export interface AgentClaims {
   sub: string;
   name: string;
+  role: AgentRole;
   exp: number;
 }
 
 export function signToken(
-  payload: { sub: string; name: string },
+  payload: { sub: string; name: string; role: AgentRole },
   secret: string,
   ttlSeconds = 12 * 3600
 ): string {
@@ -37,6 +40,8 @@ export function verifyToken(token: string, secret: string): AgentClaims | null {
     const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (typeof claims.sub !== 'string' || typeof claims.exp !== 'number') return null;
     if (claims.exp <= Math.floor(Date.now() / 1000)) return null;
+    // 兼容旧 token：缺省按普通客服处理
+    if (claims.role !== 'admin') claims.role = 'agent';
     return claims as AgentClaims;
   } catch {
     return null;

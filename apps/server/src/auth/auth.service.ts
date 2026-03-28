@@ -2,18 +2,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { appConfig } from '../config.js';
-import { signToken, verifyToken, verifyPassword } from './jwt.js';
+import { signToken, verifyToken, verifyPassword, type AgentRole } from './jwt.js';
 
 export interface AgentAccount {
   id: string;
   name: string;
   salt: string;
   passwordHash: string;
+  role?: AgentRole;
 }
 
 export interface AuthenticatedAgent {
   id: string;
   name: string;
+  role: AgentRole;
 }
 
 /**
@@ -50,14 +52,15 @@ export class AuthService implements OnModuleInit {
     if (!account || !verifyPassword(String(password || ''), account.salt, account.passwordHash)) {
       return null;
     }
+    const role: AgentRole = account.role === 'admin' ? 'admin' : 'agent';
     return {
-      token: signToken({ sub: account.id, name: account.name }, this.secret),
-      agent: { id: account.id, name: account.name },
+      token: signToken({ sub: account.id, name: account.name, role }, this.secret),
+      agent: { id: account.id, name: account.name, role },
     };
   }
 
   verify(token: string): AuthenticatedAgent | null {
     const claims = verifyToken(token, this.secret);
-    return claims ? { id: claims.sub, name: claims.name } : null;
+    return claims ? { id: claims.sub, name: claims.name, role: claims.role } : null;
   }
 }

@@ -1,5 +1,5 @@
 # Environment
-.env
+# .env 是安全兜底默认值，可提交；真实配置写在 .env.local（不提交）
 .env.local
 .env.*.local
 
