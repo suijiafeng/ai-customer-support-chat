@@ -83,15 +83,18 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
       <div className="queue-scroll">
         {/* 接待大厅 */}
         <div className="queue-section queue-pool" role="group" aria-label="接待大厅">
-          <button
+          <div
             className="q-section-head"
+            role="button"
+            tabIndex={0}
             aria-expanded={poolOpen}
             onClick={() => setPoolOpen((v) => !v)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPoolOpen((v) => !v); } }}
           >
             <span className={`q-caret${poolOpen ? ' open' : ''}`}>▸</span>
             <span className="q-section-title">接待大厅</span>
             {poolTotal > 0 && <span className="q-badge">{poolTotal} 待接待</span>}
-          </button>
+          </div>
           {poolOpen && (
             <div role="list" className="q-list">
               {pool.map(renderItem)}
@@ -104,10 +107,13 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
 
         {/* 我的会话 */}
         <div className="queue-section" role="group" aria-label="我的会话">
-          <button
+          <div
             className="q-section-head"
+            role="button"
+            tabIndex={0}
             aria-expanded={listOpen}
             onClick={() => setListOpen((v) => !v)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setListOpen((v) => !v); } }}
           >
             <span className={`q-caret${listOpen ? ' open' : ''}`}>▸</span>
             <span className="q-section-title">我的会话</span>
@@ -125,7 +131,7 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
                 </button>
               ))}
             </div>
-          </button>
+          </div>
           {listOpen && (
             <div role="list" className="q-list">
               {others.map(renderItem)}

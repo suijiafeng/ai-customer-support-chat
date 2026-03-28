@@ -6,6 +6,7 @@ import {
 } from '../api.js';
 import { showToast } from '../ui/feedback.js';
 import Icon from '../ui/Icon.js';
+import EmojiPicker from './EmojiPicker.js';
 
 interface ComposerProps {
   sessionId: string | null;
@@ -13,23 +14,15 @@ interface ComposerProps {
   onSent?: (messages: UiMessage[]) => void;
 }
 
-let emojiPickerPromise: Promise<unknown> | null = null;
-function loadEmojiPicker() {
-  emojiPickerPromise ||= import('emoji-picker-element');
-  return emojiPickerPromise;
-}
-
 export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   const [reply, setReply] = useState('');
   const [pending, setPending] = useState<PendingAttachment[]>([]); // 待发送图片附件
   const [loading, setLoading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
-  const [emojiLoading, setEmojiLoading] = useState(false);
   const [showCanned, setShowCanned] = useState(false);
 
   const fileEl = useRef<HTMLInputElement | null>(null);
   const replyInput = useRef<HTMLTextAreaElement | null>(null);
-  const emojiRef = useRef<HTMLElement | null>(null);
 
   // 切换会话时重置输入区
   useEffect(() => {
@@ -58,34 +51,18 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   }, [addFiles]);
   const removePending = useCallback((i: number) => setPending((p) => p.filter((_, idx) => idx !== i)), []);
 
-  const toggleEmoji = useCallback(async () => {
-    if (showEmoji) {
-      setShowEmoji(false);
-      return;
-    }
-    setShowCanned(false);
-    setEmojiLoading(true);
-    try {
-      await loadEmojiPicker();
-      setShowEmoji(true);
-    } finally {
-      setEmojiLoading(false);
-    }
-  }, [showEmoji]);
+  const toggleEmoji = useCallback(() => {
+    setShowEmoji((v) => {
+      if (!v) setShowCanned(false);
+      return !v;
+    });
+  }, []);
 
-  // emoji-picker 是 web component，需手动绑事件
-  useEffect(() => {
-    if (!showEmoji) return;
-    const el = emojiRef.current;
-    if (!el) return;
-    const handler = (e: any) => {
-      setReply((r) => r + (e.detail?.unicode || ''));
-      setShowEmoji(false);
-      requestAnimationFrame(() => replyInput.current?.focus());
-    };
-    el.addEventListener('emoji-click', handler);
-    return () => el.removeEventListener('emoji-click', handler);
-  }, [showEmoji]);
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    setReply((r) => r + emoji);
+    setShowEmoji(false);
+    requestAnimationFrame(() => replyInput.current?.focus());
+  }, []);
 
   const send = useCallback(async () => {
     const content = reply.trim();
@@ -150,7 +127,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
 
       {showEmoji && (
         <div className="emoji-pop">
-          <emoji-picker ref={emojiRef}></emoji-picker>
+          <EmojiPicker onSelect={handleEmojiSelect} />
         </div>
       )}
 
@@ -178,13 +155,12 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
             <div className="tools">
               <button
                 type="button"
-                className={`tool${showEmoji || emojiLoading ? ' active' : ''}`}
+                className={`tool${showEmoji ? ' active' : ''}`}
                 title="表情"
                 aria-label="插入表情"
                 aria-pressed={showEmoji}
-                aria-busy={emojiLoading}
                 onClick={toggleEmoji}
-              >{emojiLoading ? '…' : <Icon name="smile" size={16} />}</button>
+              ><Icon name="smile" size={16} /></button>
               <button
                 type="button"
                 className={`tool${showCanned ? ' active' : ''}`}
