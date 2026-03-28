@@ -3,7 +3,8 @@
     "id": "9527",
     "name": "客服9527",
     "salt": "d777bf8e0c7ef3c9",
-    "passwordHash": "de5f38ce8266f71598c1ce9c47772f8e81ba8298baba5c96060646b6e05678fa"
+    "passwordHash": "de5f38ce8266f71598c1ce9c47772f8e81ba8298baba5c96060646b6e05678fa",
+    "role": "admin"
   },
   {
     "id": "9528",

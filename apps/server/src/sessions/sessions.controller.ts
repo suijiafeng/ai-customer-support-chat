@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -11,10 +12,11 @@ import {
   Sse,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import type { Session } from '@assistflow/shared';
 import { map } from 'rxjs';
 import { AgentAuthGuard } from '../auth/auth.guard.js';
-import type { AuthenticatedAgent } from '../auth/auth.service.js';
+import { AuthService, type AuthenticatedAgent } from '../auth/auth.service.js';
 import { MetricsService } from '../metrics/metrics.service.js';
 import { normalizeAttachments, normalizeProfile } from '../common/normalize.js';
 import { SseService } from '../sse/sse.service.js';
@@ -27,28 +29,46 @@ export class SessionsController {
     private readonly sessions: SessionsService,
     private readonly tickets: TicketsService,
     private readonly metrics: MetricsService,
-    private readonly sse: SseService
+    private readonly sse: SseService,
+    private readonly auth: AuthService
   ) {}
 
   @UseGuards(AgentAuthGuard)
   @Get()
-  listSessions() {
-    return this.sessions.getSessionsPayload();
+  listSessions(@Req() req: any) {
+    return this.sessions.getSessionsPayload(req.agent as AuthenticatedAgent);
   }
 
   @UseGuards(AgentAuthGuard)
   @Sse('events')
-  queueEvents() {
-    return this.sse
-      .queueStream(this.sessions.getSessionsPayload())
-      .pipe(map((event) => ({ type: event.type, data: event.data as object })));
+  queueEvents(@Req() req: any) {
+    const agent = req.agent as AuthenticatedAgent;
+    return this.sse.queueStream(this.sessions.getSessionsPayload(agent)).pipe(
+      map((event) => ({
+        type: event.type,
+        data:
+          event.type === 'sessions'
+            ? this.sessions.filterPayloadForAgent(
+                event.data as { sessions: any[] },
+                agent
+              )
+            : (event.data as object),
+      }))
+    );
   }
 
+
   @Get(':sessionId')
-  getSession(@Param('sessionId') sessionId: string) {
+  getSession(@Param('sessionId') sessionId: string, @Req() req: Request) {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new NotFoundException({ error: 'session not found' });
+    }
+    // 可选鉴权：带客服 token 的请求按可见性约束（非拥有者且非管理员 → 403）；
+    // 不带 token 的访客（widget）只知道自己的 sessionId，按原样放行。
+    const agent = this.agentFromRequest(req);
+    if (agent && !this.sessions.canView(session, agent)) {
+      throw new ForbiddenException({ error: 'session is handled by another agent' });
     }
     return {
       session,
@@ -57,7 +77,14 @@ export class SessionsController {
   }
 
   @Sse(':sessionId/events')
-  sessionEvents(@Param('sessionId') sessionId: string) {
+  sessionEvents(@Param('sessionId') sessionId: string, @Req() req: Request) {
+    // 与 getSession 同样的可选鉴权：带客服 token 的非拥有者（且非管理员）→ 403；
+    // 不带 token 的访客（widget）按原样放行（只知道自己的 sessionId）。
+    const session = this.sessions.get(sessionId);
+    const agent = this.agentFromRequest(req);
+    if (agent && session && !this.sessions.canView(session, agent)) {
+      throw new ForbiddenException({ error: 'session is handled by another agent' });
+    }
     return this.sse
       .sessionStream(sessionId, this.sessions.getSessionPayload(sessionId))
       .pipe(map((event) => ({ type: event.type, data: event.data as object })));
@@ -65,12 +92,17 @@ export class SessionsController {
 
   @UseGuards(AgentAuthGuard)
   @Post(':sessionId/resolve')
-  resolveSession(@Param('sessionId') sessionId: string, @Body() body: any) {
+  resolveSession(@Param('sessionId') sessionId: string, @Body() body: any, @Req() req: any) {
     const session = this.sessions.get(sessionId);
     const resolution = String(body?.resolution || '开发者本人已标记解决').trim().slice(0, 120);
 
     if (!session) {
       throw new NotFoundException({ error: 'session not found' });
+    }
+    // 归属校验：仅本人接待或管理员可标记解决
+    const agent = req.agent as AuthenticatedAgent;
+    if (agent.role !== 'admin' && session.assignedAgentId !== agent.id) {
+      throw new ForbiddenException({ error: 'session is handled by another agent' });
     }
 
     if (session.status === 'closed') {
@@ -129,7 +161,10 @@ export class SessionsController {
     if (actor === 'customer') {
       throw new BadRequestException({ error: 'customer messages must use /api/chat' });
     }
-    if (session.assignedAgentId && session.assignedAgentId !== agent.id) {
+    const isAdmin = agent.role === 'admin';
+    // 抢单即接待：公共池里未认领的会话，谁先发出第一条消息谁就占单；
+    // 已被他人认领的，普通客服无法插话（管理员可介入）。
+    if (session.assignedAgentId && session.assignedAgentId !== agent.id && !isAdmin) {
       throw new ConflictException({
         error: 'session is assigned to another agent',
         assignedAgentId: session.assignedAgentId,
@@ -176,12 +211,21 @@ export class SessionsController {
     };
   }
 
+  @UseGuards(AgentAuthGuard)
   @Post(':sessionId/profile')
-  setProfile(@Param('sessionId') sessionId: string, @Body() body: any) {
+  setProfile(@Param('sessionId') sessionId: string, @Body() body: any, @Req() req: any) {
     const profile = normalizeProfile(body);
     const current = this.sessions.get(sessionId);
+    // 仅更新已存在的会话（不再凭 profile 凭空创建/注入会话）；并做归属校验
+    if (!current) {
+      throw new NotFoundException({ error: 'session not found' });
+    }
+    const agent = req.agent as AuthenticatedAgent;
+    if (agent.role !== 'admin' && current.assignedAgentId !== agent.id) {
+      throw new ForbiddenException({ error: 'session is handled by another agent' });
+    }
     const updatedSession: Session = {
-      ...(current || this.sessions.createEmptySession(sessionId)),
+      ...current,
       profile,
       displayName: this.sessions.buildDisplayName(
         sessionId,
@@ -196,6 +240,14 @@ export class SessionsController {
     this.notify(sessionId);
 
     return { session: updatedSession };
+  }
+
+  /** 从请求里解析客服身份（Bearer 头或 ?token=），无 token 返回 null。 */
+  private agentFromRequest(req: Request): AuthenticatedAgent | null {
+    const header = String(req.headers.authorization || '');
+    const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const token = bearer || String((req.query as any)?.token || '');
+    return token ? this.auth.verify(token) : null;
   }
 
   private notify(sessionId: string) {
