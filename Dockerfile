@@ -1,5 +1,5 @@
-# 多阶段构建：只构建 server（+ 其依赖的 shared 包）→ 运行镜像是纯 API 服务。
-# widget/workstation/demo 各自独立静态部署，不在这个镜像里（见 README「拆分部署」）。
+# 多阶段构建：server + 三个前端一起打包，生成一体化单容器镜像。
+# docker-compose 的「拆分部署」仍由各子目录的 Dockerfile 独立处理。
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -15,8 +15,16 @@ RUN npm ci
 
 COPY packages/shared ./packages/shared
 COPY apps/server ./apps/server
+COPY apps/widget ./apps/widget
+COPY apps/workstation ./apps/workstation
+COPY apps/demo ./apps/demo
 
-RUN npm run build:server
+# 构建 shared → server → 三个前端（同源一体化部署，无需配置跨域地址）
+# build:server 已含 shared；前端复用同一份 shared dist
+RUN npm run build:server \
+    && npm run build --workspace assistflow-widget \
+    && VITE_BASE_PATH=/workstation/ npm run build --workspace assistflow-workstation \
+    && npm run build --workspace assistflow-demo
 
 FROM node:22-alpine AS runtime
 
@@ -35,6 +43,9 @@ RUN npm ci --omit=dev --workspace @assistflow/server --include-workspace-root=fa
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/server/data ./apps/server/data
+COPY --from=builder /app/apps/widget/dist ./apps/widget/dist
+COPY --from=builder /app/apps/workstation/dist ./apps/workstation/dist
+COPY --from=builder /app/apps/demo/dist ./apps/demo/dist
 
 EXPOSE 3001
 

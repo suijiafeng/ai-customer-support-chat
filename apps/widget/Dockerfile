@@ -18,5 +18,6 @@ RUN npm run build --workspace @assistflow/shared \
 FROM nginx:alpine
 
 COPY --from=builder /app/apps/widget/dist /usr/share/nginx/html
+COPY apps/widget/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

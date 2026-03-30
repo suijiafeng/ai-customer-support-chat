@@ -5,16 +5,18 @@ import css from './styles.js';
 
 
 // 嵌入入口：读取 <script> 上的配置，挂载到隔离的 Shadow DOM
+// 宿主通过 data-key、data-name、data-api-base、data-title 覆盖默认值；
+// 默认回退到内置 demo 种子租户，方便零配置本地试用。
 function readConfig() {
   const el = (document.currentScript ||
     document.querySelector('script[data-assistflow]') ||
     document.querySelector('script[src*="widget.js"]')) as HTMLScriptElement | null;
   const ds: DOMStringMap = el ? el.dataset : ({} as DOMStringMap);
   return {
-    apiBase: window.location.origin,
-    siteKey: "d0KX6-CDtI-Gaxc-fR1K",
-    tenantId: "tn_846ad88eee", // 租户ID（必填），与 data-key 成对校验
-    title: 'AssistFlow AI 客服系统',
+    apiBase: (ds.apiBase || window.location.origin).replace(/\/$/, ''),
+    siteKey: ds.key || 'd0KX6-CDtI-Gaxc-fR1K',
+    tenantId: ds.name || 'tn_846ad88eee',
+    title: ds.title || 'AssistFlow AI 客服系统',
   };
 }
 
@@ -34,7 +36,7 @@ function mount() {
 
   createRoot(target).render(
     <Widget
-      apiBase={cfg.apiBase.replace(/\/$/, '')}
+      apiBase={cfg.apiBase}
       title={cfg.title}
       // 标识由 widget 在首次发消息时惰性生成并校验，这里只传租户身份（key + ID）
       siteKey={cfg.siteKey}
