@@ -1,6 +1,38 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
 import { type AgentIdentity } from '../api.js';
+
+interface SessionItemProps {
+  s: SessionSummary;
+  active: boolean;
+  onSelect: (id: string) => void;
+}
+
+const SessionItem = memo(function SessionItem({ s, active, onSelect }: SessionItemProps) {
+  const handleClick = useCallback(() => onSelect(s.sessionId), [s.sessionId, onSelect]);
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(s.sessionId); }
+  }, [s.sessionId, onSelect]);
+
+  return (
+    <div
+      role="listitem"
+      tabIndex={0}
+      aria-current={active}
+      className={`sess${active ? ' active' : ''}`}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="sess-top">
+        <span className="name">
+          {s.priority === 'high' && <span className="prio-dot" aria-label="高优先级" />}
+          {s.displayName}
+        </span>
+      </div>
+      <div className="last">{s.lastMessage || '（暂无消息）'}</div>
+    </div>
+  );
+});
 
 interface SessionQueueProps {
   sessions: SessionSummary[];
@@ -25,49 +57,29 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
   const [poolOpen, setPoolOpen] = useState(true);
   const [listOpen, setListOpen] = useState(true);
 
-  const { pool, others } = useMemo(() => {
+  const { pool, others, poolTotal } = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
+    const isPool = (s: SessionSummary) => !s.assignedAgentId && s.status !== 'closed';
     const match = (s: SessionSummary) =>
       !kw ||
       s.displayName.toLowerCase().includes(kw) ||
       (s.lastMessage || '').toLowerCase().includes(kw) ||
       (s.inquiryId || '').toLowerCase().includes(kw);
 
-    const isPool = (s: SessionSummary) => !s.assignedAgentId && s.status !== 'closed';
     const pool = sessions.filter((s) => isPool(s) && match(s));
+    const poolTotal = sessions.filter(isPool).length; // 不受关键字过滤，显示真实待接待数
     const others = sessions.filter((s) => {
       if (isPool(s)) return false;
       if (filter === 'mine' && s.assignedAgentId !== agent?.id) return false;
       if (filter === 'closed' && s.status !== 'closed') return false;
       return match(s);
     });
-    return { pool, others };
+    return { pool, others, poolTotal };
   }, [sessions, filter, keyword, agent]);
 
-  const poolTotal = sessions.filter((s) => !s.assignedAgentId && s.status !== 'closed').length;
-
-  const renderItem = (s: SessionSummary) => {
-    const active = s.sessionId === activeId;
-    return (
-      <div
-        key={s.sessionId}
-        role="listitem"
-        tabIndex={0}
-        aria-current={active}
-        className={`sess${active ? ' active' : ''}`}
-        onClick={() => onSelect(s.sessionId)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(s.sessionId); } }}
-      >
-        <div className="sess-top">
-          <span className="name">
-            {s.priority === 'high' && <span className="prio-dot" aria-label="高优先级" />}
-            {s.displayName}
-          </span>
-        </div>
-        <div className="last">{s.lastMessage || '（暂无消息）'}</div>
-      </div>
-    );
-  };
+  const renderItem = (s: SessionSummary) => (
+    <SessionItem key={s.sessionId} s={s} active={s.sessionId === activeId} onSelect={onSelect} />
+  );
 
   return (
     <aside className={`queue${open ? ' open' : ''}`} aria-label="会话列表">

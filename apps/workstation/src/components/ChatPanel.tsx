@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
 import MessageList from './MessageList.js';
 import Composer from './Composer.js';
@@ -22,6 +22,10 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
   const sessionId = session?.sessionId || null;
   const { messages, applyServer, status, connection, reload } = useSessionMessages(sessionId);
   const [showDetail, setShowDetail] = useState(true);
+  const canResolve = useMemo(
+    () => Boolean(session && (agent.role === 'admin' || session.assignedAgentId === agent.id)),
+    [session, agent.role, agent.id],
+  );
 
   if (!session) {
     return (
@@ -78,7 +82,7 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
           <SessionDetail
             session={session}
             onClose={() => setShowDetail(false)}
-            canResolve={agent.role === 'admin' || session.assignedAgentId === agent.id}
+            canResolve={canResolve}
           />
         )}
       </div>

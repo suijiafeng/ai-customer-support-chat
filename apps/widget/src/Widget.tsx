@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmtTime, linkParts } from '@assistflow/shared';
 import { Markdown } from './markdown.js';
 import { newId, type PendingImage } from './chatApi.js';
@@ -22,6 +22,15 @@ const imageEnabled = false; // 是否启用图片发送（后端未实现相关�
 // 访客快捷消息：使用内置 FAQ 问题原文，确保一键发送后能命中对应回复。
 // 窗口八个方向的拉伸手柄（四边 + 四角）
 const RESIZE_DIRS: ResizeDir[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+
+function fileToDataUrl(file: File): Promise<PendingImage> {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = () =>
+      resolve({ id: newId(), dataUrl: r.result as string, name: file.name || 'image', type: file.type });
+    r.readAsDataURL(file);
+  });
+}
 
 const QUICK_MESSAGES = [
   '项目怎么报价？',
@@ -109,23 +118,18 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
   });
 
   // 未读红点：关闭时收到的新 AI/客服消息计数；打开即清零
+  const inboundCount = useMemo(
+    () => messages.filter((m) => m.from === 'ai' || m.from === 'agent').length,
+    [messages],
+  );
   useEffect(() => {
-    const inbound = messages.filter((m) => m.from === 'ai' || m.from === 'agent').length;
     if (open) {
-      seenInboundRef.current = inbound;
+      seenInboundRef.current = inboundCount;
       setUnread(0);
-    } else if (inbound > seenInboundRef.current) {
-      setUnread(inbound - seenInboundRef.current);
+    } else if (inboundCount > seenInboundRef.current) {
+      setUnread(inboundCount - seenInboundRef.current);
     }
-  }, [messages, open]);
-
-  const fileToDataUrl = (file: File): Promise<PendingImage> =>
-    new Promise((resolve) => {
-      const r = new FileReader();
-      r.onload = () =>
-        resolve({ id: newId(), dataUrl: r.result as string, name: file.name || 'image', type: file.type });
-      r.readAsDataURL(file);
-    });
+  }, [inboundCount, open]);
 
   const addFiles = useCallback(
     async (files: File[]) => {
@@ -187,17 +191,17 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
   }, [setPanelPos, resetAtBottom, scrollToBottom]);
 
   // 窗口内联定位：拖动后用 left/top，否则留空由 CSS 居中；拉伸过的宽高持续生效（移动端始终全屏）
-  const panelStyle: React.CSSProperties = {
+  const panelStyle = useMemo<React.CSSProperties>(() => ({
     ...(panelSize && !mobile ? { width: panelSize.w, height: panelSize.h } : {}),
     ...(panelPos && !mobile
       ? { left: panelPos.x, top: panelPos.y, right: 'auto', bottom: 'auto', margin: 0 }
       : {}),
-  };
+  }), [panelSize, panelPos, mobile]);
 
   // 悬浮球：拖动后改为 fixed + left/top，吸附/拖动位置均由 hook 计算
-  const fabStyle: React.CSSProperties | undefined = fabPos
-    ? { position: 'fixed', left: fabPos.x, top: fabPos.y, right: 'auto', bottom: 'auto' }
-    : undefined;
+  const fabStyle = useMemo<React.CSSProperties | undefined>(() =>
+    fabPos ? { position: 'fixed', left: fabPos.x, top: fabPos.y, right: 'auto', bottom: 'auto' } : undefined,
+  [fabPos]);
 
   return (
     <div className="afw">
@@ -298,9 +302,10 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
                           <button type="button" className="retry-link" onClick={() => retrySend(m)}>重试</button>
                         </div>
                       )}
-                      {m.from !== 'system' && m.status !== 'failed' && m.status !== 'sending' && fmtTime(m.createdAt) && (
-                        <div className="time">{fmtTime(m.createdAt)}</div>
-                      )}
+                      {m.from !== 'system' && m.status !== 'failed' && m.status !== 'sending' && (() => {
+                        const t = fmtTime(m.createdAt);
+                        return t ? <div className="time">{t}</div> : null;
+                      })()}
                     </div>
                   </div>
                 ))}

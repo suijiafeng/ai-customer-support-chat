@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 
 const CATEGORIES: Array<{ label: string; icon: string; emojis: string[] }> = [
   {
@@ -63,7 +63,7 @@ interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
 }
 
-export default function EmojiPicker({ onSelect }: EmojiPickerProps) {
+const EmojiPicker = memo(function EmojiPicker({ onSelect }: EmojiPickerProps) {
   const [cat, setCat] = useState(0);
 
   return (
@@ -89,4 +89,6 @@ export default function EmojiPicker({ onSelect }: EmojiPickerProps) {
       </div>
     </div>
   );
-}
+});
+
+export default EmojiPicker;

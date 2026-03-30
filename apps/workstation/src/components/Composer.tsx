@@ -8,6 +8,14 @@ import { showToast } from '../ui/feedback.js';
 import Icon from '../ui/Icon.js';
 import EmojiPicker from './EmojiPicker.js';
 
+const CANNED_REPLIES = [
+  '您好，我是客服，请问有什么可以帮您？',
+  '收到，我先确认一下，请稍等。',
+  '请留下您的联系方式和需求摘要，我们会尽快跟进。',
+  '该问题已记录为跟进事项，会有专人与您联系。',
+  '感谢咨询，如还有问题随时联系我们，祝您生活愉快！',
+];
+
 interface ComposerProps {
   sessionId: string | null;
   agent: AgentIdentity;
@@ -91,13 +99,6 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   }, [reply, pending, sessionId, loading, onSent]);
 
   // 快捷回复：常用语一键插入输入框
-  const CANNED_REPLIES = [
-    '您好，我是客服，请问有什么可以帮您？',
-    '收到，我先确认一下，请稍等。',
-    '请留下您的联系方式和需求摘要，我们会尽快跟进。',
-    '该问题已记录为跟进事项，会有专人与您联系。',
-    '感谢咨询，如还有问题随时联系我们，祝您生活愉快！',
-  ];
   const insertCanned = useCallback((text: string) => {
     setReply((r) => (r ? `${r}${r.endsWith('\n') ? '' : '\n'}${text}` : text));
     setShowCanned(false);

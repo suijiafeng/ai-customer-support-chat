@@ -48,6 +48,7 @@ export function useChatSession({
   const [connection, setConnection] = useState<'syncing' | 'synced'>('syncing');
   const [messages, setMessagesState] = useState<UiMessage[]>([]);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false); // ref 版本供 send 内部读取，避免 sending state 进入依赖数组
   const [atBottom, setAtBottom] = useState(true);
   const [keyInvalid, setKeyInvalid] = useState(false); // widget 接入密钥无效/停用：重试无意义，需和普通失败区分
 
@@ -145,11 +146,12 @@ export function useChatSession({
   const send = useCallback(
     async (textOverride?: string) => {
       const text = (textOverride ?? input).trim();
-      if ((!text && pending.length === 0) || sending) return;
+      if ((!text && pending.length === 0) || sendingRef.current) return;
       // 前端先拦截：发送过快时保留输入框内容、不发请求，只给倒计时；后端为最后一道防线
       if (!checkRateLimit()) return;
 
       const attachments = pending;
+      sendingRef.current = true;
       setSending(true);
       try {
         await ensureSession();
@@ -255,13 +257,13 @@ export function useChatSession({
         scrollToBottom();
       } finally {
         inflightRef.current = null;
+        sendingRef.current = false;
         setSending(false);
       }
     },
     [
       input,
       pending,
-      sending,
       siteKey,
       tenantId,
       checkRateLimit,

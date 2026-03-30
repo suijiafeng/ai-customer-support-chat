@@ -40,9 +40,12 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
   const [queueOpen, setQueueOpen] = useState(false); // 移动端抽屉
   const [view, setView] = useState<View>('sessions');
   // 租户管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
-  const views: ViewDef[] = agent.role === 'admin'
-    ? [...VIEWS, { key: 'tenants' as const, label: '租户管理', icon: 'building' as const }]
-    : VIEWS;
+  const views = useMemo<ViewDef[]>(
+    () => agent.role === 'admin'
+      ? [...VIEWS, { key: 'tenants' as const, label: '租户管理', icon: 'building' as const }]
+      : VIEWS,
+    [agent.role],
+  );
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.sessionId === activeId) || null,
