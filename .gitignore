@@ -18,3 +18,8 @@ Thumbs.db
 dist/
 build/
 vite.config.js.timestamp-*.mjs
+
+# 本地 SQLite 数据库文件（含 WAL/SHM）
+*.db
+*.db-wal
+*.db-shm
