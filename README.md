@@ -215,8 +215,9 @@ POST /api/tickets/:id/notes         追加处理备注（归属人/管理员）
 ```bash
 npm run build
 npm test                       # 单元测试（rules/store/auth/config）
-npm start &                    # smoke/dialog 需要服务已在运行
-npm run smoke                  # 17 个接口回归用例（含鉴权）
+# 启动已构建的服务（SQLite 需 --experimental-sqlite；冒烟会自动等待 /api/health 就绪）
+node --experimental-sqlite --disable-warning=ExperimentalWarning apps/server/dist/main.js &
+npm run smoke                  # 接口回归用例（含鉴权、归属过滤；启动前会轮询就绪）
 node scripts/dialog-test.js    # 访客↔客服对话时序回归
 ```
 
