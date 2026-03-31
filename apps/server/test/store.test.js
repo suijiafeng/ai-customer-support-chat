@@ -54,6 +54,26 @@ test('saveSession 对同一 id 是 upsert（覆盖而非重复）', async () => 
   assert.equal(loaded.sessions[0][1].status, 'closed');
 });
 
+test('单条回读 getSession/getConversation/getTicket（内存淘汰后从库取回）', async () => {
+  const store = freshStore();
+  await store.init();
+  await store.saveSession({ sessionId: 's9', status: 'closed' });
+  await store.saveConversation('s9', [{ id: 'm1', content: '历史' }]);
+  await store.saveTicket({ id: 'T-9', sessionId: 's9', status: 'resolved' });
+
+  assert.equal((await store.getSession('s9')).status, 'closed');
+  assert.equal((await store.getConversation('s9'))[0].content, '历史');
+  assert.equal((await store.getTicket('T-9')).status, 'resolved');
+  assert.equal(await store.getSession('missing'), null);
+});
+
+test('stats 默认无写错误', async () => {
+  const store = freshStore();
+  await store.init();
+  assert.equal(store.stats().writeErrors, 0);
+  assert.equal(store.stats().lastError, null);
+});
+
 test('delete 方法移除对应记录', async () => {
   const store = freshStore();
   await store.init();

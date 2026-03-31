@@ -59,8 +59,9 @@ export class SessionsController {
 
 
   @Get(':sessionId')
-  getSession(@Param('sessionId') sessionId: string, @Req() req: Request) {
-    const session = this.sessions.get(sessionId);
+  async getSession(@Param('sessionId') sessionId: string, @Req() req: Request) {
+    // 内存未命中时从库回读（DB 为读的权威源，淘汰/重启后历史仍可访问）
+    const { session, messages } = await this.sessions.loadDetail(sessionId);
     if (!session) {
       throw new NotFoundException({ error: 'session not found' });
     }
@@ -70,10 +71,7 @@ export class SessionsController {
     if (agent && !this.sessions.canView(session, agent)) {
       throw new ForbiddenException({ error: 'session is handled by another agent' });
     }
-    return {
-      session,
-      messages: this.sessions.getMessages(sessionId),
-    };
+    return { session, messages };
   }
 
   @Sse(':sessionId/events')
@@ -242,12 +240,13 @@ export class SessionsController {
     return { session: updatedSession };
   }
 
-  /** 从请求里解析客服身份（Bearer 头或 ?token=），无 token 返回 null。 */
+  /** 从请求里解析客服身份（Bearer 头的 JWT 或 ?ticket= 的 SSE 短票据），无凭证返回 null。 */
   private agentFromRequest(req: Request): AuthenticatedAgent | null {
     const header = String(req.headers.authorization || '');
     const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-    const token = bearer || String((req.query as any)?.token || '');
-    return token ? this.auth.verify(token) : null;
+    if (bearer) return this.auth.verify(bearer);
+    const ticket = String((req.query as any)?.ticket || '');
+    return ticket ? this.auth.verifySseTicket(ticket) : null;
   }
 
   private notify(sessionId: string) {

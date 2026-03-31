@@ -15,8 +15,12 @@ export class AgentAuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request & { agent?: unknown }>();
     const header = String(req.headers.authorization || '');
     const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-    const token = bearer || String(req.query?.token || '');
-    const agent = token ? this.auth.verify(token) : null;
+    // 普通接口走 Bearer 头的长效 JWT；SSE（EventSource 无法带头）走 ?ticket= 的 60s 短票据。
+    let agent = bearer ? this.auth.verify(bearer) : null;
+    if (!agent) {
+      const ticket = String(req.query?.ticket || '');
+      if (ticket) agent = this.auth.verifySseTicket(ticket);
+    }
 
     if (!agent) {
       throw new UnauthorizedException({ error: 'agent authentication required' });
