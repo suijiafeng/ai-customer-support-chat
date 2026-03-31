@@ -4,7 +4,7 @@ import MessageList from './MessageList.js';
 import Composer from './Composer.js';
 import SessionDetail from './SessionDetail.js';
 import { useSessionMessages, type ConnectionStatus } from '../hooks/useSessionMessages.js';
-import type { AgentIdentity } from '../api.js';
+import { type AgentIdentity } from '../api.js';
 
 const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
   synced: '消息已同步',
@@ -66,9 +66,20 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
           ) : (
             <MessageList messages={messages} customerName={session.displayName} status={status} />
           )}
+          {!session.assignedAgentId && session.status !== 'closed' && (
+            <div className="claim-hint-bar" role="status">
+              <span aria-hidden="true">📥</span> 该客户来自接待大厅，发送消息即接待并归入「我的会话」
+            </div>
+          )}
           <Composer sessionId={sessionId} agent={agent} onSent={setMessages} />
         </div>
-        {showDetail && <SessionDetail session={session} onClose={() => setShowDetail(false)} />}
+        {showDetail && (
+          <SessionDetail
+            session={session}
+            onClose={() => setShowDetail(false)}
+            canResolve={agent.role === 'admin' || session.assignedAgentId === agent.id}
+          />
+        )}
       </div>
     </main>
   );

@@ -51,7 +51,10 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
         onClick={() => setOpen((v) => !v)}
       >
         <span className="avatar-badge" style={{ background: color }}>{initials}</span>
-        <span className="agent-name">{agent.name}</span>
+        <span className="agent-name">
+          {agent.name}
+          {agent.role === 'admin' && <span className="role-badge">管理员</span>}
+        </span>
         <span className={`caret${open ? ' up' : ''}`} aria-hidden="true">▾</span>
       </button>
 

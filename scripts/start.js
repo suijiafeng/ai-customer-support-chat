@@ -25,12 +25,12 @@ else mode = 'prod'; // default: production
 const scriptName = { dev: 'start:dev', prod: 'start:prod', demo: 'start:demo' }[mode];
 const nodeEnv = mode === 'dev' ? 'development' : 'production';
 
-// 按 NODE_ENV 解析 PORT，与 config.ts 的加载优先级保持一致：
-// 真实环境变量 > .env.[mode] > .env（默认 3001）
+// 解析 PORT，与 config.ts 的加载优先级保持一致：
+// 真实环境变量 > .env.local > .env（默认 3001）
 function resolvePort() {
   if (process.env.PORT) return process.env.PORT;
   const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-  for (const file of [`.env.${nodeEnv}`, '.env']) {
+  for (const file of ['.env.local', '.env']) {
     try {
       const m = readFileSync(join(root, file), 'utf8').match(/^\s*PORT\s*=\s*(\d+)/m);
       if (m) return m[1];

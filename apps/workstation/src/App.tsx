@@ -80,13 +80,14 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
               activeId={activeId}
               onSelect={handleSelect}
               open={queueOpen}
+              agent={agent}
             />
             {queueOpen && <div className="queue-overlay" onClick={() => setQueueOpen(false)} aria-hidden="true" />}
             <ChatPanel session={activeSession} agent={agent} />
           </>
         )}
         {view === 'tickets' && (
-          <TicketsPanel onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
+          <TicketsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
         )}
         {view === 'metrics' && <MetricsPanel />}
       </div>

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
 import {
-  requestJson, fileToDataUrl, normalizeMessages, MAX_ATTACHMENTS, MAX_IMAGE_BYTES,
+  ApiError, requestJson, fileToDataUrl, normalizeMessages, MAX_ATTACHMENTS, MAX_IMAGE_BYTES,
   type AgentIdentity, type PendingAttachment, type UiMessage,
 } from '../api.js';
 
@@ -101,8 +101,10 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
       );
       onSent?.(normalizeMessages(data.messages));
       setReply(''); setPending([]); setShowEmoji(false);
-    } catch {
-      alert('消息发送失败，请重试');
+    } catch (err) {
+      // 409：发送瞬间该客户已被其他客服抢先接待
+      const conflict = err instanceof ApiError && err.status === 409;
+      alert(conflict ? '该客户已被其他客服抢先接待，无法回复' : '消息发送失败，请重试');
     } finally {
       setLoading(false);
       requestAnimationFrame(() => replyInput.current?.focus());
