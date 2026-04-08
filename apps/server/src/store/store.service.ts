@@ -56,6 +56,11 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
   loadConversation = (id: string) => this.store.getConversation(id);
   loadTicket = (id: string) => this.store.getTicket(id);
 
+  // 每日指标快照
+  saveDailyMetric = (point: Parameters<Store['saveDailyMetric']>[0]) =>
+    this.store.saveDailyMetric(point);
+  loadDailyMetrics = (days: number) => this.store.loadDailyMetrics(days);
+
   /** 持久化健康：是否出现过写失败 + 详情 */
   get degraded(): boolean {
     return this.store.stats().writeErrors > 0;

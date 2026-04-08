@@ -47,6 +47,13 @@ export class MetaController {
   @UseGuards(AgentAuthGuard)
   @Get('metrics')
   metricsHandler() {
+    this.metrics.recordDaily(); // 查看时顺带刷新当天快照
     return this.metrics.buildMetrics();
+  }
+
+  @UseGuards(AgentAuthGuard)
+  @Get('metrics/trend')
+  async trend() {
+    return { trend: await this.metrics.getTrend(14) };
   }
 }

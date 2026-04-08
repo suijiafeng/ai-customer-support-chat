@@ -134,6 +134,13 @@ export interface SessionSummary extends Session {
   messageCount: number;
 }
 
+export interface DailyMetricPoint {
+  date: string; // 服务端本地日期 YYYY-MM-DD
+  waiting: number;
+  assigned: number;
+  activeSessions: number;
+}
+
 export interface Metrics {
   generatedAt: string;
   totals: { sessions: number; messages: number; tickets: number };

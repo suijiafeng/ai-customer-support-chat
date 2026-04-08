@@ -67,6 +67,20 @@ test('单条回读 getSession/getConversation/getTicket（内存淘汰后从库�
   assert.equal(await store.getSession('missing'), null);
 });
 
+test('每日指标快照：按天 upsert + 读取最近 N 天（升序）', async () => {
+  const store = freshStore();
+  await store.init();
+  await store.saveDailyMetric({ date: '2026-06-18', waiting: 1, assigned: 2, activeSessions: 3 });
+  await store.saveDailyMetric({ date: '2026-06-19', waiting: 4, assigned: 5, activeSessions: 6 });
+  await store.saveDailyMetric({ date: '2026-06-19', waiting: 9, assigned: 9, activeSessions: 9 }); // 同日覆盖
+
+  const trend = await store.loadDailyMetrics(14);
+  assert.equal(trend.length, 2);
+  assert.equal(trend[0].date, '2026-06-18');
+  assert.equal(trend[1].date, '2026-06-19');
+  assert.equal(trend[1].waiting, 9); // upsert 覆盖
+});
+
 test('stats 默认无写错误', async () => {
   const store = freshStore();
   await store.init();

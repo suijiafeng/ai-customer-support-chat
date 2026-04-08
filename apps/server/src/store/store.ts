@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import pg from 'pg';
-import type { Message, Session, Ticket } from '@assistflow/shared';
+import type { DailyMetricPoint, Message, Session, Ticket } from '@assistflow/shared';
 import { appConfig } from '../config.js';
 
 const { Pool } = pg;
@@ -44,6 +44,9 @@ export interface Store {
   getSession(sessionId: string): Promise<Session | null>;
   getConversation(sessionId: string): Promise<Message[] | null>;
   getTicket(ticketId: string): Promise<Ticket | null>;
+  /** 每日指标快照：按天 upsert + 读取最近 N 天（团队级趋势，跨端一致） */
+  saveDailyMetric(point: DailyMetricPoint): Promise<void>;
+  loadDailyMetrics(days: number): Promise<DailyMetricPoint[]>;
   /** 持久化健康状态 */
   stats(): StoreStats;
   close(): Promise<void>;
@@ -148,6 +151,12 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
           data JSONB NOT NULL,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS metrics_daily (
+          date TEXT PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`);
     },
 
     // 启动时一次性载入内存。tickets 按 updated_at 升序，保持与内存数组的插入顺序近似。
@@ -246,6 +255,26 @@ function createPgStore(pool: pg.Pool, ownsPool: boolean): Store {
       return res.rows[0]?.data ?? null;
     },
 
+    saveDailyMetric(point) {
+      if (!point?.date) return Promise.resolve();
+      return fireAndForget(
+        pool.query(
+          `INSERT INTO metrics_daily (date, data, updated_at)
+           VALUES ($1, $2, now())
+           ON CONFLICT (date) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+          [point.date, JSON.stringify(point)]
+        ),
+        `daily metric ${point.date}`
+      );
+    },
+    async loadDailyMetrics(days) {
+      const res = await pool.query(
+        'SELECT data FROM metrics_daily ORDER BY date DESC LIMIT $1',
+        [days]
+      );
+      return res.rows.map((row) => row.data as DailyMetricPoint).reverse();
+    },
+
     async close() {
       if (ownsPool) {
         await pool.end();
@@ -296,6 +325,9 @@ function createSqliteStore(dbPath: string): Store {
       );
       db.exec(
         `CREATE TABLE IF NOT EXISTS tickets (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)`
+      );
+      db.exec(
+        `CREATE TABLE IF NOT EXISTS metrics_daily (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)`
       );
     },
 
@@ -385,6 +417,24 @@ function createSqliteStore(dbPath: string): Store {
       return row ? (JSON.parse(row.data) as Ticket) : null;
     },
 
+    saveDailyMetric(point) {
+      if (!point?.date) return Promise.resolve();
+      return safe(`daily metric ${point.date}`, () =>
+        db
+          .prepare(
+            `INSERT INTO metrics_daily (date, data, updated_at) VALUES (?, ?, ?)
+             ON CONFLICT(date) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
+          )
+          .run(point.date, JSON.stringify(point), Date.now())
+      );
+    },
+    async loadDailyMetrics(days) {
+      const rows: any[] = db
+        .prepare('SELECT data FROM metrics_daily ORDER BY date DESC LIMIT ?')
+        .all(days);
+      return rows.map((r) => JSON.parse(r.data) as DailyMetricPoint).reverse();
+    },
+
     async close() {
       db.close();
     },
@@ -407,6 +457,8 @@ function createNoopStore(): Store {
     getSession: async () => null,
     getConversation: async () => null,
     getTicket: async () => null,
+    saveDailyMetric: noop,
+    loadDailyMetrics: async () => [],
     close: noop,
   };
 }
