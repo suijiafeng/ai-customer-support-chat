@@ -22,11 +22,12 @@ let selectedMessages = [];
 let sessions = [];
 let queueEvents = null;
 let sessionEvents = null;
+let queuePollTimer = null;
+let sessionPollTimer = null;
 
 async function boot() {
   try {
-    const response = await fetch('/api/health');
-    const data = await response.json();
+    const data = await requestJson('/api/health');
     statusEl.textContent = data.aiEnabled
       ? `${formatProvider(data.aiProvider)} / ${data.model}`
       : '本地规则模式';
@@ -79,12 +80,11 @@ async function sendMessage(message) {
   input.disabled = true;
 
   try {
-    const response = await fetch(`/api/sessions/${encodeURIComponent(selectedSessionId)}/messages`, {
+    const data = await requestJson(`/api/sessions/${encodeURIComponent(selectedSessionId)}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: cleanMessage }),
     });
-    const data = await response.json();
 
     selectedMessages = data.messages || selectedMessages;
     renderMessages(selectedMessages);
@@ -101,8 +101,7 @@ async function sendMessage(message) {
 
 async function refreshSessions(options = {}) {
   try {
-    const response = await fetch('/api/sessions');
-    const data = await response.json();
+    const data = await requestJson('/api/sessions');
     sessions = data.sessions || [];
     queueCountEl.textContent = sessions.length;
     renderSessions();
@@ -172,8 +171,7 @@ async function selectSession(sessionId, options = {}) {
   renderSessions();
 
   try {
-    const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
-    const data = await response.json();
+    const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
     selectedMessages = data.messages || [];
     renderMessages(selectedMessages);
     updateWorkflowFromSession(data.session);
@@ -192,10 +190,16 @@ function connectQueueEvents() {
   if (queueEvents) {
     queueEvents.close();
   }
+  stopQueuePolling();
+
+  if (!window.EventSource) {
+    startQueuePolling();
+    return;
+  }
 
   queueEvents = new EventSource('/api/sessions/events');
   queueEvents.addEventListener('sessions', async (event) => {
-    const data = JSON.parse(event.data);
+    const data = safeParseJson(event.data, {});
     sessions = data.sessions || [];
     queueCountEl.textContent = sessions.length;
     renderSessions();
@@ -212,16 +216,29 @@ function connectQueueEvents() {
       await selectSession(sessions[0].sessionId);
     }
   });
+  queueEvents.addEventListener('error', () => {
+    if (queueEvents) {
+      queueEvents.close();
+      queueEvents = null;
+    }
+    startQueuePolling();
+  });
 }
 
 function connectSessionEvents(sessionId) {
   if (sessionEvents) {
     sessionEvents.close();
   }
+  stopSessionPolling();
+
+  if (!window.EventSource) {
+    startSessionPolling(sessionId);
+    return;
+  }
 
   sessionEvents = new EventSource(`/api/sessions/${encodeURIComponent(sessionId)}/events`);
   sessionEvents.addEventListener('session', (event) => {
-    const data = JSON.parse(event.data);
+    const data = safeParseJson(event.data, {});
 
     if (data.session?.sessionId !== selectedSessionId) {
       return;
@@ -230,6 +247,13 @@ function connectSessionEvents(sessionId) {
     selectedMessages = data.messages || [];
     renderMessages(selectedMessages);
     updateWorkflowFromSession(data.session);
+  });
+  sessionEvents.addEventListener('error', () => {
+    if (sessionEvents) {
+      sessionEvents.close();
+      sessionEvents = null;
+    }
+    startSessionPolling(sessionId);
   });
 }
 
@@ -246,8 +270,7 @@ function writeSelectedSessionToUrl(sessionId) {
 
 async function refreshTickets() {
   try {
-    const response = await fetch('/api/tickets');
-    const data = await response.json();
+    const data = await requestJson('/api/tickets');
     const tickets = data.tickets || [];
 
     if (tickets.length === 0) {
@@ -417,7 +440,79 @@ window.addEventListener('beforeunload', () => {
   if (sessionEvents) {
     sessionEvents.close();
   }
+  stopQueuePolling();
+  stopSessionPolling();
 });
 
 input.disabled = true;
 boot();
+
+function startQueuePolling() {
+  if (queuePollTimer) {
+    return;
+  }
+  queuePollTimer = window.setInterval(() => refreshSessions({ keepSelection: true }), 5000);
+}
+
+function stopQueuePolling() {
+  if (!queuePollTimer) {
+    return;
+  }
+  window.clearInterval(queuePollTimer);
+  queuePollTimer = null;
+}
+
+function startSessionPolling(sessionId) {
+  if (sessionPollTimer) {
+    return;
+  }
+  sessionPollTimer = window.setInterval(() => pollSelectedSession(sessionId), 5000);
+}
+
+function stopSessionPolling() {
+  if (!sessionPollTimer) {
+    return;
+  }
+  window.clearInterval(sessionPollTimer);
+  sessionPollTimer = null;
+}
+
+async function pollSelectedSession(sessionId) {
+  if (sessionId !== selectedSessionId) {
+    stopSessionPolling();
+    return;
+  }
+
+  try {
+    const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
+    selectedMessages = data.messages || [];
+    renderMessages(selectedMessages);
+    updateWorkflowFromSession(data.session);
+  } catch {
+    // Polling is a best-effort fallback for environments without SSE.
+  }
+}
+
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  const data = text ? safeParseJson(text, null) : {};
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Request failed: ${response.status}`);
+  }
+
+  if (data === null) {
+    throw new Error('Invalid JSON response');
+  }
+
+  return data;
+}
+
+function safeParseJson(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}

@@ -13,6 +13,7 @@ const visitor = getOrCreateVisitor();
 let sessionId = getOrCreateSessionId();
 const history = loadHistory();
 let sessionEvents = null;
+let sessionPollTimer = null;
 
 async function boot() {
   renderVisitorCode();
@@ -20,11 +21,10 @@ async function boot() {
   updateReadyState();
 
   try {
-    const response = await fetch('/api/health');
-    const data = await response.json();
+    const data = await requestJson('/api/health');
     statusEl.dataset.aiStatus = data.aiEnabled ? `${formatProvider(data.aiProvider)} 在线` : '客服助手在线';
   } catch {
-    statusEl.dataset.aiStatus = '连接中';
+    statusEl.dataset.aiStatus = '离线模式';
   }
   updateReadyState();
 
@@ -89,7 +89,7 @@ function resolveTyping(typingId, text) {
 }
 
 function setMode(mode) {
-  if (!modeBannerEl) return;
+  if (!modeBannerEl || !modeTextEl) return;
   modeBannerEl.classList.toggle('human', mode === 'human');
   modeBannerEl.classList.toggle('typing', mode === 'typing');
   const labels = {
@@ -114,7 +114,7 @@ function renderMessages(messages) {
 }
 
 async function sendMessage(message) {
-  const cleanMessage = message.trim();
+  const cleanMessage = String(message || '').trim();
 
   if (!cleanMessage) {
     return;
@@ -131,18 +131,11 @@ async function sendMessage(message) {
   setMode('typing');
 
   try {
-    const response = await fetch('/api/chat', {
+    const data = await requestJson('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, message: cleanMessage, history, visitor }),
     });
-    const data = await response.json();
-
-    if (!response.ok) {
-      resolveTyping(typingId, '暂时没有处理成功，请稍后再试。');
-      setMode('ai');
-      return;
-    }
 
     if (data.handledByAgent) {
       resolveTyping(typingId, '已发送给人工客服。');
@@ -178,11 +171,11 @@ function getOrCreateSessionId() {
   const fromUrl = params.get('sessionId');
 
   if (fromUrl) {
-    localStorage.setItem(SESSION_KEY, fromUrl);
+    safeSetItem(SESSION_KEY, fromUrl);
     return fromUrl;
   }
 
-  const existing = localStorage.getItem(SESSION_KEY);
+  const existing = safeGetItem(SESSION_KEY);
 
   if (existing) {
     writeSessionIdToUrl(existing);
@@ -190,32 +183,37 @@ function getOrCreateSessionId() {
   }
 
   const nextSessionId = `customer-${visitor.code.toLowerCase()}`;
-  localStorage.setItem(SESSION_KEY, nextSessionId);
+  safeSetItem(SESSION_KEY, nextSessionId);
   writeSessionIdToUrl(nextSessionId);
   return nextSessionId;
 }
 
 function writeSessionIdToUrl(nextSessionId) {
-  const url = new URL(window.location.href);
+  try {
+    const url = new URL(window.location.href);
 
-  if (url.searchParams.get('sessionId') === nextSessionId) {
-    return;
+    if (url.searchParams.get('sessionId') === nextSessionId) {
+      return;
+    }
+
+    url.searchParams.set('sessionId', nextSessionId);
+    window.history.replaceState({}, '', url);
+  } catch {
+    // URL syncing is optional; chat can continue without history support.
   }
-
-  url.searchParams.set('sessionId', nextSessionId);
-  window.history.replaceState({}, '', url);
 }
 
 function loadHistory() {
   try {
-    return JSON.parse(localStorage.getItem(getHistoryKey()) || '[]');
+    const parsed = JSON.parse(safeGetItem(getHistoryKey()) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
 function persistHistory() {
-  localStorage.setItem(getHistoryKey(), JSON.stringify(history.slice(-12)));
+  safeSetItem(getHistoryKey(), JSON.stringify(history.slice(-12)));
 }
 
 function getHistoryKey() {
@@ -234,10 +232,16 @@ function connectSessionEvents() {
   if (sessionEvents) {
     sessionEvents.close();
   }
+  stopSessionPolling();
+
+  if (!window.EventSource) {
+    startSessionPolling();
+    return;
+  }
 
   sessionEvents = new EventSource(`/api/sessions/${encodeURIComponent(sessionId)}/events`);
   sessionEvents.addEventListener('session', (event) => {
-    const data = JSON.parse(event.data);
+    const data = safeParseJson(event.data, {});
     const messages = data.messages || [];
 
     if (!messages.length) {
@@ -248,11 +252,50 @@ function connectSessionEvents() {
     persistHistory();
     renderMessages(history);
   });
+  sessionEvents.addEventListener('error', () => {
+    if (sessionEvents) {
+      sessionEvents.close();
+      sessionEvents = null;
+    }
+    startSessionPolling();
+  });
+}
+
+function startSessionPolling() {
+  if (sessionPollTimer) {
+    return;
+  }
+  sessionPollTimer = window.setInterval(pollSession, 5000);
+}
+
+function stopSessionPolling() {
+  if (!sessionPollTimer) {
+    return;
+  }
+  window.clearInterval(sessionPollTimer);
+  sessionPollTimer = null;
+}
+
+async function pollSession() {
+  try {
+    const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
+    const messages = data.messages || [];
+
+    if (!messages.length) {
+      return;
+    }
+
+    history.splice(0, history.length, ...messages);
+    persistHistory();
+    renderMessages(history);
+  } catch {
+    // Polling is a best-effort fallback for environments without SSE.
+  }
 }
 
 function getOrCreateVisitor() {
   try {
-    const existing = JSON.parse(localStorage.getItem(VISITOR_KEY) || 'null');
+    const existing = JSON.parse(safeGetItem(VISITOR_KEY) || 'null');
     if (existing?.code) {
       return existing;
     }
@@ -263,7 +306,7 @@ function getOrCreateVisitor() {
     code: `U${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
     createdAt: new Date().toISOString(),
   };
-  localStorage.setItem(VISITOR_KEY, JSON.stringify(nextVisitor));
+  safeSetItem(VISITOR_KEY, JSON.stringify(nextVisitor));
   return nextVisitor;
 }
 
@@ -296,4 +339,45 @@ window.addEventListener('beforeunload', () => {
   if (sessionEvents) {
     sessionEvents.close();
   }
+  stopSessionPolling();
 });
+
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  const data = text ? safeParseJson(text, null) : {};
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Request failed: ${response.status}`);
+  }
+
+  if (data === null) {
+    throw new Error('Invalid JSON response');
+  }
+
+  return data;
+}
+
+function safeParseJson(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function safeGetItem(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in private mode or restricted WebViews.
+  }
+}
