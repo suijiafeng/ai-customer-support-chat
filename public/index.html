@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AssistFlow 在线客服</title>
+    <title>AssistFlow · 智能客服</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="customer-body">
@@ -16,39 +19,36 @@
             <span>企业智能客服中心</span>
           </div>
         </div>
-        <div class="hero-kicker">Customer Care Desk</div>
-        <h1>快速处理订单、退款与售后咨询</h1>
-        <p>AI 助手会先识别你的问题并查询业务数据。遇到复杂场景时，会把完整上下文同步给人工客服继续跟进。</p>
-        <div class="customer-metrics" aria-label="服务指标">
-          <span><strong>7x24</strong> 在线响应</span>
-          <span><strong>30s</strong> 首轮处理</span>
-          <span><strong>100%</strong> 人工兜底</span>
+        <h1 class="hero-heading">高效、专业的<br />智能客服体验</h1>
+        <p class="hero-desc">AI 优先处理常见问题，复杂情况无缝转接人工客服，7×24 不间断为您服务。</p>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>&lt;&thinsp;3s</strong>
+            <span>平均响应时间</span>
+          </div>
+          <div class="hero-stat">
+            <strong>98%</strong>
+            <span>客户满意度</span>
+          </div>
+          <div class="hero-stat">
+            <strong>24/7</strong>
+            <span>全天候在线</span>
+          </div>
         </div>
-        <div class="service-panel">
-          <article>
-            <span>支持范围</span>
-            <strong>订单查询、退款进度、发票、售后</strong>
-          </article>
-          <article>
-            <span>服务保障</span>
-            <strong>自动生成会话记录与待办工单</strong>
-          </article>
-        </div>
-        <div class="trusted-strip" aria-label="业务系统">
-          <span>Order</span>
-          <span>Billing</span>
-          <span>Ticket</span>
-          <span>CRM</span>
+        <div class="customer-metrics" aria-label="服务承诺">
+          <span>AI 智能分析</span>
+          <span>安全加密传输</span>
+          <span>人工兜底保障</span>
         </div>
       </section>
 
       <section class="customer-chat">
         <header class="customer-chat-header">
           <div class="chat-title">
-            <div class="agent-avatar" aria-hidden="true">AI</div>
+            <div class="chat-avatar" aria-hidden="true">AI</div>
             <div>
-              <h2>智能客服</h2>
-              <p id="status">连接中</p>
+              <h2>AssistFlow 客服</h2>
+              <p id="status"><span class="status-dot"></span>在线服务中</p>
             </div>
           </div>
           <div class="customer-header-actions">
@@ -57,21 +57,17 @@
           </div>
         </header>
 
-        <section class="identity-panel" aria-label="客户信息">
-          <div class="field-group">
-            <label for="customerName">称呼</label>
-            <input id="customerName" autocomplete="name" placeholder="姓名/昵称" />
-          </div>
-          <div class="field-group">
-            <label for="customerContact">联系方式</label>
-            <input id="customerContact" autocomplete="tel" placeholder="手机号或邮箱（选填）" />
-          </div>
-        </section>
+        <div id="modeBanner" class="mode-banner">
+          <span class="mode-dot"></span>
+          <span id="modeText">AI 自动接管</span>
+        </div>
 
         <div id="messages" class="messages customer-messages">
           <article class="message bot">
-            <div class="bubble">
-              你好，请直接描述你的问题。如果要查订单，可以输入订单号，例如 A1001。
+            <div class="bot-avatar">AI</div>
+            <div class="message-body">
+              <div class="bubble">你好！我是 AssistFlow 智能客服，很高兴为您服务。可以帮您查询订单、申请退款、开具发票等，请直接描述您的问题。</div>
+              <div class="message-meta">刚刚</div>
             </div>
           </article>
         </div>

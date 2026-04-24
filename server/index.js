@@ -16,8 +16,8 @@ const ordersPath = path.join(rootDir, 'data', 'orders.json');
 const app = express();
 const port = Number(process.env.PORT || 3001);
 const aiProvider = process.env.AI_PROVIDER || 'openai';
-const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.2';
-const deepseekModel = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+const openaiModel = process.env.OPENAI_MODEL || 'gpt-4o';
+const deepseekModel = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const openaiClient = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 const deepseekClient = process.env.DEEPSEEK_API_KEY
   ? new OpenAI({
@@ -399,7 +399,7 @@ async function buildReply({ message, history, matchedFaqs, intent, handoff, orde
       };
     } catch (error) {
       const formattedError = formatAiError(error);
-      console.warn(`DeepSeek request failed, using local fallback: ${formattedError}`);
+      console.warn(`DeepSeek 请求失败，降级为本地规则：${formattedError}`);
       return {
         ...fallbackResult,
         ai: {
