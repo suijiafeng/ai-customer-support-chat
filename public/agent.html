@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AssistFlow 客服工作台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="agent-body">
+    <main class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">CS</div>
+          <div>
+            <strong>AssistFlow</strong>
+            <span>AI 客服工作台</span>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item active" type="button">会话</button>
+          <button class="nav-item" type="button">工单</button>
+          <button class="nav-item" type="button">知识库</button>
+          <button class="nav-item" type="button">质检</button>
+        </nav>
+
+        <section class="queue">
+          <div class="section-title">
+            <span>客户队列</span>
+            <strong id="queueCount">0</strong>
+          </div>
+          <div id="sessionList" class="session-list">
+            <p class="empty-state">暂无客户会话</p>
+          </div>
+        </section>
+      </aside>
+
+      <section class="chat-shell">
+        <header class="topbar">
+          <div>
+            <h1>AI 客服助手</h1>
+            <p id="status">连接中</p>
+          </div>
+          <div class="topbar-actions">
+            <span id="modeBadge" class="badge">MVP</span>
+            <button type="button" class="ghost-button">导出记录</button>
+          </div>
+        </header>
+
+        <div id="messages" class="messages">
+          <article class="message bot">
+            <div class="bubble">
+              从左侧选择一个客户会话，查看聊天记录和 AI 诊断。
+            </div>
+          </article>
+        </div>
+
+        <div class="quick-actions agent-replies" aria-label="快捷回复">
+          <button data-reply="您好，我是人工客服，已经接入当前会话。">接入问候</button>
+          <button data-reply="麻烦您提供一下订单号，我帮您进一步核实。">索要订单号</button>
+          <button data-reply="我已经记录您的问题，会尽快为您跟进处理。">已记录</button>
+          <button data-reply="感谢您的反馈，后续处理结果会通过当前会话同步给您。">结束说明</button>
+        </div>
+
+        <form id="chatForm" class="composer">
+          <input id="messageInput" autocomplete="off" placeholder="输入你的问题" />
+          <button type="submit">发送</button>
+        </form>
+      </section>
+
+      <aside class="workflow">
+        <div class="panel-header">
+          <div>
+            <h2>智能诊断</h2>
+            <p>实时识别意图、情绪与转人工风险</p>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article>
+            <span>响应模式</span>
+            <strong id="aiStatus">-</strong>
+          </article>
+          <article>
+            <span>转人工</span>
+            <strong id="handoff">-</strong>
+          </article>
+        </div>
+
+        <dl>
+          <div>
+            <dt>意图</dt>
+            <dd id="intent">-</dd>
+          </div>
+          <div>
+            <dt>情绪</dt>
+            <dd id="sentiment">-</dd>
+          </div>
+          <div>
+            <dt>原因</dt>
+            <dd id="reason">-</dd>
+          </div>
+          <div>
+            <dt>知识来源</dt>
+            <dd id="sources">-</dd>
+          </div>
+          <div>
+            <dt>订单</dt>
+            <dd id="order">-</dd>
+          </div>
+          <div>
+            <dt>工单</dt>
+            <dd id="ticket">-</dd>
+          </div>
+        </dl>
+
+        <section class="ticket-panel">
+          <div class="panel-heading">
+            <h2>未处理工单</h2>
+            <button id="refreshTickets" type="button">刷新</button>
+          </div>
+          <div id="ticketList" class="ticket-list">暂无工单</div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="/agent.js"></script>
+  </body>
+</html>

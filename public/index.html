@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AssistFlow 在线客服</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="customer-body">
+    <main class="customer-app">
+      <section class="customer-hero" aria-label="AssistFlow 服务说明">
+        <div class="brand compact customer-brand">
+          <div class="brand-mark">AF</div>
+          <div>
+            <strong>AssistFlow</strong>
+            <span>企业智能客服中心</span>
+          </div>
+        </div>
+        <div class="hero-kicker">Customer Care Desk</div>
+        <h1>快速处理订单、退款与售后咨询</h1>
+        <p>AI 助手会先识别你的问题并查询业务数据。遇到复杂场景时，会把完整上下文同步给人工客服继续跟进。</p>
+        <div class="customer-metrics" aria-label="服务指标">
+          <span><strong>7x24</strong> 在线响应</span>
+          <span><strong>30s</strong> 首轮处理</span>
+          <span><strong>100%</strong> 人工兜底</span>
+        </div>
+        <div class="service-panel">
+          <article>
+            <span>支持范围</span>
+            <strong>订单查询、退款进度、发票、售后</strong>
+          </article>
+          <article>
+            <span>服务保障</span>
+            <strong>自动生成会话记录与待办工单</strong>
+          </article>
+        </div>
+        <div class="trusted-strip" aria-label="业务系统">
+          <span>Order</span>
+          <span>Billing</span>
+          <span>Ticket</span>
+          <span>CRM</span>
+        </div>
+      </section>
+
+      <section class="customer-chat">
+        <header class="customer-chat-header">
+          <div class="chat-title">
+            <div class="agent-avatar" aria-hidden="true">AI</div>
+            <div>
+              <h2>智能客服</h2>
+              <p id="status">连接中</p>
+            </div>
+          </div>
+          <div class="customer-header-actions">
+            <span id="visitorCode" class="visitor-code">访客码生成中</span>
+            <a href="/agent.html">客服端</a>
+          </div>
+        </header>
+
+        <section class="identity-panel" aria-label="客户信息">
+          <div class="field-group">
+            <label for="customerName">称呼</label>
+            <input id="customerName" autocomplete="name" placeholder="姓名/昵称" />
+          </div>
+          <div class="field-group">
+            <label for="customerContact">联系方式</label>
+            <input id="customerContact" autocomplete="tel" placeholder="手机号或邮箱（选填）" />
+          </div>
+        </section>
+
+        <div id="messages" class="messages customer-messages">
+          <article class="message bot">
+            <div class="bubble">
+              你好，请直接描述你的问题。如果要查订单，可以输入订单号，例如 A1001。
+            </div>
+          </article>
+        </div>
+
+        <div class="quick-actions customer-actions" aria-label="常见问题">
+          <button data-prompt="帮我查一下订单 A1001">查订单</button>
+          <button data-prompt="我想申请退款">申请退款</button>
+          <button data-prompt="怎么开发票？">开发票</button>
+          <button data-prompt="我要转人工客服">转人工</button>
+        </div>
+
+        <form id="chatForm" class="composer customer-composer">
+          <input id="messageInput" autocomplete="off" placeholder="请输入你的问题" />
+          <button type="submit">发送</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/customer.js"></script>
+  </body>
+</html>

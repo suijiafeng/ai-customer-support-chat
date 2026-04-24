@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/apple/Documents/Codex/2026-04-25/app-reactnative/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/apple/Documents/Codex/2026-04-25/app-reactnative"
+    ]
+  }
+}
