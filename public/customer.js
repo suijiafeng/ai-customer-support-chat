@@ -37,8 +37,8 @@ function appendMessage(role, content, opts = {}) {
 
   if (role === 'bot') {
     const avatar = document.createElement('div');
-    avatar.className = 'bot-avatar';
-    avatar.textContent = 'AI';
+    avatar.className = `bot-avatar ${opts.actor === 'agent' ? 'human-agent' : ''}`.trim();
+    avatar.textContent = opts.actor === 'agent' ? 'CS' : 'AI';
     article.appendChild(avatar);
   }
 
@@ -59,7 +59,7 @@ function appendMessage(role, content, opts = {}) {
   if (!opts.typing) {
     const meta = document.createElement('div');
     meta.className = 'message-meta';
-    meta.textContent = formatTime(new Date());
+    meta.textContent = formatMessageMeta(opts);
     body.appendChild(meta);
   }
 
@@ -74,6 +74,13 @@ function formatTime(date) {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatMessageMeta(opts = {}) {
+  const actorLabel = opts.actor === 'agent' ? '人工客服' : '';
+  const timeLabel = opts.createdAt ? formatTime(new Date(opts.createdAt)) : formatTime(new Date());
+
+  return [actorLabel, timeLabel].filter(Boolean).join(' · ');
+}
+
 function resolveTyping(typingId, text) {
   const typingEl = document.querySelector(`[data-typing-id="${typingId}"]`);
   if (!typingEl) return;
@@ -83,7 +90,7 @@ function resolveTyping(typingId, text) {
   if (body && !body.querySelector('.message-meta')) {
     const meta = document.createElement('div');
     meta.className = 'message-meta';
-    meta.textContent = formatTime(new Date());
+    meta.textContent = formatMessageMeta();
     body.appendChild(meta);
   }
 }
@@ -109,7 +116,10 @@ function renderMessages(messages) {
   }
 
   messages.forEach((message) => {
-    appendMessage(message.role === 'user' ? 'user' : 'bot', message.content);
+    appendMessage(message.role === 'user' ? 'user' : 'bot', message.content, {
+      actor: message.actor,
+      createdAt: message.createdAt,
+    });
   });
 }
 

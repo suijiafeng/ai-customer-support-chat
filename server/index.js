@@ -261,6 +261,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     if (isHumanAssigned(sessionId)) {
+      const activeTicket = getLatestTicketForSession(sessionId);
       const nextHistory = [...storedHistory, { role: 'user', content: message }].slice(-12);
       const workflow = {
         ai: {
@@ -275,7 +276,7 @@ app.post('/api/chat', async (req, res) => {
         needHuman: false,
         reason: '人工客服已接入，暂停 AI 自动回复',
         order: findOrder(message),
-        ticket: null,
+        ticket: activeTicket,
         sources: [],
       };
 
@@ -632,6 +633,12 @@ function createTicket({ sessionId, message, intent, reason, order }) {
   return ticket;
 }
 
+function getLatestTicketForSession(sessionId) {
+  return tickets
+    .filter((ticket) => ticket.sessionId === sessionId)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] || null;
+}
+
 function moveOpenTicketToProcessing(sessionId) {
   const ticket = tickets.find((item) => item.sessionId === sessionId && item.status === 'open');
 
@@ -812,9 +819,8 @@ function notifyQueue() {
 
 function isHumanAssigned(sessionId) {
   const session = sessions.get(sessionId);
-  const messages = conversations.get(sessionId) || [];
 
-  return session?.status === 'assigned' || messages.some((message) => message.actor === 'agent');
+  return session?.status === 'assigned';
 }
 
 function upsertSession({ sessionId, message, workflow, profile, visitor, forceStatus }) {
@@ -823,7 +829,8 @@ function upsertSession({ sessionId, message, workflow, profile, visitor, forceSt
   const nextProfile = profile || current?.profile || null;
   const nextVisitor = visitor || current?.visitor || inferVisitorFromSessionId(sessionId);
   const status = forceStatus || resolveSessionStatus(current, workflow);
-  const priority = workflow.sentiment === 'negative' || workflow.needHuman ? 'high' : 'normal';
+  const keepHighPriority = current?.priority === 'high' && current?.status !== 'closed';
+  const priority = keepHighPriority || workflow.sentiment === 'negative' || workflow.needHuman ? 'high' : 'normal';
   const orderId = workflow.order?.id || current?.orderId || extractOrderId(message) || null;
   const displayName = buildDisplayName(sessionId, sessions.size + 1, orderId, nextProfile, nextVisitor);
   const session = {
@@ -850,6 +857,9 @@ function upsertSession({ sessionId, message, workflow, profile, visitor, forceSt
 }
 
 function resolveSessionStatus(current, workflow) {
+  if (current?.status === 'closed') {
+    return workflow.needHuman ? 'waiting_human' : 'bot';
+  }
   if (current?.status === 'assigned') {
     return 'assigned';
   }
