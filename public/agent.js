@@ -13,6 +13,12 @@ const orderEl = document.querySelector('#order');
 const ticketEl = document.querySelector('#ticket');
 const ticketListEl = document.querySelector('#ticketList');
 const refreshTicketsButton = document.querySelector('#refreshTickets');
+const exportTranscriptButton = document.querySelector('#exportTranscript');
+const resolveSessionButton = document.querySelector('#resolveSession');
+const metricWaitingEl = document.querySelector('#metricWaiting');
+const metricHighEl = document.querySelector('#metricHigh');
+const metricAssignedEl = document.querySelector('#metricAssigned');
+const metricAutomationEl = document.querySelector('#metricAutomation');
 const quickButtons = document.querySelectorAll('[data-reply]');
 const sessionListEl = document.querySelector('#sessionList');
 const queueCountEl = document.querySelector('#queueCount');
@@ -35,6 +41,7 @@ async function boot() {
     selectedSessionId = new URLSearchParams(window.location.search).get('sessionId');
     await refreshSessions();
     await refreshTickets();
+    await refreshMetrics();
     connectQueueEvents();
   } catch {
     statusEl.textContent = '服务未连接';
@@ -91,6 +98,7 @@ async function sendMessage(message) {
     updateWorkflowFromSession(data.session);
     await refreshSessions({ keepSelection: true });
     await refreshTickets();
+    await refreshMetrics();
   } catch {
     appendMessage('bot', '消息发送失败，请稍后再试。');
   } finally {
@@ -105,6 +113,7 @@ async function refreshSessions(options = {}) {
     sessions = data.sessions || [];
     queueCountEl.textContent = sessions.length;
     renderSessions();
+    await refreshMetrics();
 
     if (selectedSessionId && sessions.some((session) => session.sessionId === selectedSessionId)) {
       if (!options.keepSelection && selectedMessages.length === 0) {
@@ -147,6 +156,7 @@ function renderSessions() {
         'queue-card',
         session.sessionId === selectedSessionId ? 'active' : '',
         session.priority === 'high' ? 'warning' : '',
+        session.status === 'closed' ? 'closed' : '',
       ]
         .filter(Boolean)
         .join(' ');
@@ -177,12 +187,14 @@ async function selectSession(sessionId, options = {}) {
     updateWorkflowFromSession(data.session);
     input.disabled = false;
     input.placeholder = `回复 ${data.session.displayName}`;
+    resolveSessionButton.disabled = data.session.status === 'closed';
     connectSessionEvents(sessionId);
   } catch {
     selectedMessages = [];
     renderMessages([]);
     input.disabled = true;
     input.placeholder = '会话加载失败';
+    resolveSessionButton.disabled = true;
   }
 }
 
@@ -203,6 +215,7 @@ function connectQueueEvents() {
     sessions = data.sessions || [];
     queueCountEl.textContent = sessions.length;
     renderSessions();
+    refreshMetrics();
 
     if (selectedSessionId) {
       const latest = sessions.find((session) => session.sessionId === selectedSessionId);
@@ -268,6 +281,21 @@ function writeSelectedSessionToUrl(sessionId) {
   window.history.replaceState({}, '', url);
 }
 
+async function refreshMetrics() {
+  try {
+    const data = await requestJson('/api/metrics');
+    metricWaitingEl.textContent = data.queue?.waitingHuman ?? 0;
+    metricHighEl.textContent = data.queue?.highPriority ?? 0;
+    metricAssignedEl.textContent = data.queue?.assigned ?? 0;
+    metricAutomationEl.textContent = `${data.ai?.automationRate ?? 100}%`;
+  } catch {
+    metricWaitingEl.textContent = '-';
+    metricHighEl.textContent = '-';
+    metricAssignedEl.textContent = '-';
+    metricAutomationEl.textContent = '-';
+  }
+}
+
 async function refreshTickets() {
   try {
     const data = await requestJson('/api/tickets');
@@ -284,8 +312,12 @@ async function refreshTickets() {
         item.className = `ticket-card ${ticket.priority === 'high' ? 'high' : ''}`;
         item.innerHTML = `
           <strong>${escapeHtml(ticket.id)}</strong>
-          <span>${ticket.priority === 'high' ? '高优先级' : '普通'} / ${escapeHtml(ticket.intent)}</span>
+          <span>${ticket.priority === 'high' ? '高优先级' : '普通'} / ${formatTicketStatus(ticket.status)} / ${escapeHtml(ticket.intent)}</span>
           <p>${escapeHtml(ticket.reason)}</p>
+          <div class="ticket-actions">
+            <button type="button" data-ticket-action="processing" data-ticket-id="${escapeHtml(ticket.id)}">处理中</button>
+            <button type="button" data-ticket-action="resolved" data-ticket-id="${escapeHtml(ticket.id)}">解决</button>
+          </div>
         `;
         return item;
       })
@@ -293,6 +325,72 @@ async function refreshTickets() {
   } catch {
     ticketListEl.textContent = '工单加载失败';
   }
+}
+
+async function updateTicketStatus(ticketId, status) {
+  try {
+    const payload = {
+      status,
+      resolution: status === 'resolved' ? '客服工作台手动标记解决' : undefined,
+    };
+    const data = await requestJson(`/api/tickets/${encodeURIComponent(ticketId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (data.session?.sessionId === selectedSessionId) {
+      updateWorkflowFromSession(data.session);
+    }
+    await refreshSessions({ keepSelection: true });
+    await refreshTickets();
+    await refreshMetrics();
+  } catch {
+    ticketListEl.textContent = '工单状态更新失败，请稍后再试。';
+  }
+}
+
+async function resolveSelectedSession() {
+  if (!selectedSessionId) {
+    return;
+  }
+
+  resolveSessionButton.disabled = true;
+
+  try {
+    const data = await requestJson(`/api/sessions/${encodeURIComponent(selectedSessionId)}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolution: '客服工作台标记当前会话已解决' }),
+    });
+
+    updateWorkflowFromSession(data.session);
+    await refreshSessions({ keepSelection: true });
+    await refreshTickets();
+    await refreshMetrics();
+  } catch {
+    resolveSessionButton.disabled = false;
+  }
+}
+
+function exportTranscript() {
+  if (!selectedSessionId) {
+    return;
+  }
+
+  const session = sessions.find((item) => item.sessionId === selectedSessionId);
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    session,
+    messages: selectedMessages,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${selectedSessionId}-transcript.json`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function updateWorkflowFromSession(session) {
@@ -322,6 +420,9 @@ function updateWorkflow(data) {
 }
 
 function formatSessionStatus(session) {
+  if (session.status === 'closed') {
+    return '已解决';
+  }
   if (session.status === 'waiting_human') {
     return '待接入';
   }
@@ -329,6 +430,16 @@ function formatSessionStatus(session) {
     return '高';
   }
   return formatRelativeTime(session.updatedAt);
+}
+
+function formatTicketStatus(status) {
+  const labels = {
+    open: '待处理',
+    processing: '处理中',
+    resolved: '已解决',
+  };
+
+  return labels[status] || status || '-';
 }
 
 function formatSessionSubtitle(session) {
@@ -433,6 +544,17 @@ quickButtons.forEach((button) => {
 });
 
 refreshTicketsButton.addEventListener('click', refreshTickets);
+exportTranscriptButton.addEventListener('click', exportTranscript);
+resolveSessionButton.addEventListener('click', resolveSelectedSession);
+ticketListEl.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-ticket-action]');
+
+  if (!button) {
+    return;
+  }
+
+  updateTicketStatus(button.dataset.ticketId, button.dataset.ticketAction);
+});
 window.addEventListener('beforeunload', () => {
   if (queueEvents) {
     queueEvents.close();
