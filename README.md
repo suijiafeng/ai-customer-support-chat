@@ -4,14 +4,14 @@
 
 ## 在线体验
 
-当前仓库已准备好 Render Blueprint 与 Docker 部署配置。拿到线上域名后，将下面的 `<demo-url>` 替换为实际地址，并放在 GitHub Profile 的代表作品区。
+当前 Demo 已部署到 Render 免费实例。首次访问或长时间未访问后，实例可能需要约 50 秒冷启动。
 
 | 入口 | 地址 | 用途 |
 |------|------|------|
-| 在线预览 | `<demo-url>` | 项目总入口 |
-| 客户入口 | `<demo-url>/` | 访客发起咨询、订单查询、AI 回复、转人工 |
-| 客服入口 | `<demo-url>/agent.html` | 查看会话队列、AI 诊断、工单和人工回复 |
-| 健康检查 | `<demo-url>/api/health` | 确认服务、FAQ 和示例订单数据可用 |
+| 在线预览 | https://ai-customer-support-chat-ns6v.onrender.com | 项目总入口 |
+| 客户入口 | https://ai-customer-support-chat-ns6v.onrender.com/ | 访客发起咨询、订单查询、AI 回复、转人工 |
+| 客服入口 | https://ai-customer-support-chat-ns6v.onrender.com/agent.html | 查看会话队列、AI 诊断、工单和人工回复 |
+| 健康检查 | https://ai-customer-support-chat-ns6v.onrender.com/api/health | 确认服务、FAQ 和示例订单数据可用 |
 
 测试账号：当前 Demo 不需要登录。客户页会自动生成访客身份，客服工作台可直接进入。
 
