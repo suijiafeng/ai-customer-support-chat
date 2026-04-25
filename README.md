@@ -72,8 +72,8 @@
 需要 Node.js 18+。
 
 ```bash
-git clone https://github.com/your-username/customer-support-bot.git
-cd customer-support-bot
+git clone https://github.com/suijiafeng/ai-customer-support-chat.git
+cd ai-customer-support-chat
 npm install
 cp .env.example .env   # 按需填入 API Key，不填也能运行
 npm run dev
