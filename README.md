@@ -2,6 +2,26 @@
 
 全栈客服 Chat 系统，支持 AI 自动接管、实时人工转接与客服工作台。无 API Key 时自动切换本地规则模式，开箱即用。
 
+## 在线体验
+
+当前仓库已准备好 Render Blueprint 与 Docker 部署配置。拿到线上域名后，将下面的 `<demo-url>` 替换为实际地址，并放在 GitHub Profile 的代表作品区。
+
+| 入口 | 地址 | 用途 |
+|------|------|------|
+| 在线预览 | `<demo-url>` | 项目总入口 |
+| 客户入口 | `<demo-url>/` | 访客发起咨询、订单查询、AI 回复、转人工 |
+| 客服入口 | `<demo-url>/agent.html` | 查看会话队列、AI 诊断、工单和人工回复 |
+| 健康检查 | `<demo-url>/api/health` | 确认服务、FAQ 和示例订单数据可用 |
+
+测试账号：当前 Demo 不需要登录。客户页会自动生成访客身份，客服工作台可直接进入。
+
+测试话术：
+
+- `帮我查一下订单 A1001`
+- `我的订单 B2026 什么时候发货`
+- `R3308 退款进度怎么样`
+- `我要投诉，找人工客服`
+
 ## 项目定位
 
 很多 AI 客服 Demo 依赖外部模型 Key 和理想网络环境，一旦缺少配置就无法完整演示。AssistFlow 的核心目标是：**即使没有 API Key，也能跑通客户咨询、AI 回复、转人工、客服接入和工单生成的完整链路**。
@@ -104,6 +124,30 @@ npm run dev
 |------|------|
 | 客户对话 | http://localhost:3001 |
 | 客服工作台 | http://localhost:3001/agent.html |
+
+## 云平台部署
+
+### Render
+
+仓库根目录已经包含 `render.yaml`，可在 Render 中创建 Blueprint 或 Web Service：
+
+- Build Command：`npm ci`
+- Start Command：`npm start`
+- Health Check Path：`/api/health`
+- Node Version：`22.12.0`
+
+不配置 OpenAI / DeepSeek API Key 时，服务会使用本地规则模式，仍然可以完整演示客户咨询、AI 规则回复、转人工、客服接入和工单生成。
+
+### Docker / Railway / Fly.io
+
+也可以使用仓库内的 `Dockerfile` 部署：
+
+```bash
+docker build -t ai-customer-support-chat .
+docker run --rm -p 3001:3001 ai-customer-support-chat
+```
+
+服务读取平台注入的 `PORT` 环境变量；没有注入时默认监听 `3001`。
 
 ## 演示建议
 
@@ -210,4 +254,4 @@ npm run smoke     # 7 个用例，覆盖核心流程
 - 增加客服登录、角色权限和操作审计
 - 引入向量检索，支持更稳定的知识库问答
 - 增加会话质检、满意度评价和统计看板
-- 提供 Docker / 云平台部署示例
+- 补充生产环境监控、日志和数据备份策略
