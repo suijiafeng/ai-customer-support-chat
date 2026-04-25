@@ -1,6 +1,11 @@
-# AssistFlow — AI 智能客服系统
+# AssistFlow
 
-全栈客服 Chat 系统，支持 AI 自动接管、实时人工转接与客服工作台。无 API Key 时自动切换本地规则模式，开箱即用。
+一个能跑给你看的 AI 客服系统：AI 自动接管、状态机工单、SSE 实时客服工作台、人工接入后 AI 自动让位。无 API Key 时自动切换本地规则模式，仍然可以完整演示客户咨询、订单查询、转人工、客服回复和工单闭环。
+
+[![CI](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/suijiafeng/ai-customer-support-chat/actions/workflows/ci.yml)
+![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-2f855a)
+![SSE](https://img.shields.io/badge/realtime-SSE-2457c5)
+![No API Key Required](https://img.shields.io/badge/no%20API%20key-runnable-f59e0b)
 
 ## 在线体验
 
@@ -21,6 +26,42 @@
 - `我的订单 B2026 什么时候发货`
 - `R3308 退款进度怎么样`
 - `我要投诉，找人工客服`
+
+## 30 秒看懂
+
+1. 客户在客户入口输入 `帮我查一下订单 A1001`，系统直接返回订单状态。
+2. 客户输入 `我要投诉，找人工客服`，系统识别高风险意图，生成高优先级工单并通过 SSE 推送到客服工作台。
+3. 客服在工作台接入会话并回复，客户侧实时收到人工消息，AI 自动停止继续回复该会话。
+4. 客服点击“标记解决”，会话关闭，关联工单同步进入已解决状态。
+
+## 它不是普通 ChatGPT Demo
+
+| 常见 Demo | AssistFlow 的处理 |
+|-----------|-------------------|
+| 没有 Key 就无法演示 | 无 API Key 自动使用本地 FAQ + 规则引擎，核心链路仍可跑通 |
+| 只展示 AI 回复 | 同时覆盖 AI 回复、人工接入、工单创建、工单流转和运营指标 |
+| 页面刷新才看到状态 | 客户页与客服工作台通过 SSE 实时同步，并保留轮询降级 |
+| AI 和人工可能重复回复 | 会话进入人工处理后，`/api/chat` 不再触发 AI 自动回复 |
+| 只能单人演示 | 客服回复带 agent 身份，同一会话被接入后会阻止其他客服覆盖 |
+
+## 架构与流程
+
+```mermaid
+flowchart LR
+  A["客户对话页"] --> B["POST /api/chat"]
+  B --> C["意图 / 情绪 / 订单识别"]
+  C --> D{"需要转人工?"}
+  D -- 否 --> E["AI / 本地规则回复"]
+  D -- 是 --> F["创建工单"]
+  E --> G["保存消息与会话"]
+  F --> G
+  G --> H["SSE: 客户会话同步"]
+  G --> I["SSE: 客服队列同步"]
+  I --> J["客服工作台接入"]
+  J --> K["POST /api/sessions/:id/messages"]
+  K --> L["AI 静默 / 工单处理中"]
+  L --> H
+```
 
 ## 项目定位
 
@@ -78,6 +119,9 @@
 | AI 与人工状态隔离 | 客服回复后会话进入人工处理状态，后续客户消息不再触发 AI 自动回复 | 避免 AI 与人工客服重复回复 |
 | 工单生命周期 | 转人工自动建单，人工回复进入处理中，解决会话同步关闭工单 | 更接近真实客服运营链路 |
 | 会话重开机制 | 已解决会话再次收到客户消息时回到 AI / 转人工判定流程 | 避免历史人工回复导致会话永久锁在人工状态 |
+| 多客服防覆盖 | 客服回复带 agent 身份，已接入会话拒绝其他客服覆盖回复 | 让实时工作台更接近多人协作场景 |
+| 消息与工单 ID | 消息使用 UUID，工单使用随机短 ID，避免时间戳碰撞 | 为已读、审计、质检和导出扩展留出数据基础 |
+| SSE 心跳 | 长连接定时发送 ping，并在断开时释放连接 | 降低部署到代理 / 云平台后长连接静默断开的风险 |
 | 运营指标 API | `/api/metrics` 输出队列、工单、自动处理率和活跃工作量 | 便于接入数据看板、监控和 Demo 讲解 |
 | 实时能力可降级 | 优先使用 SSE 推送，会话页和工作台在不支持 `EventSource` 时自动轮询 | 兼容代理、WebView 和受限浏览器环境 |
 | 前端异常兜底 | 处理非 2xx、非 JSON、网络失败和存储受限场景 | 避免客服工作流被单点异常打断 |
@@ -96,7 +140,8 @@
 
 ```
 ├── server/
-│   └── index.js          # Express 服务、AI 调用、会话管理
+│   ├── index.js          # Express 服务、AI 调用、会话 / 工单 / SSE
+│   └── rules.js          # 意图识别、情绪判断、FAQ 检索、订单号解析
 ├── public/
 │   ├── index.html        # 客户对话页面
 │   ├── agent.html        # 客服工作台
@@ -109,6 +154,10 @@
 ├── docs/
 │   └── images/           # README 项目截图
 ├── screenshot/           # 原始截图素材
+├── test/
+│   └── rules.test.js     # 规则引擎单元测试
+├── .github/workflows/
+│   └── ci.yml            # 语法检查、单元测试、冒烟测试
 └── scripts/
     └── smoke-test.js     # 集成冒烟测试
 ```
@@ -230,8 +279,10 @@ PATCH /api/tickets/:id              更新工单状态或优先级
 ## 冒烟测试
 
 ```bash
+npm run check    # JS 语法检查
+npm test         # 规则引擎单元测试
 npm run dev &
-npm run smoke     # 覆盖咨询、转人工、工单流转、指标和解决闭环
+npm run smoke    # 13 个集成用例，覆盖咨询、转人工、多客服保护、工单流转、指标和解决闭环
 ```
 
 ## 自定义知识库

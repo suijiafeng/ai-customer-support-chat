@@ -4,7 +4,18 @@ import cors from 'cors';
 import OpenAI from 'openai';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import {
+  createFaqSearcher,
+  detectIntent,
+  detectSentiment,
+  extractOrderId,
+  findOrderByMessage,
+  hasAny,
+  normalize,
+  shouldHandoff,
+} from './rules.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,17 +39,15 @@ const deepseekClient = process.env.DEEPSEEK_API_KEY
 
 const faqs = JSON.parse(await fs.readFile(faqPath, 'utf8'));
 const orders = JSON.parse(await fs.readFile(ordersPath, 'utf8'));
-const indexedFaqs = faqs.map((faq) => ({
-  ...faq,
-  normalizedQuestion: normalize(faq.question),
-  normalizedKeywords: faq.keywords.map(normalize),
-}));
+const searchFaqs = createFaqSearcher(faqs);
 const conversations = new Map();
 const sessions = new Map();
 const tickets = [];
 const sessionClients = new Map();
 const queueClients = new Set();
 const MAX_CONVERSATIONS = 200;
+const MAX_MESSAGES_PER_SESSION = 80;
+const MAX_AI_HISTORY = 8;
 const MAX_SESSIONS = 200;
 const MAX_TICKETS = 200;
 
@@ -75,11 +84,12 @@ app.get('/api/sessions', (req, res) => {
 });
 
 app.get('/api/sessions/events', (req, res) => {
-  setupSse(res);
+  const heartbeat = setupSse(res);
   queueClients.add(res);
   sendSse(res, 'sessions', getSessionsPayload());
 
   req.on('close', () => {
+    clearInterval(heartbeat);
     queueClients.delete(res);
   });
 });
@@ -100,11 +110,12 @@ app.get('/api/sessions/:sessionId', (req, res) => {
 app.get('/api/sessions/:sessionId/events', (req, res) => {
   const { sessionId } = req.params;
 
-  setupSse(res);
+  const heartbeat = setupSse(res);
   addSessionClient(sessionId, res);
   sendSse(res, 'session', getSessionPayload(sessionId));
 
   req.on('close', () => {
+    clearInterval(heartbeat);
     removeSessionClient(sessionId, res);
   });
 });
@@ -115,6 +126,14 @@ app.post('/api/sessions/:sessionId/resolve', (req, res) => {
 
   if (!session) {
     return res.status(404).json({ error: 'session not found' });
+  }
+
+  if (session.status === 'closed') {
+    return res.json({
+      session,
+      tickets: tickets.filter((ticket) => ticket.sessionId === req.params.sessionId && ticket.status === 'resolved'),
+      metrics: buildMetrics(),
+    });
   }
 
   const resolvedTickets = resolveTicketsForSession(req.params.sessionId, resolution);
@@ -149,6 +168,7 @@ app.post('/api/sessions/:sessionId/resolve', (req, res) => {
 app.post('/api/sessions/:sessionId/messages', (req, res) => {
   const session = sessions.get(req.params.sessionId);
   const content = String(req.body?.content || '').trim();
+  const agent = normalizeAgent(req.body?.agent);
 
   if (!session) {
     return res.status(404).json({ error: 'session not found' });
@@ -156,21 +176,28 @@ app.post('/api/sessions/:sessionId/messages', (req, res) => {
   if (!content) {
     return res.status(400).json({ error: 'content is required' });
   }
+  if (session.assignedAgentId && session.assignedAgentId !== agent.id) {
+    return res.status(409).json({
+      error: 'session is assigned to another agent',
+      assignedAgentId: session.assignedAgentId,
+      assignedAgentName: session.assignedAgentName,
+    });
+  }
 
   const currentMessages = conversations.get(req.params.sessionId) || [];
-  const nextMessages = [
-    ...currentMessages,
-    {
-      role: 'assistant',
-      actor: 'agent',
-      content,
-      createdAt: new Date().toISOString(),
-    },
-  ].slice(-12);
+  const nextMessages = appendMessages(currentMessages, createMessage({
+    role: 'assistant',
+    actor: 'agent',
+    content,
+    agentId: agent.id,
+    agentName: agent.name,
+  }));
   const linkedTicket = moveOpenTicketToProcessing(req.params.sessionId);
   const updatedSession = {
     ...session,
     status: 'assigned',
+    assignedAgentId: session.assignedAgentId || agent.id,
+    assignedAgentName: session.assignedAgentName || agent.name,
     lastMessage: content,
     ticketId: linkedTicket?.id || session.ticketId,
     workflow: session.workflow
@@ -205,6 +232,13 @@ app.patch('/api/tickets/:ticketId', (req, res) => {
 
   if (!['open', 'processing', 'resolved'].includes(nextStatus)) {
     return res.status(400).json({ error: 'invalid ticket status' });
+  }
+  if (!canTransitionTicket(ticket.status, nextStatus)) {
+    return res.status(409).json({
+      error: 'invalid ticket transition',
+      currentStatus: ticket.status,
+      nextStatus,
+    });
   }
   if (!['normal', 'high'].includes(nextPriority)) {
     return res.status(400).json({ error: 'invalid ticket priority' });
@@ -254,7 +288,7 @@ app.post('/api/chat', async (req, res) => {
     const profile = req.body?.profile ? normalizeProfile(req.body.profile) : null;
     const visitor = normalizeVisitor(req.body?.visitor);
     const storedHistory = conversations.get(sessionId) || [];
-    const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : storedHistory.slice(-8);
+    const history = storedHistory.slice(-MAX_AI_HISTORY);
 
     if (!message) {
       return res.status(400).json({ error: 'message is required' });
@@ -262,7 +296,11 @@ app.post('/api/chat', async (req, res) => {
 
     if (isHumanAssigned(sessionId)) {
       const activeTicket = getLatestTicketForSession(sessionId);
-      const nextHistory = [...storedHistory, { role: 'user', content: message }].slice(-12);
+      const nextHistory = appendMessages(storedHistory, createMessage({
+        role: 'user',
+        actor: 'customer',
+        content: message,
+      }));
       const workflow = {
         ai: {
           provider: aiProvider,
@@ -302,7 +340,11 @@ app.post('/api/chat', async (req, res) => {
     const ticket = handoff.needHuman ? createTicket({ sessionId, message, intent, reason: handoff.reason, order }) : null;
     const replyResult = await buildReply({ message, history, matchedFaqs, intent, handoff, order, ticket });
     const reply = replyResult.text;
-    const nextHistory = [...storedHistory, { role: 'user', content: message }, { role: 'assistant', content: reply }].slice(-12);
+    const nextHistory = appendMessages(
+      storedHistory,
+      createMessage({ role: 'user', actor: 'customer', content: message }),
+      createMessage({ role: 'assistant', actor: 'ai', content: reply })
+    );
     const workflow = {
       ai: replyResult.ai,
       intent,
@@ -334,81 +376,6 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ error: 'chat workflow failed' });
   }
 });
-
-function searchFaqs(message) {
-  const normalized = normalize(message);
-
-  return indexedFaqs
-    .map((faq) => {
-      const keywordScore = faq.normalizedKeywords.reduce((score, keyword) => {
-        return normalized.includes(keyword) ? score + 3 : score;
-      }, 0);
-      const questionScore = faq.normalizedQuestion
-        .split('')
-        .filter((char) => normalized.includes(char)).length;
-      const score = keywordScore + questionScore / 20;
-
-      return {
-        ...faq,
-        score,
-      };
-    })
-    .filter((faq) => faq.score >= 1)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(({ normalizedQuestion, normalizedKeywords, ...faq }) => faq);
-}
-
-function detectIntent(message, matchedFaqs) {
-  const normalized = normalize(message);
-
-  if (hasAny(normalized, ['人工', '真人', '投诉', '主管'])) {
-    return 'human_handoff';
-  }
-  if (hasAny(normalized, ['退款', '退货', '取消订单', '退钱'])) {
-    return 'refund';
-  }
-  if (hasAny(normalized, ['物流', '快递', '发货', '什么时候到'])) {
-    return 'shipping';
-  }
-  if (extractOrderId(message)) {
-    return 'order_status';
-  }
-  if (hasAny(normalized, ['发票', '税号', '抬头'])) {
-    return 'invoice';
-  }
-
-  return matchedFaqs[0]?.intent || 'general';
-}
-
-function shouldHandoff(message, intent, matchedFaqs, sentiment, order) {
-  const normalized = normalize(message);
-  const highRiskTerms = ['投诉', '律师', '起诉', '曝光', '赔偿', '主管', '人工'];
-
-  if (intent === 'human_handoff') {
-    return { needHuman: true, reason: '用户明确要求人工客服' };
-  }
-  if (hasAny(normalized, highRiskTerms)) {
-    return { needHuman: true, reason: '包含投诉、法律或升级处理关键词' };
-  }
-  if (intent === 'refund' && hasAny(normalized, ['大额', '全部订单', '赔偿'])) {
-    return { needHuman: true, reason: '退款请求可能需要人工审核' };
-  }
-  if (sentiment === 'negative') {
-    return { needHuman: true, reason: '用户情绪较强，建议人工接管' };
-  }
-  if (intent === 'order_status' && !order) {
-    return { needHuman: true, reason: '用户提供的订单号未查询到' };
-  }
-  if (order) {
-    return { needHuman: false, reason: '订单查询已命中' };
-  }
-  if (matchedFaqs.length === 0) {
-    return { needHuman: true, reason: '知识库未命中' };
-  }
-
-  return { needHuman: false, reason: 'FAQ 可处理' };
-}
 
 async function buildReply({ message, history, matchedFaqs, intent, handoff, order, ticket }) {
   const fallback = buildFallbackReply(matchedFaqs, handoff, order, ticket);
@@ -568,33 +535,33 @@ function buildFallbackReply(matchedFaqs, handoff, order, ticket) {
 }
 
 function findOrder(message) {
-  const orderId = extractOrderId(message);
-
-  if (!orderId) {
-    return null;
-  }
-
-  return orders.find((order) => normalize(order.id) === normalize(orderId)) || null;
+  return findOrderByMessage(message, orders);
 }
 
-function extractOrderId(message) {
-  const match = String(message).match(/\b[A-Z]\d{4,}\b/i);
-  return match ? match[0].toUpperCase() : null;
+function createMessage({ role, actor, content, agentId = null, agentName = null }) {
+  return {
+    id: randomUUID(),
+    role,
+    actor,
+    content,
+    agentId,
+    agentName,
+    createdAt: new Date().toISOString(),
+  };
 }
 
-function detectSentiment(message) {
-  const normalized = normalize(message);
-  const negativeTerms = ['生气', '太差', '垃圾', '骗人', '恶心', '失望', '投诉', '离谱'];
-  const positiveTerms = ['谢谢', '感谢', '很好', '满意'];
+function appendMessages(currentMessages, ...nextMessages) {
+  return [...currentMessages, ...nextMessages].slice(-MAX_MESSAGES_PER_SESSION);
+}
 
-  if (hasAny(normalized, negativeTerms)) {
-    return 'negative';
-  }
-  if (hasAny(normalized, positiveTerms)) {
-    return 'positive';
-  }
+function normalizeAgent(value = {}) {
+  const id = String(value.id || '').trim().slice(0, 48);
+  const name = String(value.name || '').trim().slice(0, 40);
 
-  return 'neutral';
+  return {
+    id: id || 'agent-local',
+    name: name || '本地客服',
+  };
 }
 
 function createTicket({ sessionId, message, intent, reason, order }) {
@@ -614,7 +581,7 @@ function createTicket({ sessionId, message, intent, reason, order }) {
     ? 'high'
     : 'normal';
   const ticket = {
-    id: `T${Date.now().toString().slice(-8)}`,
+    id: `T-${randomUUID().slice(0, 8).toUpperCase()}`,
     sessionId,
     status: 'open',
     priority,
@@ -653,6 +620,16 @@ function resolveTicketsForSession(sessionId, resolution) {
   return tickets
     .filter((ticket) => ticket.sessionId === sessionId && ticket.status !== 'resolved')
     .map((ticket) => updateTicket(ticket, { status: 'resolved', resolution }));
+}
+
+function canTransitionTicket(currentStatus, nextStatus) {
+  const transitions = {
+    open: ['open', 'processing', 'resolved'],
+    processing: ['processing', 'resolved'],
+    resolved: ['resolved'],
+  };
+
+  return transitions[currentStatus]?.includes(nextStatus) ?? false;
 }
 
 function updateTicket(ticket, updates = {}) {
@@ -775,6 +752,11 @@ function setupSse(res) {
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
   });
+  res.write(': connected\n\n');
+
+  return setInterval(() => {
+    res.write(': ping\n\n');
+  }, 30000);
 }
 
 function sendSse(res, event, payload) {
@@ -847,6 +829,8 @@ function upsertSession({ sessionId, message, workflow, profile, visitor, forceSt
     reason: workflow.reason,
     orderId,
     ticketId: workflow.ticket?.id || current?.ticketId || null,
+    assignedAgentId: status === 'assigned' ? current?.assignedAgentId || null : null,
+    assignedAgentName: status === 'assigned' ? current?.assignedAgentName || null : null,
     workflow,
     createdAt: current?.createdAt || now,
     updatedAt: now,
@@ -886,6 +870,8 @@ function createEmptySession(sessionId) {
     reason: '',
     orderId: null,
     ticketId: null,
+    assignedAgentId: null,
+    assignedAgentName: null,
     workflow: null,
     createdAt: now,
     updatedAt: now,
@@ -965,14 +951,6 @@ function trimMap(map, maxEntries) {
     const firstKey = map.keys().next().value;
     map.delete(firstKey);
   }
-}
-
-function normalize(value) {
-  return String(value).toLowerCase().replace(/\s+/g, '');
-}
-
-function hasAny(value, terms) {
-  return terms.some((term) => value.includes(normalize(term)));
 }
 
 app.listen(port, () => {

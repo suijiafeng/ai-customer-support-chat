@@ -43,10 +43,24 @@ const cases = [
   },
   {
     name: 'agent reply',
-    run: () => post(`/api/sessions/${ticketSessionId}/messages`, { content: '您好，人工客服已接入，请提供订单号。' }),
+    run: () => post(`/api/sessions/${ticketSessionId}/messages`, {
+      content: '您好，人工客服已接入，请提供订单号。',
+      agent: { id: `${runId}-agent-1`, name: '测试客服 A' },
+    }),
     assert: (data) => data.session?.status === 'assigned'
       && data.session?.workflow?.ticket?.status === 'processing'
-      && data.messages?.at(-1)?.actor === 'agent',
+      && data.session?.assignedAgentId === `${runId}-agent-1`
+      && data.messages?.at(-1)?.actor === 'agent'
+      && Boolean(data.messages?.at(-1)?.id),
+  },
+  {
+    name: 'reject competing agent',
+    run: () => post(`/api/sessions/${ticketSessionId}/messages`, {
+      content: '另一个客服不应该覆盖接入。',
+      agent: { id: `${runId}-agent-2`, name: '测试客服 B' },
+    }),
+    assert: (data) => data.error === 'session is assigned to another agent'
+      && data.assignedAgentId === `${runId}-agent-1`,
   },
   {
     name: 'operations metrics',
