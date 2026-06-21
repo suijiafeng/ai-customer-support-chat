@@ -39,6 +39,14 @@ export function useSessionMessages(sessionId: string | null) {
     }
   }, [sessionId]);
 
+  // 客服发送成功后用服务端返回刷新列表：与历史加载/SSE 走同一条归档合并路径，
+  // 避免裸 setMessages 绕过 merge 导致窗口外历史被瞬时截断、或图片附件被后续快照抹掉
+  const applyServer = useCallback((list: Message[]) => {
+    if (!sessionId) return;
+    setMessages(normalizeMessages(messageArchive.merge(sessionId, list) as Message[]));
+    setStatus('ready');
+  }, [sessionId]);
+
   useEffect(() => {
     cancelledRef.current = false;
     everOpenRef.current = false;
@@ -81,5 +89,5 @@ export function useSessionMessages(sessionId: string | null) {
     };
   }, [sessionId, loadHistory]);
 
-  return { messages, setMessages, status, connection, reload: loadHistory };
+  return { messages, setMessages, applyServer, status, connection, reload: loadHistory };
 }

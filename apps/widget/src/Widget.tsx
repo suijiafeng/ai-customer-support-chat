@@ -70,6 +70,9 @@ const QUICK_MESSAGES = [
   '如何联系你？',
 ];
 
+// 流式中断后等待会话 SSE 推回最终结果的兜底时长：超时仍未收到则把消息标为失败可重试
+const STREAM_FALLBACK_MS = 12000;
+
 /**
  * 流式对话：POST /api/chat/stream 返回 SSE。
  * 逐块解析 delta 事件交给 onDelta，结束返回 done 事件的完整响应。
@@ -315,8 +318,18 @@ export default function Widget({ apiBase, title, siteKey }: WidgetProps) {
       } catch (err: any) {
         if (err?.phase === 'stream') {
           // 流已建立但中断：服务端大概率仍在处理并会落库，最终结果由会话 SSE 推回来。
-          // 只移除未完成的 AI 气泡等待同步，不重发（误重发也会被服务端幂等去重兜底）
+          // 移除未完成的 AI 气泡等待同步，不立刻重发（误重发也会被服务端幂等去重兜底）。
+          // 兜底：超时仍未收到回复（访客消息还停在「发送中」）则标为失败可重试，避免无声永久卡住。
           setMessagesState((m) => m.filter((msg) => msg.id !== aiMsgId));
+          window.setTimeout(() => {
+            setMessagesState((m) =>
+              m.map((msg) =>
+                msg.id === userMsgId && msg.status === 'sending'
+                  ? { ...msg, status: 'failed' as const, retryText: text }
+                  : msg
+              )
+            );
+          }, STREAM_FALLBACK_MS);
           return;
         }
         // 请求阶段失败（流式接口不可用等）：回退一次性接口；服务端按 clientMessageId 幂等

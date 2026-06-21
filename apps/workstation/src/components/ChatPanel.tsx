@@ -19,7 +19,7 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ session, agent }: ChatPanelProps) {
   const sessionId = session?.sessionId || null;
-  const { messages, setMessages, status, connection, reload } = useSessionMessages(sessionId);
+  const { messages, applyServer, status, connection, reload } = useSessionMessages(sessionId);
   const [showDetail, setShowDetail] = useState(true);
 
   if (!session) {
@@ -71,7 +71,7 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
               <span aria-hidden="true">📥</span> 该客户来自接待大厅，发送消息即接待并归入「我的会话」
             </div>
           )}
-          <Composer sessionId={sessionId} agent={agent} onSent={setMessages} />
+          <Composer sessionId={sessionId} agent={agent} onSent={applyServer} />
         </div>
         {showDetail && (
           <SessionDetail
