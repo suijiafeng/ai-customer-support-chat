@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Ticket } from '@assistflow/shared';
 import { fmtTime, requestJson, type AgentIdentity } from '../api.js';
+import { showToast } from '../ui/feedback.js';
 
 const STATUS_TEXT: Record<string, string> = { open: '待处理', processing: '处理中', resolved: '已解决' };
 const STATUS_TAG: Record<string, string> = { open: 'warning', processing: 'primary', resolved: 'success' };
@@ -51,7 +52,7 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
       });
       setTickets((list) => list.map((t) => (t.id === data.ticket.id ? data.ticket : t)));
     } catch {
-      alert('操作失败，请重试');
+      showToast('操作失败，请重试', 'error');
     }
   }, []);
 
@@ -192,7 +193,7 @@ function TicketDetail({
       await onAddNote(ticket, value);
       setText('');
     } catch {
-      alert('备注添加失败，请重试');
+      showToast('备注添加失败，请重试', 'error');
     } finally {
       setSaving(false);
     }
