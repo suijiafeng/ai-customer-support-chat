@@ -222,11 +222,10 @@ button { font-family: inherit; }
 .agent-trigger:hover { background: rgba(255,255,255,.22); }
 .avatar-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; flex: none; }
 .avatar-badge.lg { width: 42px; height: 42px; font-size: 15px; }
-.avatar-badge.xl { width: 56px; height: 56px; font-size: 18px; }
 .agent-name { font-weight: 600; }
 .caret { font-size: 10px; opacity: .85; transition: transform .15s ease; }
 .caret.up { transform: rotate(180deg); }
-.agent-dropdown { position: absolute; right: 0; top: calc(100% + 10px); background: #fff; border-radius: 12px; box-shadow: 0 16px 42px rgba(15,23,42,.18); color: #0f172a; z-index: 50; overflow: hidden; }
+.agent-dropdown { position: absolute; right: 0; top: calc(100% + 10px); min-width: 268px; background: #fff; border-radius: 12px; box-shadow: 0 16px 42px rgba(15,23,42,.18); color: #0f172a; z-index: 50; overflow: hidden; }
 .agent-card { display: flex; gap: 12px; align-items: center; padding: 16px 16px 12px; }
 .agent-card-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #64748b; }
 .agent-card-info strong { font-size: 14px; color: #0f172a; }
@@ -241,20 +240,12 @@ button { font-family: inherit; }
 .agent-actions button:hover { background: #f1f5f9; }
 .agent-actions button.danger { color: #dc2626; }
 .agent-actions button.danger:hover { background: #fef2f2; }
+.agent-note { color: #94a3b8; font-size: 11px; line-height: 1.5; margin: 0; padding: 4px 16px 14px; }
 
-/* ---- 个人中心弹窗 ---- */
+/* ---- 通用弹窗遮罩 / 关闭按钮（工单详情等复用） ---- */
 .profile-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.4); display: flex; align-items: center; justify-content: center; z-index: 90; }
-.profile-modal { position: relative; background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(15,23,42,.25); color: #0f172a; padding: 26px 26px 20px; width: 360px; max-width: calc(100vw - 40px); }
 .profile-close { position: absolute; right: 12px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 20px; }
 .profile-close:hover { color: #334155; }
-.profile-head { display: flex; gap: 14px; align-items: center; }
-.profile-head strong { font-size: 17px; }
-.profile-head p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
-.profile-detail { margin: 18px 0 0; border-top: 1px solid #f1f5f9; }
-.profile-detail div { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
-.profile-detail dt { color: #64748b; }
-.profile-detail dd { margin: 0; font-weight: 600; }
-.profile-note { color: #94a3b8; font-size: 12px; margin: 14px 0 0; }
 
 /* ---- 顶部页签 ---- */
 .view-tabs { display: flex; gap: 4px; margin-left: 18px; }
