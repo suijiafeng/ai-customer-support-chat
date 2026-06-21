@@ -60,8 +60,8 @@ async function fetchSession() {
   await customerSay('你好，我想了解前端开发服务');
   await sleep(50);
 
-  console.log('[Step 2] 访客明确要求联系开发者本人 (触发跟进事项)');
-  await customerSay('我想联系开发者本人');
+  console.log('[Step 2] 访客明确要求转人工 (触发跟进事项)');
+  await customerSay('我要转人工');
   await sleep(50);
 
   console.log('[Step 3] 客服接入并回复');

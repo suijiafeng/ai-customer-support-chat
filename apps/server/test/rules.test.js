@@ -40,7 +40,7 @@ test('FAQ search ranks pricing keyword matches', () => {
 });
 
 test('detectIntent recognizes explicit handoff, inquiry lookup and service topics', () => {
-  assert.equal(detectIntent('我想联系开发者本人', []), 'human_handoff');
+  assert.equal(detectIntent('我要转人工', []), 'human_handoff');
   assert.equal(detectIntent('查询项目 P1001', []), 'inquiry_status');
   assert.equal(detectIntent('项目怎么收费', []), 'pricing');
   assert.equal(detectIntent('我要投诉', []), 'general');
