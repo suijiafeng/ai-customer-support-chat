@@ -39,6 +39,42 @@ button { font-family: inherit; }
 .claim-hint-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px;
   color: #b8860b; background: #fffbeb; border-top: 1px solid #fde9b8; }
 
+/* ---- 对话内 Markdown 渲染 ---- */
+.md-plain { white-space: pre-wrap; word-break: break-word; }
+.md { white-space: normal; }
+.md .md-p { margin: 0 0 6px; }
+.md .md-p:last-child { margin-bottom: 0; }
+.md .md-h { font-weight: 700; margin: 4px 0; }
+.md .md-h1 { font-size: 1.25em; }
+.md .md-h2 { font-size: 1.15em; }
+.md .md-h3, .md .md-h4, .md .md-h5, .md .md-h6 { font-size: 1.05em; }
+.md .md-list { margin: 4px 0; padding-left: 20px; }
+.md .md-list li { margin: 2px 0; }
+.md .md-code { background: rgba(135,131,120,.18); border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+.md .md-pre { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 6px 0; }
+.md .md-pre code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre; }
+
+/* ---- 应用内 toast / confirm 弹窗 ---- */
+.toast-host { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 200;
+  display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { pointer-events: auto; min-width: 200px; max-width: 80vw; padding: 10px 16px; border-radius: 10px;
+  font-size: 13px; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,.2); animation: toast-in .18s ease; }
+.toast-info { background: #334155; }
+.toast-success { background: #16a34a; }
+.toast-error { background: #dc2626; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.dialog-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.4); z-index: 210;
+  display: flex; align-items: center; justify-content: center; }
+.dialog { background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(15,23,42,.28);
+  padding: 22px 22px 16px; width: 360px; max-width: calc(100vw - 40px); }
+.dialog-msg { margin: 0 0 18px; font-size: 14px; color: #0f172a; line-height: 1.6; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog-cancel, .dialog-confirm { height: 34px; padding: 0 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dialog-cancel { background: #fff; border: 1px solid #dbe3ee; color: #334155; }
+.dialog-cancel:hover { border-color: #94a3b8; }
+.dialog-confirm { background: #2457c5; border: 0; color: #fff; }
+.dialog-confirm:hover { background: #1d4ed8; }
+
 /* 管理员标记 */
 .role-badge { margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 11px;
   font-weight: 600; color: #fff; background: #d97706; }
