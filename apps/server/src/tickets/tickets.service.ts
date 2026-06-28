@@ -11,8 +11,8 @@ export class TicketsService implements OnModuleInit {
   private readonly tickets: Ticket[] = [];
   /** O(1) 按 id 查找索引 */
   private readonly ticketById = new Map<string, Ticket>();
-  /** O(1) 按 sessionId 查找索引 */
-  private readonly ticketsBySession = new Map<string, Ticket[]>();
+  /** O(1) 按 sessionId 查找索引（Set 保证 O(1) 删除） */
+  private readonly ticketsBySession = new Map<string, Set<Ticket>>();
 
   constructor(private readonly store: StoreService) {}
 
@@ -26,11 +26,11 @@ export class TicketsService implements OnModuleInit {
   private insertTicket(ticket: Ticket): void {
     this.tickets.push(ticket);
     this.ticketById.set(ticket.id, ticket);
-    const list = this.ticketsBySession.get(ticket.sessionId);
-    if (list) {
-      list.push(ticket);
+    const set = this.ticketsBySession.get(ticket.sessionId);
+    if (set) {
+      set.add(ticket);
     } else {
-      this.ticketsBySession.set(ticket.sessionId, [ticket]);
+      this.ticketsBySession.set(ticket.sessionId, new Set([ticket]));
     }
   }
 
@@ -39,11 +39,10 @@ export class TicketsService implements OnModuleInit {
     const oldest = this.tickets.shift();
     if (!oldest) return;
     this.ticketById.delete(oldest.id);
-    const list = this.ticketsBySession.get(oldest.sessionId);
-    if (list) {
-      const idx = list.indexOf(oldest);
-      if (idx !== -1) list.splice(idx, 1);
-      if (list.length === 0) this.ticketsBySession.delete(oldest.sessionId);
+    const set = this.ticketsBySession.get(oldest.sessionId);
+    if (set) {
+      set.delete(oldest);
+      if (set.size === 0) this.ticketsBySession.delete(oldest.sessionId);
     }
   }
 
@@ -60,9 +59,9 @@ export class TicketsService implements OnModuleInit {
   }
 
   getLatestForSession(sessionId: string): Ticket | null {
-    const list = this.ticketsBySession.get(sessionId);
-    if (!list || list.length === 0) return null;
-    return list.reduce((latest, t) =>
+    const set = this.ticketsBySession.get(sessionId);
+    if (!set || set.size === 0) return null;
+    return [...set].reduce((latest, t) =>
       new Date(t.updatedAt) > new Date(latest.updatedAt) ? t : latest
     );
   }
@@ -80,10 +79,10 @@ export class TicketsService implements OnModuleInit {
   }): Ticket {
     const { sessionId, message, intent, reason, inquiry } = params;
     const inquiryId = inquiry?.id || extractInquiryId(message) || null;
-    const list = this.ticketsBySession.get(sessionId);
-    const existingTicket = list?.find(
+    const set = this.ticketsBySession.get(sessionId);
+    const existingTicket = set && [...set].find(
       (ticket) => ticket.status === 'open' && ticket.intent === intent && ticket.inquiryId === inquiryId
-    ) ?? undefined;
+    ) || undefined;
 
     if (existingTicket) {
       existingTicket.lastMessage = message;
@@ -162,8 +161,8 @@ export class TicketsService implements OnModuleInit {
   }
 
   moveOpenToProcessing(sessionId: string): Ticket | null {
-    const list = this.ticketsBySession.get(sessionId);
-    const ticket = list?.find((item) => item.status === 'open') ?? null;
+    const set = this.ticketsBySession.get(sessionId);
+    const ticket = (set && [...set].find((item) => item.status === 'open')) ?? null;
     if (!ticket) {
       return null;
     }
@@ -171,8 +170,8 @@ export class TicketsService implements OnModuleInit {
   }
 
   resolveForSession(sessionId: string, resolution: string): Ticket[] {
-    const list = this.ticketsBySession.get(sessionId) ?? [];
-    return list
+    const set = this.ticketsBySession.get(sessionId) ?? new Set<Ticket>();
+    return [...set]
       .filter((ticket) => ticket.status !== 'resolved')
       .map((ticket) => this.update(ticket, { status: 'resolved', resolution }));
   }

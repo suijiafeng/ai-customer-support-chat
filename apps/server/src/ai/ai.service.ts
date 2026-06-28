@@ -183,7 +183,7 @@ export class AiService implements OnModuleInit {
         },
       };
     } catch (error: any) {
-      const isTimeout = error?.name === 'AbortError' || abort.signal.aborted;
+      const isTimeout = error?.name === 'AbortError';
       const formattedError = isTimeout ? `timeout after ${AI_TIMEOUT_MS}ms` : formatAiError(error);
       this.logger.warn(`AI 请求失败，降级为本地规则：${formattedError}`);
       return {

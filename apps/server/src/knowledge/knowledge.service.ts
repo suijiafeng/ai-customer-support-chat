@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
-import { watch } from 'node:fs';
+import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { Faq, Inquiry } from '@assistflow/shared';
 import { appConfig } from '../config.js';
 import {
@@ -16,17 +16,23 @@ import {
 
 /** 知识库：启动时加载 FAQ、项目咨询与口水话词库（只读种子数据）。支持运行时热更新。 */
 @Injectable()
-export class KnowledgeService implements OnModuleInit {
+export class KnowledgeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KnowledgeService.name);
   faqs: Faq[] = [];
   inquiries: Inquiry[] = [];
   private inquiryIndex = new Map<string, Inquiry>();
   private searcher: (message: string) => ScoredFaq[] = () => [];
   private smallTalkMatcher: (message: string) => SmallTalkMatch | null = () => null;
+  private faqWatcher: FSWatcher | null = null;
 
   async onModuleInit() {
     await this.reload();
     this.watchFaqFile();
+  }
+
+  onModuleDestroy() {
+    this.faqWatcher?.close();
+    this.faqWatcher = null;
   }
 
   /** 重新从磁盘加载 FAQ 并重建搜索索引 */
@@ -54,7 +60,7 @@ export class KnowledgeService implements OnModuleInit {
     const faqPath = path.join(appConfig.dataDir, 'faqs.json');
     let debounce: ReturnType<typeof setTimeout> | null = null;
     try {
-      watch(faqPath, () => {
+      this.faqWatcher = watch(faqPath, () => {
         if (debounce) clearTimeout(debounce);
         debounce = setTimeout(async () => {
           this.logger.log('faqs.json 变更，重新加载知识库…');
