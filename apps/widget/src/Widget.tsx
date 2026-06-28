@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
-import { createMessageArchive } from '@assistflow/shared';
+import { createMessageArchive, fmtTime, linkParts } from '@assistflow/shared';
 import { loadVisitorId, ensureVisitorId, isVisitorIdValid } from './visitorId.js';
 import { Markdown } from './markdown.js';
 
@@ -25,30 +25,6 @@ interface WidgetProps {
   apiBase: string;
   title: string;
   siteKey: string;
-}
-
-// 时间戳格式化为 HH:MM
-function fmtTime(iso?: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-// 将纯文本切分为文本/链接片段，安全渲染可点击链接
-const URL_RE = /(https?:\/\/[^\s]+)/g;
-function linkParts(text: string): Array<{ link: boolean; value: string }> {
-  const parts: Array<{ link: boolean; value: string }> = [];
-  let last = 0;
-  let match: RegExpExecArray | null;
-  URL_RE.lastIndex = 0;
-  while ((match = URL_RE.exec(text)) !== null) {
-    if (match.index > last) parts.push({ link: false, value: text.slice(last, match.index) });
-    parts.push({ link: true, value: match[0] });
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) parts.push({ link: false, value: text.slice(last) });
-  return parts;
 }
 
 function normalizeMessages(list: any[] = []): UiMessage[] {

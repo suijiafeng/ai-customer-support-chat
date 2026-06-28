@@ -1,7 +1,11 @@
 import type { Message } from '@assistflow/shared';
+import { fmtTime, linkParts } from '@assistflow/shared';
 
 // 后端基地址：与工作台同源，留空即可
 export const API = '';
+
+export { fmtTime, linkParts };
+export type { LinkPart } from '@assistflow/shared';
 
 export const newId = () => crypto.randomUUID();
 
@@ -121,33 +125,3 @@ export function fileToDataUrl(file: File): Promise<PendingAttachment> {
 
 export const MAX_ATTACHMENTS = 4;
 export const MAX_IMAGE_BYTES = 750 * 1024;
-
-// 时间戳格式化为 HH:MM
-export function fmtTime(iso?: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-// 将纯文本切分为 文本/链接 片段，供安全渲染可点击链接
-const URL_RE = /(https?:\/\/[^\s]+)/g;
-
-export interface LinkPart {
-  link: boolean;
-  value: string;
-}
-
-export function linkParts(text: string): LinkPart[] {
-  const parts: LinkPart[] = [];
-  let last = 0;
-  let match: RegExpExecArray | null;
-  URL_RE.lastIndex = 0;
-  while ((match = URL_RE.exec(text)) !== null) {
-    if (match.index > last) parts.push({ link: false, value: text.slice(last, match.index) });
-    parts.push({ link: true, value: match[0] });
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) parts.push({ link: false, value: text.slice(last) });
-  return parts;
-}

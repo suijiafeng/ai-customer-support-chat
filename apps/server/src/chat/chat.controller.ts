@@ -6,10 +6,16 @@ import {
   Logger,
   Post,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { ChatService } from './chat.service.js';
 
+const MAX_MESSAGE_LENGTH = 2000;
+
+@UseGuards(ThrottlerGuard)
+@Throttle({ chat: { ttl: 60000, limit: 20 } })
 @Controller('api/chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
@@ -72,6 +78,9 @@ export class ChatController {
     // 允许「纯图片」消息：有文字或有图片即可
     if (!message && attachments.length === 0) {
       throw new BadRequestException({ error: 'message or attachments required' });
+    }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      throw new BadRequestException({ error: `message too long (max ${MAX_MESSAGE_LENGTH} characters)` });
     }
   }
 }

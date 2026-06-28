@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import OpenAI from 'openai';
 import type { AiUsage, Inquiry, Message, Ticket } from '@assistflow/shared';
 import { appConfig } from '../config.js';
@@ -22,9 +24,12 @@ export interface ReplyResult {
 /** 流式增量回调：每收到一段模型输出调用一次 */
 export type ReplyDeltaHandler = (delta: string) => void;
 
+/** AI 超时（毫秒）：超时后降级为本地规则回复 */
+const AI_TIMEOUT_MS = 30_000;
+
 /** AI 适配层：openai / deepseek 双 provider + 本地规则降级。自原 buildReply 平移。 */
 @Injectable()
-export class AiService {
+export class AiService implements OnModuleInit {
   private readonly logger = new Logger(AiService.name);
   private readonly openaiClient = process.env.OPENAI_API_KEY ? new OpenAI() : null;
   private readonly deepseekClient = process.env.DEEPSEEK_API_KEY
@@ -33,6 +38,9 @@ export class AiService {
         baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
       })
     : null;
+
+  /** 运营侧可修改的 AI 人设指令（从 data/ai-persona.txt 加载） */
+  private instructions = '';
 
   get provider(): string {
     return appConfig.aiProvider;
@@ -51,6 +59,31 @@ export class AiService {
       return null;
     }
     return this.getConfiguredClient();
+  }
+
+  async onModuleInit() {
+    await this.loadPersona();
+  }
+
+  /** 从 data/ai-persona.txt 加载 system prompt；文件不存在时回退为内置默认值。 */
+  async loadPersona(): Promise<void> {
+    const personaPath = path.join(appConfig.dataDir, 'ai-persona.txt');
+    try {
+      this.instructions = (await fs.readFile(personaPath, 'utf8')).trim();
+    } catch {
+      this.logger.warn(`ai-persona.txt 未找到，使用内置默认人设（${personaPath}）`);
+      this.instructions = [
+        '你是独立前端开发者个人主页上的中文 AI 助手，以开发者的口吻和访客一对一交流。',
+        '优先根据提供的本地 FAQ、项目或咨询信息以及最近对话回答。',
+        '你可以介绍开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和开发者背景。',
+        '知识库未命中时，可以回答与前端开发和合作咨询相关的通用问题；涉及具体报价、档期、未公开案例或承诺时必须说明需要开发者本人确认。',
+        '始终使用第一人称「我」回答，像面对面聊天一样亲切、自然、不打官腔；称呼对方为「你」。',
+        '语气简洁、礼貌、可执行，可以适度使用「咱们」「放心」等口语表达，但不要过度堆砌语气词。',
+        '只有访客明确要求联系开发者本人或转人工时，needHuman 才会为 true。',
+        '如果 needHuman 为 true，不要代替开发者承诺；请说明开发者暂时不在线，并请访客留下联系方式和需求摘要，后续会有专人联系。',
+        '不要编造报价、档期、项目经历、合作承诺或项目进展。',
+      ].join('\n');
+    }
   }
 
   async buildReply(params: BuildReplyParams, onDelta?: ReplyDeltaHandler): Promise<ReplyResult> {
@@ -86,17 +119,6 @@ export class AiService {
       .map((item) => `${item.role === 'user' ? '访客' : '助手或开发者'}：${item.content}`)
       .join('\n');
 
-    const instructions = [
-      '你是独立前端开发者个人主页上的中文 AI 助手，以开发者的口吻和访客一对一交流。',
-      '优先根据提供的本地 FAQ、项目或咨询信息以及最近对话回答。',
-      '你可以介绍开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和开发者背景。',
-      '知识库未命中时，可以回答与前端开发和合作咨询相关的通用问题；涉及具体报价、档期、未公开案例或承诺时必须说明需要开发者本人确认。',
-      '始终使用第一人称「我」回答，像面对面聊天一样亲切、自然、不打官腔；称呼对方为「你」。',
-      '语气简洁、礼貌、可执行，可以适度使用「咱们」「放心」等口语表达，但不要过度堆砌语气词。',
-      '只有访客明确要求联系开发者本人或转人工时，needHuman 才会为 true。',
-      '如果 needHuman 为 true，不要代替开发者承诺；请说明开发者暂时不在线，并请访客留下联系方式和需求摘要，后续会有专人联系。',
-      '不要编造报价、档期、项目经历、合作承诺或项目进展。',
-    ].join('\n');
     const prompt = [
       `意图：${intent}`,
       `needHuman：${handoff.needHuman}`,
@@ -108,87 +130,69 @@ export class AiService {
       `用户消息：${message}`,
     ].join('\n\n');
 
-    if (this.provider === 'deepseek') {
-      try {
-        let text: string | undefined;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), AI_TIMEOUT_MS);
 
-        if (onDelta) {
-          // 流式：增量转发给调用方，同时拼出完整文本
-          const stream = await activeClient.chat.completions.create({
+    try {
+      let text: string | undefined;
+
+      if (onDelta) {
+        // 流式：增量转发给调用方，同时拼出完整文本
+        const stream = await activeClient.chat.completions.create(
+          {
             model: this.getActiveModel(),
             stream: true,
             messages: [
-              { role: 'system', content: instructions },
+              { role: 'system', content: this.instructions },
               { role: 'user', content: prompt },
             ],
-          });
-          let acc = '';
-          for await (const chunk of stream) {
-            const delta = chunk.choices[0]?.delta?.content || '';
-            if (delta) {
-              acc += delta;
-              onDelta(delta);
-            }
+          },
+          { signal: abort.signal }
+        );
+        let acc = '';
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content || '';
+          if (delta) {
+            acc += delta;
+            onDelta(delta);
           }
-          text = acc.trim();
-        } else {
-          const completion = await activeClient.chat.completions.create({
+        }
+        text = acc.trim();
+      } else {
+        const completion = await activeClient.chat.completions.create(
+          {
             model: this.getActiveModel(),
             messages: [
-              { role: 'system', content: instructions },
+              { role: 'system', content: this.instructions },
               { role: 'user', content: prompt },
             ],
-          });
-          text = completion.choices[0]?.message?.content?.trim();
-        }
-
-        return {
-          text: text || fallback,
-          ai: {
-            provider: this.provider,
-            model: this.getActiveModel(),
-            used: Boolean(text),
-            fallback: !text,
-            error: null,
           },
-        };
-      } catch (error) {
-        const formattedError = formatAiError(error);
-        this.logger.warn(`DeepSeek 请求失败，降级为本地规则：${formattedError}`);
-        return {
-          ...fallbackResult,
-          ai: { ...fallbackResult.ai, error: formattedError },
-        };
+          { signal: abort.signal }
+        );
+        text = completion.choices[0]?.message?.content?.trim();
       }
-    }
 
-    let response;
-    try {
-      response = await activeClient.responses.create({
-        model: this.getActiveModel(),
-        instructions,
-        input: prompt,
-      });
-    } catch (error) {
-      const formattedError = formatAiError(error);
-      this.logger.warn(`OpenAI request failed, using local fallback: ${formattedError}`);
+      return {
+        text: text || fallback,
+        ai: {
+          provider: this.provider,
+          model: this.getActiveModel(),
+          used: Boolean(text),
+          fallback: !text,
+          error: null,
+        },
+      };
+    } catch (error: any) {
+      const isTimeout = error?.name === 'AbortError' || abort.signal.aborted;
+      const formattedError = isTimeout ? `timeout after ${AI_TIMEOUT_MS}ms` : formatAiError(error);
+      this.logger.warn(`AI 请求失败，降级为本地规则：${formattedError}`);
       return {
         ...fallbackResult,
         ai: { ...fallbackResult.ai, error: formattedError },
       };
+    } finally {
+      clearTimeout(timer);
     }
-
-    const text = response.output_text?.trim();
-    return {
-      text: text || fallback,
-      ai: {
-        provider: this.provider,
-        model: this.getActiveModel(),
-        used: Boolean(text),
-        fallback: !text,
-        error: null,
-      },
-    };
   }
 
   buildFallbackReply(

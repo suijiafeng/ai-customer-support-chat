@@ -10,27 +10,29 @@ export function createFaqSearcher(faqs: Faq[]) {
     ...faq,
     normalizedQuestion: normalize(faq.question),
     normalizedKeywords: faq.keywords.map(normalize),
+    questionBigrams: bigrams(normalize(faq.question)),
   }));
 
   return function searchFaqs(message: string): ScoredFaq[] {
     const normalized = normalize(message);
+    const msgBigrams = bigrams(normalized);
 
     return indexedFaqs
       .map((faq) => {
+        // 关键词完整命中（权重高）
         const keywordScore = faq.normalizedKeywords.reduce((score, keyword) => {
           return normalized.includes(keyword) ? score + 3 : score;
         }, 0);
-        const questionScore = faq.normalizedQuestion
-          .split('')
-          .filter((char) => normalized.includes(char)).length;
-        const score = keywordScore + questionScore / 20;
+        // Bigram 重叠率：分子 = 共有 bigram 数，分母 = 两者 bigram 总数的均值（Dice 系数）
+        const bigramScore = bigramDice(faq.questionBigrams, msgBigrams);
+        const score = keywordScore + bigramScore;
 
         return { ...faq, score };
       })
       .filter((faq) => faq.score >= 1)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
-      .map(({ normalizedQuestion, normalizedKeywords, ...faq }) => faq);
+      .map(({ normalizedQuestion, normalizedKeywords, questionBigrams, ...faq }) => faq);
   };
 }
 
@@ -204,4 +206,29 @@ export function normalize(value: unknown): string {
 
 export function hasAny(value: string, terms: string[]): boolean {
   return terms.some((term) => value.includes(normalize(term)));
+}
+
+/**
+ * 生成字符串的 bigram 集合（相邻两字符对），用于 FAQ 搜索相似度计算。
+ * 例："报价方式" → Set {"报价","价方","方式"}
+ */
+export function bigrams(text: string): Set<string> {
+  const result = new Set<string>();
+  for (let i = 0; i < text.length - 1; i++) {
+    result.add(text[i] + text[i + 1]);
+  }
+  return result;
+}
+
+/**
+ * Dice 系数：2 × |A ∩ B| / (|A| + |B|)。
+ * 返回 [0, 1] 的相似度；两个空集返回 0。
+ */
+export function bigramDice(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let overlap = 0;
+  for (const gram of a) {
+    if (b.has(gram)) overlap++;
+  }
+  return (2 * overlap) / (a.size + b.size);
 }

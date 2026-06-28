@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AgentAuthGuard } from './auth.guard.js';
 import { AuthService, type AuthenticatedAgent } from './auth.service.js';
 
@@ -6,6 +7,8 @@ import { AuthService, type AuthenticatedAgent } from './auth.service.js';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ login: { ttl: 60000, limit: 5 } })
   @Post('login')
   login(@Body() body: any) {
     const result = this.auth.login(body?.agentNo, body?.password);
