@@ -312,7 +312,7 @@ function EditTenantModal({
         </div>
         <div className="dialog-actions">
           <button className="dialog-cancel" onClick={onClose}>取消</button>
-          <button className="dialog-confirm" disabled={!name.trim() || saving} onClick={submit}>
+          <button className={`dialog-confirm${saving ? ' loading' : ''}`} disabled={!name.trim() || saving} onClick={submit}>
             {saving ? '保存中…' : '保存'}
           </button>
         </div>
@@ -399,7 +399,7 @@ function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCrea
         <p className="field-hint">租户ID 与租户密钥将自动生成，创建后可在列表中复制密钥。</p>
         <div className="dialog-actions">
           <button className="dialog-cancel" onClick={onClose}>取消</button>
-          <button className="dialog-confirm" disabled={!name.trim() || saving} onClick={submit}>
+          <button className={`dialog-confirm${saving ? ' loading' : ''}`} disabled={!name.trim() || saving} onClick={submit}>
             {saving ? '创建中…' : '创建'}
           </button>
         </div>

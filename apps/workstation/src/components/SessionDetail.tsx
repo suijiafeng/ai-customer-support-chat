@@ -106,7 +106,7 @@ export default function SessionDetail({ session, onClose, canResolve = true }: S
       </div>
       <div className="detail-foot">
         <button
-          className="resolve-btn"
+          className={`resolve-btn${resolving ? ' loading' : ''}`}
           disabled={session.status === 'closed' || resolving || !canResolve}
           title={canResolve ? undefined : '非本人接待，无法标记解决'}
           onClick={resolve}

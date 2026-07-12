@@ -214,12 +214,18 @@ button { font-family: inherit; }
 .stale { opacity: .55; transition: opacity .15s; pointer-events: none; }
 .content-fade { transition: opacity .2s; }
 
-/* 发送按钮 spinner */
+/* 按钮 loading spinner（通用：登录、保存、创建、解决、备注提交等） */
 @keyframes btn-spin { to { transform: rotate(360deg); } }
-.send-btn.loading::before {
-  content: ""; display: block; width: 12px; height: 12px; flex-shrink: 0;
+button.loading { opacity: .75; cursor: default; }
+button.loading::before {
+  content: ""; display: inline-block; width: 11px; height: 11px;
   border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
   border-radius: 50%; animation: btn-spin .7s linear infinite;
+  vertical-align: middle; margin-right: 6px; flex-shrink: 0;
+}
+/* 发送按钮已用 flex 布局，覆盖 inline-block */
+.send-btn.loading::before {
+  display: block; width: 12px; height: 12px; margin-right: 0;
 }
 
 /* 队列离线指示 */

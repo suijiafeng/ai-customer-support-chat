@@ -103,12 +103,12 @@ export function useChatSession({
       const response = await fetch(`${apiBase}${url}`, options);
       const data = await response.json().catch(() => null);
       if (!response.ok || !data)
-        throw Object.assign(new Error(data?.error || `request failed: ${response.status}`), {
+        throw Object.assign(new Error(data?.msg || data?.error || `request failed: ${response.status}`), {
           status: response.status,
           retryAfter: Number(response.headers.get('retry-after')) || 0,
           code: data?.error,
         });
-      return data;
+      return data?.data ?? data;
     },
     [apiBase]
   );

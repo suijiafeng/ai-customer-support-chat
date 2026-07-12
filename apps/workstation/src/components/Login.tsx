@@ -51,7 +51,7 @@ export default function Login({ onLogin }: LoginProps) {
           />
         </label>
         {error && <div className="login-error" role="alert">{error}</div>}
-        <button type="submit" disabled={!agentNo.trim() || !password || loading}>
+        <button type="submit" className={loading ? 'loading' : ''} disabled={!agentNo.trim() || !password || loading}>
           {loading ? '登录中…' : '登录'}
         </button>
       </form>

@@ -242,7 +242,7 @@ function TicketDetail({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
-              <button className="claim-like-btn" disabled={!text.trim() || saving} onClick={submit}>
+              <button className={`claim-like-btn${saving ? ' loading' : ''}`} disabled={!text.trim() || saving} onClick={submit}>
                 {saving ? '提交中…' : '添加备注'}
               </button>
             </div>

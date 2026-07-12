@@ -45,6 +45,10 @@ async function bootstrap() {
 
   const demoIndex = path.join(appConfig.staticDirs.demo, 'index.html');
   const hasDemoIndex = fs.existsSync(demoIndex);
+  if (hasDemoIndex) {
+    // demo 静态资源（/assets/*.js, /assets/*.css, /favicon.svg 等）直接从 demo dist 目录伺服
+    app.use(express.static(appConfig.staticDirs.demo));
+  }
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
     const reserved = ['/api', '/widget', '/workstation'];
     if (

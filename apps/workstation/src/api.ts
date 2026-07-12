@@ -45,8 +45,8 @@ export async function requestJson<T = any>(url: string, options?: RequestInit): 
     clearAuth();
     window.location.reload();
   }
-  if (!response.ok || !data) throw new ApiError(data?.error || `request failed: ${response.status}`, response.status);
-  return data as T;
+  if (!response.ok || !data) throw new ApiError(data?.msg || data?.error || `request failed: ${response.status}`, response.status);
+  return (data?.data ?? data) as T;
 }
 
 // 登录态：JWT 与客服身份存 localStorage，所有客服侧请求带 Authorization

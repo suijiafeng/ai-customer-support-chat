@@ -21,7 +21,7 @@
     "smoke": "node scripts/smoke-test.js",
     "kb:drafts": "node scripts/miss-to-faq.js",
     "shots": "node scripts/project-shots.js",
-    "predev:all": "npm run build --workspace @assistflow/shared && npm run build --workspace @assistflow/server && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation",
+    "predev:all": "npm run build --workspace @assistflow/shared && npm run build --workspace @assistflow/server && npm run build --workspace assistflow-widget && npm run build --workspace assistflow-workstation && npm run build --workspace assistflow-demo",
     "dev:all": "concurrently --kill-others-on-fail -n shared,server-tsc,server-node,widget,workstation -c blue,green,yellow,magenta,cyan \"npm run dev --workspace @assistflow/shared\" \"npm run dev:watch --workspace @assistflow/server\" \"npm run dev:serve --workspace @assistflow/server\" \"npm run dev --workspace assistflow-widget\" \"npm run dev --workspace assistflow-workstation\""
   },
   "devDependencies": {

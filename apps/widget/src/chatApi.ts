@@ -47,11 +47,11 @@ export async function streamChat(
   if (!response.ok || !response.body) {
     // 校验类失败（如密钥无效）不会开始 SSE 流，响应体是普通 JSON 错误
     const body = await response.json().catch(() => null);
-    throw Object.assign(new Error(body?.error || `stream failed: ${response.status}`), {
+    throw Object.assign(new Error(body?.msg || body?.error || `stream failed: ${response.status}`), {
       phase: 'request',
       status: response.status,
       retryAfter: Number(response.headers.get('retry-after')) || 0,
-      code: body?.error,
+      code: body?.msg || body?.error,
     });
   }
 
