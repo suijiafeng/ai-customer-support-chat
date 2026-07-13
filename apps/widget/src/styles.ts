@@ -53,7 +53,7 @@ export default `
   cursor: grab; touch-action: none; user-select: none; }
 .panel.dragging .head { cursor: grabbing; }
 .panel.dragging { box-shadow: 0 24px 60px rgba(15,23,42,.32); }
-.head .title { display: flex; flex-direction: column; gap: 2px; }
+.head .title { display: flex; gap: 15px; }
 .head .sub { font-size: 11px; font-weight: 400; opacity: .85; display: flex; align-items: center; gap: 5px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: #9bdc8a; display: inline-block; }
 .dot.off { background: #f0c36d; }

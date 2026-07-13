@@ -48,9 +48,11 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
   const [showQuick, setShowQuick] = useState(false);
   const [unread, setUnread] = useState(0); // 关闭状态下收到的新回复数（FAB 红点）
   const seenInboundRef = useRef(0); // 已读的 AI/客服消息数
+  const baselinedRef = useRef(false); // 首次同步完成后才开始计增量，避免历史消息触发红点
 
   const taEl = useRef<HTMLTextAreaElement | null>(null);
   const fileEl = useRef<HTMLInputElement | null>(null);
+  const composerAreaRef = useRef<HTMLDivElement | null>(null);
 
   const {
     mobile,
@@ -86,6 +88,23 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     onOpen: () => setShowQuick(false),
   });
 
+  // 点击 composer 区域外时关闭表情/快捷提问弹层
+  // widget 运行在 Shadow DOM 中，e.target 在 shadow 边界外会被重定向；
+  // 用 composedPath() 获取真实路径，再检查 composerAreaRef 是否在路径上。
+  useEffect(() => {
+    if (!showEmoji && !showQuick) return;
+    const root = (composerAreaRef.current?.getRootNode() ?? document) as Document | ShadowRoot;
+    const onDown = (e: MouseEvent) => {
+      const inside = e.composedPath().includes(composerAreaRef.current as EventTarget);
+      if (!inside) {
+        closeEmoji();
+        setShowQuick(false);
+      }
+    };
+    root.addEventListener('mousedown', onDown as EventListener);
+    return () => root.removeEventListener('mousedown', onDown as EventListener);
+  }, [showEmoji, showQuick, closeEmoji]);
+
   const clearPending = useCallback(() => setPending([]), []);
   const onSendStart = useCallback(() => {
     closeEmoji();
@@ -117,7 +136,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     onSendStart,
   });
 
-  // 未读红点：关闭时收到的新 AI/客服消息计数；打开即清零
+  // 未读红点：首次同步后建立基准，之后关闭状态下收到新消息才计数；打开即清零
   const inboundCount = useMemo(
     () => messages.filter((m) => m.from === 'ai' || m.from === 'agent').length,
     [messages],
@@ -126,10 +145,18 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     if (open) {
       seenInboundRef.current = inboundCount;
       setUnread(0);
-    } else if (inboundCount > seenInboundRef.current) {
+      return;
+    }
+    // 首次同步完成时建立基准，不触发红点
+    if (!baselinedRef.current && connection === 'synced') {
+      baselinedRef.current = true;
+      seenInboundRef.current = inboundCount;
+      return;
+    }
+    if (baselinedRef.current && inboundCount > seenInboundRef.current) {
       setUnread(inboundCount - seenInboundRef.current);
     }
-  }, [inboundCount, open]);
+  }, [inboundCount, open, connection]);
 
   const addFiles = useCallback(
     async (files: File[]) => {
@@ -326,6 +353,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
               </div>
             )}
 
+            <div ref={composerAreaRef} style={{ display: 'contents' }}>
             {showEmoji && (
               <div className="emoji-pop">
                 <EmojiPicker onSelect={handleEmojiSelect} />
@@ -335,7 +363,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
             {showQuick && !sending && (
               <div className="quick-pop" role="menu" aria-label="快捷提问">
                 {QUICK_MESSAGES.map((text) => (
-                  <button key={text} role="menuitem" onClick={() => send(text)}>
+                  <button key={text} role="menuitem" onClick={() => { setInput(text); setShowQuick(false); taEl.current?.focus(); }}>
                     {text}
                   </button>
                 ))}
@@ -400,6 +428,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
               </div>
             </div>
             )}
+            </div>{/* composerAreaRef */}
           </div>
         </>
       )}
