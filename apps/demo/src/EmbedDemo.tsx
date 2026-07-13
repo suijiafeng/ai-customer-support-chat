@@ -4,6 +4,7 @@ import './embed.css';
 // 默认消费同源托管的 widget 产物；独立部署时通过 VITE_WIDGET_SRC 指向实际部署地址
 const WIDGET_SRC = import.meta.env.VITE_WIDGET_SRC || '/widget/widget.js';
 const WORKSTATION_URL = import.meta.env.VITE_WORKSTATION_URL || '/workstation/';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 /**
  * Widget 嵌入演示：模拟第三方网站，通过 <script src="/widget/widget.js"> 消费
@@ -19,8 +20,8 @@ export default function EmbedDemo() {
     script.dataset.key = 'd0KX6-CDtI-Gaxc-fR1K';
     script.dataset.name = 'tn_846ad88eee'; // 内置 demo 种子租户的固定 key 与 ID，与服务端 seed 保持一致
     script.dataset.title = 'AssistFlow AI 客服系统';
-    // 独立部署时 demo 与 server 不同源，widget 默认的 window.location.origin 回退不再适用
-    if (import.meta.env.VITE_API_BASE) script.dataset.apiBase = import.meta.env.VITE_API_BASE;
+    // 仅在显式配置时覆盖；生产建议把 /api 反代到 widget 同域，避免在嵌入代码暴露 server 域名。
+    if (API_BASE) script.dataset.apiBase = API_BASE;
     document.body.appendChild(script);
   }, []);
 

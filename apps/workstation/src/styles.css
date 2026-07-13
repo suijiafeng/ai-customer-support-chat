@@ -16,11 +16,10 @@ html, body, #root { height: 100%; margin: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #303133; }
 button { font-family: inherit; }
 .menu-wraper {
-  display:flex;
-  flex:1;
-  justify-content: flex-end;
+  display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap:85px;
+  gap: 8px;
 }
 .app { height: 100vh; display: flex; flex-direction: column; }
 .topbar { height: 56px; background: var(--bar-bg); color: #fff; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--side-border); }
@@ -95,6 +94,11 @@ button { font-family: inherit; }
 .tag-primary { background: #ecf5ff; color: #409eff; }
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #909399; font-size: 13px; padding: 40px 16px; gap: 8px; height: 100%; }
 .empty .ico { font-size: 40px; opacity: .35; }
+.empty-hint-mobile { display: none; }
+@media (max-width: 640px) {
+  .empty-hint-desktop { display: none; }
+  .empty-hint-mobile { display: inline; }
+}
 .chat { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 0; }
 .chat-head { padding: 12px 16px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
 .list-wrap { position: relative; flex: 1; display: flex; min-height: 0; }
@@ -240,6 +244,8 @@ button.loading::before {
 }
 /* 移动端：会话队列改为默认收起的抽屉，聊天区占满全宽 */
 @media (max-width: 640px) {
+  /* safe-area：iPhone 刘海/Home 条安全区 */
+  .app { height: 100dvh; padding-bottom: env(safe-area-inset-bottom, 0px); }
   .menu-btn { display: inline-flex; align-items: center; justify-content: center; }
   .queue {
     position: absolute; top: 0; left: 0; bottom: 0; z-index: 30;
@@ -253,6 +259,12 @@ button.loading::before {
   /* 触控友好：加大列表项与筛选按钮的可点区域 */
   .sess { padding: 14px 16px; }
   .queue-filters button { padding: 7px 13px; font-size: 12px; }
+  /* 手机上隐藏 Shift+Enter 提示（无实际用处） */
+  .key-hint { display: none; }
+  /* 工具按钮加大触控区域 */
+  .tool { width: 36px; height: 36px; }
+  /* 快捷回复弹层宽度自适应 */
+  .canned-pop { left: 0; right: 0; max-width: 100%; border-radius: 10px 10px 0 0; bottom: 100px; }
 }
 
 /* ---- 登录页 ---- */
@@ -275,7 +287,9 @@ button.loading::before {
 .agent-name { font-weight: 600; }
 .caret { font-size: 10px; opacity: .85; transition: transform .15s ease; }
 .caret.up { transform: rotate(180deg); }
-.agent-dropdown { position: absolute; right: 0; top: calc(100% + 10px); min-width: 268px; background: #fff; border-radius: 12px; box-shadow: 0 16px 42px rgba(15,23,42,.18); color: #0f172a; z-index: 50; overflow: hidden; }
+/* 桌面端：下拉弹出；移动端：右侧抽屉（见下方 @media） */
+.agent-drawer { position: absolute; right: 0; top: calc(100% + 10px); min-width: 268px; background: #fff; border-radius: 12px; box-shadow: 0 16px 42px rgba(15,23,42,.18); color: #0f172a; z-index: 50; overflow: hidden; }
+.agent-overlay { display: none; }
 .agent-card { display: flex; gap: 12px; align-items: center; padding: 16px 16px 12px; }
 .agent-card-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #64748b; }
 .agent-card-info strong { font-size: 14px; color: #0f172a; }
@@ -291,6 +305,7 @@ button.loading::before {
 .agent-actions button.danger { color: #dc2626; }
 .agent-actions button.danger:hover { background: #fef2f2; }
 .agent-note { color: #94a3b8; font-size: 11px; line-height: 1.5; margin: 0; padding: 4px 16px 14px; }
+.agent-drawer-close { display: none; }
 
 /* ---- 通用弹窗遮罩 / 关闭按钮（工单详情等复用） ---- */
 .profile-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.4); display: flex; align-items: center; justify-content: center; z-index: 90; }
@@ -298,10 +313,96 @@ button.loading::before {
 .profile-close:hover { color: #334155; }
 
 /* ---- 顶部页签 ---- */
-.view-tabs { display: flex; gap: 24px; margin-left: 48px; }
-.view-tabs button { background: transparent; border: none; border-radius: 8px; color: rgba(255,255,255,.78); cursor: pointer; font-size: 13px; padding: 7px 13px; display: inline-flex; align-items: center; gap: 5px; }
+/* view-tabs 是 topbar 的直接子元素，flex: 1 在桌面端居中撑开 */
+.view-tabs { display: flex; gap: 8px; flex: 1; justify-content: center; align-items: center; }
+.view-tabs button { background: transparent; border: none; border-radius: 8px; color: rgba(255,255,255,.78); cursor: pointer; font-size: 13px; padding: 7px 13px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .view-tabs button:hover { background: rgba(255,255,255,.14); color: #fff; }
 .view-tabs button.active { background: rgba(255,255,255,.22); color: #fff; font-weight: 600; }
+
+/* 移动端：顶栏精简为单行 + 导航移到底部 Tab Bar */
+@media (max-width: 640px) {
+  /* 顶栏：单行、隐藏品牌文字，只保留汉堡和客服信息 */
+  .topbar { flex-wrap: nowrap; height: 52px; padding: 0 12px; }
+  .brand { display: none; }          /* 手机上不需要展示应用名 */
+  .topbar-left { height: 52px; gap: 2px; }
+  .menu-wraper { height: 52px; flex-shrink: 0; }
+
+  /* 底部导航 Tab Bar */
+  .view-tabs {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+    flex-basis: auto; flex-grow: 0; flex-shrink: 0; order: 0;
+    flex-direction: row; justify-content: space-around; align-items: stretch;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--bar-bg);
+    border-top: 1px solid var(--side-border);
+    gap: 0;
+    overflow: visible;
+    scrollbar-width: auto;
+  }
+  .view-tabs::-webkit-scrollbar { display: revert; }
+  .view-tabs button {
+    flex: 1; flex-direction: column; justify-content: center;
+    align-items: center; gap: 3px;
+    padding: 6px 4px 4px;
+    font-size: 10px; line-height: 1.2;
+    border-radius: 0; flex-shrink: 1;
+    white-space: normal; text-align: center;
+  }
+  /* 底部 Tab 图标放大 */
+  .view-tabs button svg { width: 20px; height: 20px; }
+
+  /* 内容区为底部 Tab Bar 留出空间 */
+  .body { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  /* safe-area */
+  .app { padding-bottom: 0; }
+
+  /* 个人中心触发器：简化为纯头像圆圈，去掉名字和箭头 */
+  .agent-name { display: none; }
+  .agent-trigger svg { display: none; }
+  .agent-trigger { padding: 4px; background: transparent; }
+  .agent-trigger:hover { background: rgba(255,255,255,.15); }
+
+  /* 遮罩层 */
+  .agent-overlay {
+    display: block;
+    position: fixed; inset: 0; z-index: 49;
+    background: rgba(15,23,42,.45);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: afw-fade .18s ease-out;
+  }
+
+  /* 右侧抽屉 */
+  .agent-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+    width: 82%; max-width: 300px;
+    border-radius: 0;
+    overflow-y: auto; overflow-x: hidden;
+    box-shadow: -8px 0 40px rgba(15,23,42,.25);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: agent-slide-in .22s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes agent-slide-in {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+  }
+
+  /* 抽屉关闭按钮（桌面端隐藏） */
+  .agent-drawer-close {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 12px; right: 12px;
+    width: 32px; height: 32px; border-radius: 50%;
+    border: none; background: #f1f5f9; color: #64748b; cursor: pointer;
+  }
+  .agent-drawer-close:hover { background: #e2e8f0; }
+
+  /* 抽屉内部：卡片和统计区字体略大，更易触控 */
+  .agent-card { padding: 20px 16px 14px; position: relative; }
+  .agent-stats div { padding: 14px 0; }
+  .agent-actions button { padding: 13px 12px; font-size: 14px; }
+}
 
 /* ---- 队列筛选与搜索 ---- */
 .waiting-badge { margin-left: auto; background: rgba(36,87,197,.28); color: #93b8f5; font-size: 11px; font-weight: 600; border-radius: 9px; padding: 1px 8px; }
@@ -514,7 +615,6 @@ button.loading::before {
 
 @media (max-width: 900px) {
   .detail-pane { display: none; }
-  .view-tabs { margin-left: 8px; }
   .view-tabs button { padding: 6px 9px; font-size: 12px; }
 }
 

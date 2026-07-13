@@ -30,7 +30,11 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
   if (!session) {
     return (
       <main className="chat">
-        <div className="empty"><Icon name="inbox" size={32} style={{ opacity: .35, marginBottom: 6 }} />从左侧选择一个会话开始接待</div>
+        <div className="empty">
+          <Icon name="inbox" size={32} style={{ opacity: .35, marginBottom: 6 }} />
+          <span className="empty-hint-desktop">从左侧选择一个会话开始接待</span>
+          <span className="empty-hint-mobile">点击左上角 ≡ 选择待接访客</span>
+        </div>
       </main>
     );
   }

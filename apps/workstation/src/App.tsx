@@ -72,21 +72,21 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
             AssistFlow 客服工作台
           </button>
         </div>
+        <nav className="view-tabs" aria-label="功能页签">
+          {views.map((v) => (
+            <button
+              key={v.key}
+              aria-current={view === v.key}
+              className={view === v.key ? 'active' : ''}
+              onClick={() => setView(v.key)}
+            >
+              <Icon name={v.icon} size={14} />
+              {v.label}
+            </button>
+          ))}
+        </nav>
         <div className="menu-wraper">
-           <nav className="view-tabs" aria-label="功能页签">
-            {views.map((v) => (
-              <button
-                key={v.key}
-                aria-current={view === v.key}
-                className={view === v.key ? 'active' : ''}
-                onClick={() => setView(v.key)}
-              >
-                <Icon name={v.icon} size={14} />
-                {v.label}
-              </button>
-            ))}
-          </nav>
-        <AgentMenu agent={agent} sessions={sessions} onLogout={onLogout} />
+          <AgentMenu agent={agent} sessions={sessions} onLogout={onLogout} />
         </div>
       </header>
       <div className="body">

@@ -64,7 +64,13 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
       </button>
 
       {open && (
-        <div className="agent-dropdown" role="menu" aria-label="个人信息">
+        <div className="agent-overlay" aria-hidden="true" onClick={() => setOpen(false)} />
+      )}
+      {open && (
+        <div className="agent-drawer" role="menu" aria-label="个人信息">
+          <button className="agent-drawer-close" aria-label="关闭" onClick={() => setOpen(false)}>
+            <Icon name="x" size={18} />
+          </button>
           {/* 详情头部：头像 + 名称 + 工号 + 在线 + 登录时间 */}
           <div className="agent-card">
             <span className="avatar-badge lg" style={{ background: color }}>{initials}</span>

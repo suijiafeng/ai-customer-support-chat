@@ -294,12 +294,13 @@ node scripts/dialog-test.js    # 访客↔客服对话时序回归
 **widget**（嵌入组件）：
 - 构建命令：`npm ci && npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-widget`
 - 产物目录：`apps/widget/dist`（只有一个 `widget.js`），上传到静态托管/CDN 即可，不需要环境变量
-- 第三方网站嵌入：`<script src="https://<widget 部署域名>/widget.js" data-api-base="https://<server 部署域名>" data-key="租户密钥" data-name="租户ID"></script>`（密钥与租户ID在工作台「租户管理」创建后复制；`data-key`、`data-name` 必填且必须匹配；租户配置了域名时，还会校验请求来源域名，未配置则不校验）
+- 第三方网站嵌入：`<script src="https://<widget 部署域名>/widget.js" data-key="租户密钥" data-name="租户ID"></script>`（密钥与租户ID在工作台「租户管理」创建后复制；`data-key`、`data-name` 必填且必须匹配；租户配置了域名时，还会校验请求来源域名，未配置则不校验）
+- 默认情况下，widget 会把 `widget.js` 所在域名作为 API 基址，请在该域名/CDN 上把 `/api/*` 反向代理到 server。这样嵌入代码不需要暴露 server 部署域名。若无法配置代理，也可以继续显式传 `data-api-base="https://<server 部署域名>"`，但浏览器网络请求仍会暴露真实 API 地址，前端加密无法隐藏它。
 
 **demo**（widget 嵌入演示站，可选，不部署也不影响 server/workstation/widget 正常工作）：
 - 构建命令：`npm ci && npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-demo`
 - 产物目录：`apps/demo/dist`
-- 环境变量：`VITE_WIDGET_SRC=https://<widget 部署域名>/widget.js`、`VITE_API_BASE=https://<server 部署域名>`、`VITE_WORKSTATION_URL=https://<workstation 部署域名>`
+- 环境变量：`VITE_WIDGET_SRC=https://<widget 部署域名>/widget.js`、`VITE_WORKSTATION_URL=https://<workstation 部署域名>`；仅在没有同域 `/api` 代理时才设置 `VITE_API_BASE=https://<server 部署域名>`
 
 以上环境变量不设置时都会回退成"由 server 同源托管"的默认行为，本地 `npm run dev:all`、`npm run start`、`npm run start -- demo` 不受影响。
 

@@ -6,14 +6,15 @@ import css from './styles.js';
 
 // 嵌入入口：读取 <script> 上的配置，挂载到隔离的 Shadow DOM
 // 宿主通过 data-key、data-name、data-api-base、data-title 覆盖默认值；
-// 默认回退到内置 demo 种子租户，方便零配置本地试用。
+// 默认使用 widget.js 所在源作为 API 源，方便用同域反向代理隐藏真实 server 域名。
 function readConfig() {
   const el = (document.currentScript ||
     document.querySelector('script[data-assistflow]') ||
     document.querySelector('script[src*="widget.js"]')) as HTMLScriptElement | null;
   const ds: DOMStringMap = el ? el.dataset : ({} as DOMStringMap);
+  const scriptOrigin = el?.src ? new URL(el.src, window.location.href).origin : window.location.origin;
   return {
-    apiBase: (ds.apiBase || window.location.origin).replace(/\/$/, ''),
+    apiBase: (ds.apiBase || scriptOrigin).replace(/\/$/, ''),
     siteKey: ds.key || 'd0KX6-CDtI-Gaxc-fR1K',
     tenantId: ds.name || 'tn_846ad88eee',
     title: ds.title || 'AssistFlow AI 客服系统',

@@ -166,17 +166,32 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 /* 移动端：竖屏手机全屏 */
 @media (max-width: 480px) {
   .afw { right: 0; bottom: 0; }
-  .fab { position: fixed; right: 18px; bottom: 44px; }
-  .panel { position: fixed; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; bottom: 0; }
+  /* safe-area-inset-bottom：刘海屏/Home 条留空，避免 FAB 被遮挡 */
+  .fab { position: fixed; right: 18px; bottom: calc(44px + env(safe-area-inset-bottom, 0px)); }
+  .panel {
+    position: fixed; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; bottom: 0;
+    /* 底部内容区让出 Home 条 */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
   .col { max-width: 82%; }
   .emoji-pop { bottom: 96px; }
+  /* 手机上 Shift+Enter 无意义，隐藏提示 */
+  .key-hint { display: none; }
+  /* 触控优化：加大工具栏按钮可点击区域 */
+  .tool { width: 36px; height: 36px; }
+  /* 快捷提问弹层在移动端撑满面板宽度 */
+  .quick-pop { left: 0; right: 0; max-width: 100%; border-radius: 10px 10px 0 0; bottom: 100px; }
 }
 
 /* 矮屏（横屏手机等）：高度不足时也走全屏，避免被裁切 */
 @media (max-height: 560px) {
   .afw { right: 0; bottom: 0; }
-  .fab { position: fixed; right: 18px; bottom: 44px; }
-  .panel { position: fixed; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; bottom: 0; }
+  .fab { position: fixed; right: 18px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .panel {
+    position: fixed; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
   .emoji-pop { bottom: 96px; height: 60vh; }
+  .key-hint { display: none; }
 }
 `;
