@@ -29,9 +29,13 @@ export function useDraggablePanel() {
     px: number; py: number; x: number; y: number; w: number; h: number; dir: ResizeDir;
   } | null>(null);
 
+  const [narrow, setNarrow] = useState(false);
+
   useEffect(() => {
-    const computeMobile = () =>
+    const computeMobile = () => {
       setMobile(window.matchMedia('(max-width: 480px), (max-height: 560px)').matches);
+      setNarrow(window.matchMedia('(max-width: 600px)').matches);
+    };
     computeMobile();
 
     const onResize = () => {
@@ -134,6 +138,7 @@ export function useDraggablePanel() {
 
   return {
     mobile,
+    narrow,
     panelPos,
     setPanelPos,
     panelSize,

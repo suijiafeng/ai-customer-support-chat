@@ -11,7 +11,7 @@ import { useChatSession } from './hooks/useChatSession.js';
 
 interface WidgetProps {
   apiBase: string;
-  title: string;
+  title?: string;
   siteKey: string;
   /** 租户ID（data-name），与 siteKey 成对，后端校验两者匹配 */
   tenantId: string;
@@ -56,6 +56,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
 
   const {
     mobile,
+    narrow,
     panelPos,
     setPanelPos,
     panelSize,
@@ -124,6 +125,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     sending,
     atBottom,
     keyInvalid,
+    sessionId,
     listEl,
     scrollToBottom,
     resetAtBottom,
@@ -142,6 +144,8 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     startCooldown,
     onSendStart,
   });
+
+  const displayTitle = title || (sessionId ? '访客 ' + sessionId.slice(0, 20) : '访客');
 
   // 未读红点：首次同步后建立基准，之后关闭状态下收到新消息才计数；打开即清零
   const inboundCount = useMemo(
@@ -238,7 +242,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
   [fabPos]);
 
   return (
-    <div className="afw">
+    <div className={`afw${mobile ? ' mobile' : narrow ? ' narrow' : ''}`}>
       {open && (
         <>
           <button
@@ -269,11 +273,11 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
               onPointerCancel={onHeadUp}
             >
               <span className="title">
-                {title}
-                <span className="sub">
+                {displayTitle}
+               {!mobile&&<span className="sub">
                   <span className={`dot ${connection === 'synced' ? '' : 'off'}`} />
                   {connection === 'synced' ? '消息已同步' : '正在同步'}
-                </span>
+                </span>}
               </span>
               <button className="x" onClick={toggle} aria-label="关闭">×</button>
             </div>

@@ -52,9 +52,10 @@ export function useChatSession({
   const [atBottom, setAtBottom] = useState(true);
   const [keyInvalid, setKeyInvalid] = useState(false); // widget 接入密钥无效/停用：重试无意义，需和普通失败区分
 
+  const [sessionId, setSessionId] = useState(() => loadVisitorId(siteKey) ?? '');
   const listEl = useRef<HTMLDivElement | null>(null);
   const sessionEvents = useRef<EventSource | null>(null);
-  const sessionIdRef = useRef(''); // 访客标识：首次发送消息后才惰性生成，存于本地并带完整性校验
+  const sessionIdRef = useRef(loadVisitorId(siteKey) ?? ''); // 访客标识：首次发送消息后才惰性生成，存于本地并带完整性校验
   // 本次发送的乐观消息对（访客消息 id 即 clientMessageId + 流式 AI 气泡 id）
   const inflightRef = useRef<{ userId: string; aiId: string } | null>(null);
   const atBottomRef = useRef(true);
@@ -137,6 +138,7 @@ export function useChatSession({
     const prev = sessionIdRef.current;
     if (!sessionIdRef.current || !isVisitorIdValid(siteKey, sessionIdRef.current)) {
       sessionIdRef.current = ensureVisitorId(siteKey);
+      setSessionId(sessionIdRef.current);
     }
     if (!sessionEvents.current || sessionIdRef.current !== prev) {
       await activate();
@@ -316,6 +318,7 @@ export function useChatSession({
     sending,
     atBottom,
     keyInvalid,
+    sessionId,
     listEl,
     scrollToBottom,
     resetAtBottom,

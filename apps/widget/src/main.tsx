@@ -17,7 +17,7 @@ function readConfig() {
     apiBase: (ds.apiBase || scriptOrigin).replace(/\/$/, ''),
     siteKey: ds.key || 'd0KX6-CDtI-Gaxc-fR1K',
     tenantId: ds.name || 'tn_846ad88eee',
-    title: ds.title || 'AssistFlow AI 客服系统',
+    title: ds.title || '',
   };
 }
 
