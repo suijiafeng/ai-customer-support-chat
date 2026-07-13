@@ -42,20 +42,18 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
   return (
     <main className="chat">
       <div className="chat-head">
-        <span>
-          {session.displayName} ·{' '}
-          <span className={`conn conn-${connection}`}>
-            <span className="conn-dot" aria-hidden="true" />
-            {CONNECTION_LABEL[connection] || connection}
-          </span>
-        </span>
         <button
-          className={`ghost-btn${showDetail ? ' active' : ''}`}
-          aria-pressed={showDetail}
+          className="chat-head-name"
+          title={showDetail ? '收起详情' : '查看会话详情'}
           onClick={() => setShowDetail((v) => !v)}
         >
-          {showDetail ? '收起详情' : '会话详情'}
+          {session.displayName}
         </button>
+        {' '}·{' '}
+        <span className={`conn conn-${connection}`}>
+          <span className="conn-dot" aria-hidden="true" />
+          {CONNECTION_LABEL[connection] || connection}
+        </span>
       </div>
 
       {connection === 'reconnecting' && (
@@ -83,11 +81,14 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
           <Composer sessionId={sessionId} agent={agent} onSent={applyServer} />
         </div>
         {showDetail && (
-          <SessionDetail
-            session={session}
-            onClose={() => setShowDetail(false)}
-            canResolve={canResolve}
-          />
+          <>
+            <div className="detail-overlay" aria-hidden="true" onClick={() => setShowDetail(false)} />
+            <SessionDetail
+              session={session}
+              onClose={() => setShowDetail(false)}
+              canResolve={canResolve}
+            />
+          </>
         )}
       </div>
     </main>

@@ -96,7 +96,7 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
           </div>
 
           <div className="agent-actions">
-            <button role="menuitem" className="danger" onClick={onLogout}>
+            <button role="menuitem" className="danger" onClick={() => { if (window.confirm('确认退出登录？')) onLogout(); }}>
               <Icon name="x" size={14} />退出登录
             </button>
           </div>
