@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
 import { createMessageArchive } from '@assistflow/shared';
-import { API, requestJson, normalizeMessages, type UiMessage } from '../api.js';
+import { API, SSE_BASE, requestJson, normalizeMessages, type UiMessage } from '../api.js';
 
 // 客服侧对话归档：服务端窗口外的旧消息留在工作台本地，合并渲染完整历史
 const messageArchive = createMessageArchive(
@@ -62,7 +62,7 @@ export function useSessionMessages(sessionId: string | null) {
     setMessages([]);
     loadHistory();
 
-    const es = new EventSource(`${API}/api/sessions/${encodeURIComponent(sessionId)}/events`);
+    const es = new EventSource(`${SSE_BASE}/api/sessions/${encodeURIComponent(sessionId)}/events`);
     esRef.current = es;
     es.onopen = () => {
       if (cancelledRef.current) return;

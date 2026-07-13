@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
-import { API, fetchSseTicket, requestJson } from '../api.js';
+import { API, SSE_BASE, fetchSseTicket, requestJson } from '../api.js';
 
 // 会话队列实时订阅：优先 SSE（用 60s 短票据鉴权），断线/票据过期时降级轮询并自动重连。
 export function useQueueEvents() {
@@ -25,7 +25,7 @@ export function useQueueEvents() {
         }
       };
       tick();
-      pollTimer = setInterval(tick, 5000);
+      pollTimer = setInterval(tick, 2000);
     };
     const stopPolling = () => {
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -40,13 +40,13 @@ export function useQueueEvents() {
       }
       const scheduleReconnect = () => {
         if (!reconnectTimer && !closed) {
-          reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 15000);
+          reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 5000);
         }
       };
       try {
         const ticket = await fetchSseTicket();
         if (closed) return;
-        es = new EventSource(`${API}/api/sessions/events?ticket=${encodeURIComponent(ticket)}`);
+        es = new EventSource(`${SSE_BASE}/api/sessions/events?ticket=${encodeURIComponent(ticket)}`);
         es.onopen = () => { setConnected(true); stopPolling(); };
         es.addEventListener('sessions', (e) => {
           try { setSessions(JSON.parse((e as MessageEvent).data).sessions || []); setReady(true); } catch {}

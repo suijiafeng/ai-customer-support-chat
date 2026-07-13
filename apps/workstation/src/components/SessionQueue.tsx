@@ -41,6 +41,7 @@ interface SessionQueueProps {
   open?: boolean;
   agent?: AgentIdentity;
   ready?: boolean;
+  connected?: boolean;
 }
 
 type Filter = 'all' | 'mine' | 'closed';
@@ -51,7 +52,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'closed', label: '已关闭' },
 ];
 
-export default function SessionQueue({ sessions, activeId, onSelect, open = false, agent, ready = false }: SessionQueueProps) {
+export default function SessionQueue({ sessions, activeId, onSelect, open = false, agent, ready = false, connected = false }: SessionQueueProps) {
   const [filter, setFilter] = useState<Filter>('all');
   const [keyword, setKeyword] = useState('');
   const [poolOpen, setPoolOpen] = useState(true);
@@ -90,6 +91,9 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
+        <span className={`queue-conn${connected ? ' connected' : ''}`} title={connected ? '实时推送已连接' : '轮询模式（2s）'}>
+          {connected ? '●' : '○'}
+        </span>
       </div>
 
       <div className="queue-scroll">

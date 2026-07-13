@@ -3,6 +3,8 @@ import { fmtTime, linkParts } from '@assistflow/shared';
 
 // 后端基地址：默认与工作台同源（留空）；独立部署时通过 VITE_API_BASE 指向 server 域名
 export const API = import.meta.env.VITE_API_BASE || '';
+// SSE 专用基地址：Vercel 等边缘代理会切断长连接，需直连后端；未配置时回退到 API
+export const SSE_BASE = import.meta.env.VITE_SSE_BASE || API;
 
 export { fmtTime, linkParts };
 export type { LinkPart } from '@assistflow/shared';

@@ -36,7 +36,7 @@ const VIEWS: ViewDef[] = [
 ];
 
 function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () => void }) {
-  const { sessions, ready: queueReady } = useQueueEvents();
+  const { sessions, connected, ready: queueReady } = useQueueEvents();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
   const closeQueue = useHistoryBack(queueOpen, () => setQueueOpen(false));
@@ -99,6 +99,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
           open={queueOpen}
           agent={agent}
           ready={queueReady}
+          connected={connected}
         />
         {queueOpen && <div className="queue-overlay" onClick={closeQueue} aria-hidden="true" />}
         {view === 'sessions' && <ChatPanel session={activeSession} agent={agent} />}

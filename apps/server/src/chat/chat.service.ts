@@ -165,6 +165,17 @@ export class ChatService {
     const ticket = handoff.needHuman
       ? this.tickets.create({ sessionId, message, intent, reason: handoff.reason, inquiry })
       : null;
+
+    // AI 回复前先推一次：让工作台立即看到新会话/最新消息，不必等 AI 全部生成完
+    this.sessions.upsertSession({
+      sessionId, message, profile, visitor, tenantKey,
+      workflow: {
+        ai: { provider: this.ai.provider, model: this.ai.getActiveModel(), used: false, fallback: false, error: null },
+        intent, sentiment, needHuman: handoff.needHuman, reason: handoff.reason, inquiry, ticket, sources: [],
+      },
+    });
+    this.sessionTicket.notify(sessionId);
+
     const replyResult = await this.ai.buildReply(
       { message, history, matchedFaqs, intent, handoff, inquiry, ticket },
       onDelta

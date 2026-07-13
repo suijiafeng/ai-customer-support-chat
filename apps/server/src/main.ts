@@ -22,7 +22,11 @@ async function bootstrap() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  app.enableCors(corsOrigins.length ? { origin: corsOrigins } : {});
+  app.enableCors(
+    corsOrigins.length
+      ? { origin: corsOrigins, allowedHeaders: ['Authorization', 'Content-Type'], methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] }
+      : {}
+  );
   app.useBodyParser('json', { limit: '12mb' });
   app.enableShutdownHooks();
 
