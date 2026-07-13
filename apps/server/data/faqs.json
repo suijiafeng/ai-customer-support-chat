@@ -666,5 +666,63 @@
       "API费用",
       "谁承担成本"
     ]
+  },
+  {
+    "id": "typescript_usage",
+    "intent": "tech_stack",
+    "question": "项目会用 TypeScript 吗？",
+    "answer": "新项目我默认用 TypeScript，类型安全能在开发期拦住很多低级 bug，也让后期维护和交接省心不少。如果你的现有项目是 JS，可以根据实际情况渐进式迁移，不必一刀切。",
+    "keywords": ["TypeScript", "TS", "类型检查", "类型安全", "JS还是TS"]
+  },
+  {
+    "id": "testing_strategy",
+    "intent": "tech_stack",
+    "question": "项目会写测试吗？",
+    "answer": "会，但会根据项目风险做取舍。核心业务逻辑、工具函数和关键组件我会补单元测试；端对端测试（Playwright/Cypress）适合流程复杂、改动频繁的项目。我会在方案里说明测试覆盖范围和对工期的影响，你来决定投入多少。",
+    "keywords": ["测试", "单元测试", "e2e", "Playwright", "Cypress", "Jest", "测试覆盖", "自动化测试"]
+  },
+  {
+    "id": "cicd",
+    "intent": "tech_stack",
+    "question": "会配置 CI/CD 流程吗？",
+    "answer": "可以。常见的做法是用 GitHub Actions 或 GitLab CI 跑构建、lint 和测试，再自动部署到目标环境。如果你已有自己的发布流程，我也可以接进来，不强迫改动现有基础设施。",
+    "keywords": ["CI/CD", "持续集成", "自动部署", "GitHub Actions", "GitLab CI", "流水线", "DevOps"]
+  },
+  {
+    "id": "warranty_period",
+    "intent": "services",
+    "audience": "existing_client",
+    "stage": "post-delivery",
+    "question": "上线后有质保期吗？",
+    "answer": "有。我通常约定上线后 30 天为质保期，期间因我方代码问题导致的 bug 免费修复。质保范围和时长会在合作协议里写明，超出范围或由需求变更引起的问题按实际情况另行处理。",
+    "keywords": ["质保", "保修", "质保期", "上线后问题", "免费修复", "bug修复", "售后保障"]
+  },
+  {
+    "id": "multi_developer",
+    "intent": "collaboration",
+    "question": "你一个人能做吗？会不会找外包转包？",
+    "answer": "大多数项目我一个人可以完成。如果项目需要专项设计或后端能力，我会提前告诉你，并在征得你同意后引入长期合作的伙伴，绝不在不知情的情况下转包。合作方的参与范围和责任归属我会写进协议。",
+    "keywords": ["一个人", "团队", "外包", "转包", "合作方", "只有你", "几个人"]
+  },
+  {
+    "id": "prototype_review",
+    "intent": "collaboration",
+    "question": "开发前可以先出原型确认吗？",
+    "answer": "可以。重要页面或复杂交互，我建议先出低保真线框图或可点击原型，确认信息结构和主流程后再进入开发——这样改起来成本最低。如果你已经有 Figma 原型，咱们直接对着它讨论也行。",
+    "keywords": ["原型", "线框图", "Figma", "确认方案", "先出原型", "可点击原型", "交互确认"]
+  },
+  {
+    "id": "requirements_change",
+    "intent": "collaboration",
+    "question": "需求中途变了怎么处理？",
+    "answer": "需求变化是正常的，关键是我们能及时对齐影响。小调整我直接吸收；大的方向变更我会先评估对工期和费用的影响，跟你说清楚之后再动手，不会闷头改了再来账单.",
+    "keywords": ["需求变更", "改需求", "需求变化", "加功能", "变更管理", "中途改", "范围变化"]
+  },
+  {
+    "id": "progress_visibility",
+    "intent": "collaboration",
+    "question": "项目进行中怎么了解进度？",
+    "answer": "我会用你习惯的工具同步进度，比如 Notion、飞书文档、GitHub Project 或简单的周报。每个阶段我会主动给你演示当前成果，你随时可以问进展，不用担心失联。",
+    "keywords": ["进度同步", "项目透明", "进度查看", "项目看板", "周报", "沟通频率", "怎么跟进"]
   }
 ]
