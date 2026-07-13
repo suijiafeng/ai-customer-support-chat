@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
 import { fmtTime, getLoginAt, type AgentIdentity } from '../api.js';
 import Icon from '../ui/Icon.js';
+import { useHistoryBack } from '../hooks/useHistoryBack.js';
 
 interface AgentMenuProps {
   agent: AgentIdentity;
@@ -20,15 +21,16 @@ function avatarColor(id: string): string {
 export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapEl = useRef<HTMLDivElement | null>(null);
+  const close = useHistoryBack(open, () => setOpen(false));
 
   // 点击菜单外部 / 按 Esc 关闭下拉
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (!wrapEl.current?.contains(e.target as Node)) setOpen(false);
+      if (!wrapEl.current?.contains(e.target as Node)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') close();
     };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
@@ -64,11 +66,11 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
       </button>
 
       {open && (
-        <div className="agent-overlay" aria-hidden="true" onClick={() => setOpen(false)} />
+        <div className="agent-overlay" aria-hidden="true" onClick={close} />
       )}
       {open && (
         <div className="agent-drawer" role="menu" aria-label="个人信息">
-          <button className="agent-drawer-close" aria-label="关闭" onClick={() => setOpen(false)}>
+          <button className="agent-drawer-close" aria-label="关闭" onClick={close}>
             <Icon name="x" size={18} />
           </button>
           {/* 详情头部：头像 + 名称 + 工号 + 在线 + 登录时间 */}
@@ -94,14 +96,12 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
             <div><b>{myResolved}</b><span>已解决</span></div>
             <div><b>{waiting}</b><span>待跟进</span></div>
           </div>
-
           <div className="agent-actions">
             <button role="menuitem" className="danger" onClick={() => { if (window.confirm('确认退出登录？')) onLogout(); }}>
-              <Icon name="x" size={14} />退出登录
+              退出登录
             </button>
           </div>
 
-          <p className="agent-note">账号由管理员在服务端配置，修改密码请联系管理员。</p>
         </div>
       )}
     </div>

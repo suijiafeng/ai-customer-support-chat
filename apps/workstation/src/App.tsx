@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { clearAuth, getStoredAgent, getToken, type AgentIdentity } from './api.js';
 import { useQueueEvents } from './hooks/useQueueEvents.js';
+import { useHistoryBack } from './hooks/useHistoryBack.js';
 import SessionQueue from './components/SessionQueue.js';
 import ChatPanel from './components/ChatPanel.js';
 import Login from './components/Login.js';
@@ -37,7 +38,8 @@ const VIEWS: ViewDef[] = [
 function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () => void }) {
   const { sessions, ready: queueReady } = useQueueEvents();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [queueOpen, setQueueOpen] = useState(false); // 移动端抽屉
+  const [queueOpen, setQueueOpen] = useState(false);
+  const closeQueue = useHistoryBack(queueOpen, () => setQueueOpen(false));
   const [view, setView] = useState<View>('sessions');
   // 租户管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
   const views = useMemo<ViewDef[]>(
@@ -55,7 +57,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
   // 选中会话后在移动端自动收起队列
   const handleSelect = useCallback((id: string) => {
     setActiveId(id);
-    setQueueOpen(false);
+    closeQueue();
   }, []);
 
   return (
@@ -66,7 +68,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
             className="menu-btn"
             aria-label={queueOpen ? '收起会话队列' : '展开会话队列'}
             aria-expanded={queueOpen}
-            onClick={() => setQueueOpen((v) => !v)}
+            onClick={() => queueOpen ? closeQueue() : setQueueOpen(true)}
           ><Icon name="menu" size={20} /></button>
           <button className="brand" type="button" onClick={() => setView('sessions')}>
             AssistFlow 客服工作台
@@ -90,20 +92,16 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
         </div>
       </header>
       <div className="body">
-        {view === 'sessions' && (
-          <>
-            <SessionQueue
-              sessions={sessions}
-              activeId={activeId}
-              onSelect={handleSelect}
-              open={queueOpen}
-              agent={agent}
-              ready={queueReady}
-            />
-            {queueOpen && <div className="queue-overlay" onClick={() => setQueueOpen(false)} aria-hidden="true" />}
-            <ChatPanel session={activeSession} agent={agent} />
-          </>
-        )}
+        <SessionQueue
+          sessions={sessions}
+          activeId={activeId}
+          onSelect={(id) => { handleSelect(id); setView('sessions'); }}
+          open={queueOpen}
+          agent={agent}
+          ready={queueReady}
+        />
+        {queueOpen && <div className="queue-overlay" onClick={closeQueue} aria-hidden="true" />}
+        {view === 'sessions' && <ChatPanel session={activeSession} agent={agent} />}
         {view === 'ops' && (
           <OperationsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
         )}

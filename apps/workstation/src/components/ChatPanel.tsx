@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useHistoryBack } from '../hooks/useHistoryBack.js';
 import type { SessionSummary } from '@assistflow/shared';
 import MessageList from './MessageList.js';
 import Composer from './Composer.js';
@@ -21,7 +22,8 @@ interface ChatPanelProps {
 export default function ChatPanel({ session, agent }: ChatPanelProps) {
   const sessionId = session?.sessionId || null;
   const { messages, applyServer, status, connection, reload } = useSessionMessages(sessionId);
-  const [showDetail, setShowDetail] = useState(true);
+  const [showDetail, setShowDetail] = useState(false);
+  const closeDetail = useHistoryBack(showDetail, () => setShowDetail(false));
   const canResolve = useMemo(
     () => Boolean(session && (agent.role === 'admin' || session.assignedAgentId === agent.id)),
     [session, agent.role, agent.id],
@@ -45,23 +47,14 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
         <button
           className="chat-head-name"
           title={showDetail ? '收起详情' : '查看会话详情'}
-          onClick={() => setShowDetail((v) => !v)}
+          onClick={() => showDetail ? closeDetail() : setShowDetail(true)}
         >
           {session.displayName}
         </button>
-        {' '}·{' '}
         <span className={`conn conn-${connection}`}>
-          <span className="conn-dot" aria-hidden="true" />
-          {CONNECTION_LABEL[connection] || connection}
+         ( {CONNECTION_LABEL[connection] || connection} )
         </span>
       </div>
-
-      {connection === 'reconnecting' && (
-        <div className="banner banner-warn" role="status">
-          实时连接已断开，正在自动重连…
-        </div>
-      )}
-
       <div className="chat-body">
         <div className="chat-main">
           {status === 'error' ? (
@@ -75,17 +68,17 @@ export default function ChatPanel({ session, agent }: ChatPanelProps) {
           )}
           {!session.assignedAgentId && session.status !== 'closed' && (
             <div className="claim-hint-bar" role="status">
-              该客户来自接待大厅，发送消息即接待并归入「我的会话」
+              发送消息即接待并归入「我的会话」
             </div>
           )}
           <Composer sessionId={sessionId} agent={agent} onSent={applyServer} />
         </div>
         {showDetail && (
           <>
-            <div className="detail-overlay" aria-hidden="true" onClick={() => setShowDetail(false)} />
+            <div className="detail-overlay" aria-hidden="true" onClick={closeDetail} />
             <SessionDetail
               session={session}
-              onClose={() => setShowDetail(false)}
+              onClose={closeDetail}
               canResolve={canResolve}
             />
           </>

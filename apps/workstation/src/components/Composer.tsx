@@ -31,6 +31,20 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
 
   const fileEl = useRef<HTMLInputElement | null>(null);
   const replyInput = useRef<HTMLTextAreaElement | null>(null);
+  const composerEl = useRef<HTMLDivElement | null>(null);
+
+  // 点击 Composer 区域外部时关闭表情/快捷回复弹出层
+  useEffect(() => {
+    if (!showEmoji && !showCanned) return;
+    const onDown = (e: MouseEvent) => {
+      if (!composerEl.current?.contains(e.target as Node)) {
+        setShowEmoji(false);
+        setShowCanned(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showEmoji, showCanned]);
 
   // 切换会话时重置输入区
   useEffect(() => {
@@ -114,7 +128,7 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
   const canSend = Boolean(reply.trim()) || pending.length > 0;
 
   return (
-    <>
+    <div ref={composerEl} style={{ display: 'contents' }}>
       {pending.length > 0 && (
         <div className="previews">
           {pending.map((p, i) => (
@@ -182,6 +196,6 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
