@@ -29,7 +29,7 @@ export default `
   cursor: pointer; padding: 0; text-decoration: underline; }
 .backdrop { position: fixed; inset: 0; z-index: 2147483001; border: 0; padding: 0; cursor: default;
   background: rgba(15,23,42,.34); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
-  animation: afw-fade .18s ease-out; }
+  animation: afw-fade .18s ease-out; touch-action: none; }
 @keyframes afw-fade { from { opacity: 0; } to { opacity: 1; } }
 /* 面板：与悬浮球分离，固定在视口居中（inset+margin auto 居中，避免与弹出动画 transform 冲突） */
 .panel { position: fixed; inset: 0; margin: auto;
@@ -61,7 +61,7 @@ export default `
   width: 30px; height: 30px; border-radius: 8px; transition: background .15s; }
 .x:hover { background: rgba(255,255,255,.18); }
 .list-wrap { position: relative; flex: 1; display: flex; min-height: 0; }
-.list { flex: 1; overflow-y: auto; padding: 14px 12px; background: #f1f3f6; scroll-behavior: smooth; }
+.list { flex: 1; overflow-y: auto; padding: 14px 12px; background: #f1f3f6; scroll-behavior: smooth; overscroll-behavior: contain; }
 
 .row { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; margin: 14px 0; }
 .row.customer { flex-direction: row-reverse; }

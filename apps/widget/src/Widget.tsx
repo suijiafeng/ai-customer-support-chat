@@ -88,6 +88,13 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     onOpen: () => setShowQuick(false),
   });
 
+  // 面板打开时锁住宿主页面滚动，防止穿透
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    if (open) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   // 点击 composer 区域外时关闭表情/快捷提问弹层
   // widget 运行在 Shadow DOM 中，e.target 在 shadow 边界外会被重定向；
   // 用 composedPath() 获取真实路径，再检查 composerAreaRef 是否在路径上。
@@ -234,7 +241,14 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     <div className="afw">
       {open && (
         <>
-          <button className="backdrop" type="button" aria-label="关闭聊天窗口" onClick={toggle} />
+          <button
+            className="backdrop"
+            type="button"
+            aria-label="关闭聊天窗口"
+            onClick={toggle}
+            onWheel={(e) => e.preventDefault()}
+            onTouchMove={(e) => e.preventDefault()}
+          />
           <div className={`panel${dragging ? ' dragging' : ''}`} ref={panelEl} style={panelStyle}>
             {!mobile &&
               RESIZE_DIRS.map((dir) => (
