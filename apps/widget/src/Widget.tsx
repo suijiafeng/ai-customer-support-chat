@@ -53,6 +53,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
   const taEl = useRef<HTMLTextAreaElement | null>(null);
   const fileEl = useRef<HTMLInputElement | null>(null);
   const composerAreaRef = useRef<HTMLDivElement | null>(null);
+  const backdropRef = useRef<HTMLButtonElement>(null);
 
   const {
     mobile,
@@ -94,6 +95,22 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     const prev = document.body.style.overflow;
     if (open) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // backdrop 上的 wheel/touchmove 必须用原生非被动监听器才能 preventDefault；
+  // React 合成事件的 onWheel/onTouchMove 在 Chrome 中默认被标记为 passive，调用
+  // preventDefault() 无效并触发控制台警告。
+  useEffect(() => {
+    if (!open) return;
+    const el = backdropRef.current;
+    if (!el) return;
+    const noScroll = (e: Event) => e.preventDefault();
+    el.addEventListener('wheel', noScroll, { passive: false });
+    el.addEventListener('touchmove', noScroll, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', noScroll);
+      el.removeEventListener('touchmove', noScroll);
+    };
   }, [open]);
 
   // 点击 composer 区域外时关闭表情/快捷提问弹层
@@ -246,12 +263,11 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
       {open && (
         <>
           <button
+            ref={backdropRef}
             className="backdrop"
             type="button"
             aria-label="关闭聊天窗口"
             onClick={toggle}
-            onWheel={(e) => e.preventDefault()}
-            onTouchMove={(e) => e.preventDefault()}
           />
           <div className={`panel${dragging ? ' dragging' : ''}`} ref={panelEl} style={panelStyle}>
             {!mobile &&

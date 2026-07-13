@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build --workspace @assistflow/shared && npm run build --workspace assistflow-workstation",
+  "outputDirectory": "apps/workstation/dist",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.suijf.site/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
