@@ -58,7 +58,10 @@ export default defineConfig(({ command }) => ({
     : {
         sourcemap: true,
       },
-  esbuild: command === 'build' ? { legalComments: 'none' } : undefined,
+  // 生产包剔除调试输出（含依赖里的），保留 warn/error 便于线上排障；dev 不受影响
+  esbuild: command === 'build'
+    ? { legalComments: 'none', pure: ['console.log', 'console.debug', 'console.info'], drop: ['debugger'] }
+    : undefined,
   // widget 以 IIFE 嵌入第三方站点，构建时打入生产版 React；dev 预览不替换
   define: command === 'build' ? { 'process.env.NODE_ENV': JSON.stringify('production') } : {},
   server: {

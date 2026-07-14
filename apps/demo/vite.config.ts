@@ -13,11 +13,15 @@ const proxy = {
   '/workstation': { target: backend, changeOrigin: true },
 };
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
   build: {
     outDir: 'dist',
   },
+  // 生产包剔除调试输出（含依赖里的），保留 warn/error 便于线上排障；dev 不受影响
+  esbuild: command === 'build'
+    ? { pure: ['console.log', 'console.debug', 'console.info'], drop: ['debugger'] }
+    : undefined,
   server: {
     port: 5175,
     proxy,
@@ -26,4 +30,4 @@ export default defineConfig({
     port: 5175,
     proxy,
   },
-});
+}));
