@@ -7,7 +7,7 @@ import Icon from '../ui/Icon.js';
 const MAX_DAYS = 14;
 const CHART_H = 168; // 三张图统一高度：压缩概览区，给下方跟进事项留出空间
 
-/** 数据概览区块（运营中心上半部）：ECharts 可视化（柱状图 / 饼图 / 折线图），进入时拉取，每 15 秒自动刷新。 */
+/** 数据概览区块（页面上半部）：ECharts 可视化（柱状图 / 饼图 / 折线图），进入时拉取，每 15 秒自动刷新。 */
 export default function MetricsPanel() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   // 每日趋势改由后端按天落库、聚合返回（团队级、跨端一致）

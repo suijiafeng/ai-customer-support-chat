@@ -99,8 +99,12 @@ export default `
   background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: border-color .2s, box-shadow .2s; }
 .composer:focus-within { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.12); }
 textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 120px; resize: none;
-  border: 0; border-radius: 12px; padding: 10px 12px 4px; font-size: 16px; line-height: 1.5;
+  border: 0; border-radius: 12px; padding: 10px 12px 4px; font-size: 14px; line-height: 1.5;
   outline: none; font-family: inherit; background: transparent; }
+/* 移动端输入框 16px：避免 iOS Safari 聚焦时自动缩放页面 */
+@media (max-width: 640px) {
+  textarea { font-size: 16px; }
+}
 .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 8px; }
 .send { border: none; background: #2457c5; color: #fff; border-radius: 12px;
   min-width: 68px; height: 32px; padding: 0 16px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }

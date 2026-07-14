@@ -7,6 +7,7 @@ import { useHistoryBack } from '../hooks/useHistoryBack.js';
 interface AgentMenuProps {
   agent: AgentIdentity;
   sessions: SessionSummary[];
+  connected: boolean;
   onLogout: () => void;
 }
 
@@ -18,7 +19,7 @@ function avatarColor(id: string): string {
 }
 
 /** 右上角客服入口：触发器只显示头像+名称，点击下拉展开个人详情与操作。 */
-export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps) {
+export default function AgentMenu({ agent, sessions, connected, onLogout }: AgentMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapEl = useRef<HTMLDivElement | null>(null);
   const close = useHistoryBack(open, () => setOpen(false));
@@ -81,7 +82,15 @@ export default function AgentMenu({ agent, sessions, onLogout }: AgentMenuProps)
                 {agent.name}
                 {agent.role === 'admin' && <span className="role-badge">管理员</span>}
               </strong>
-              <span>工号 {agent.id} · <span className="online"><i aria-hidden="true" />在线</span></span>
+              <span>
+                工号 {agent.id} ·{' '}
+                <span className="online">
+                  <span className={`queue-conn${connected ? ' connected' : ''}`} title={connected ? '实时推送已连接' : '轮询模式（2s）'}>
+                    {connected ? '●' : '○'}
+                  </span>
+                  {connected ? '在线' : '离线'}
+                </span>
+              </span>
               <span>
                 登录于 {loginAt
                   ? `${new Date(loginAt).toLocaleDateString('zh-CN')} ${fmtTime(loginAt)}`

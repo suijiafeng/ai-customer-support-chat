@@ -25,7 +25,7 @@ button { font-family: inherit; }
 .topbar { height: 56px; background: var(--bar-bg); color: #fff; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--side-border); }
 /* 品牌名：可点击回到会话接待，外观与普通文本一致 */
 .brand { font-weight: 600; background: transparent; border: 0; padding: 0; color: #fff;
-  font-size: inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  font-size: 18px; font-family: inherit; cursor: pointer; white-space: nowrap; }
 .brand:hover { opacity: .85; }
 .me { font-size: 14px; opacity: .9; }
 .topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -38,28 +38,21 @@ button { font-family: inherit; }
 .queue-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--side-border); }
 .queue-scroll { flex: 1; overflow-y: auto; }
 .count-badge { background: rgba(255,255,255,.14); color: var(--side-text); font-size: 12px; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
-.sess { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px 12px 12px; cursor: pointer; border-bottom: 1px solid var(--side-border); border-left: 3px solid transparent; min-height: 44px; transition: background .12s, opacity .12s; }
+.sess { display: flex; align-items: flex-start; padding: 12px 14px; cursor: pointer; border-bottom: 1px solid var(--side-border); border-left: 3px solid transparent; min-height: 44px; transition: background .12s, opacity .12s; }
 .sess:hover { background: var(--side-hover); }
 .sess.active { background: var(--side-active); border-left-color: var(--accent); }
 .sess.done { opacity: .55; }
 .sess.done:hover, .sess.done.active { opacity: 1; }
+.sess.unread .name { color: #fff; font-weight: 600; }
+.sess.unread .last { opacity: 1; color: var(--side-text); }
+.unread-count { font-size: 12px; color: #fff; background-color: #4ade80; border-radius: 12px; width: 25px; text-align: center; }
 .sess-main { flex: 1; min-width: 0; }
-/* 状态色点：扫一眼即可分辨会话状态，替代文字徽章 */
-.sess-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
-.sess-dot.st-wait { background: #ef4444; animation: dot-pulse 1.6s ease-in-out infinite; }
-.sess-dot.st-bot { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
-.sess-dot.st-live { background: #4ade80; }
-.sess-dot.st-done { background: var(--side-muted); opacity: .6; }
-@keyframes dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45); }
-  50% { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
-}
-@media (prefers-reduced-motion: reduce) { .sess-dot.st-wait { animation: none; } }
 .sess-top { display: flex; align-items: center; gap: 6px; }
 .name { flex: 1; font-weight: 500; font-size: 14px; color: var(--side-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prio-tag { flex-shrink: 0; font-size: 12px; font-weight: 700; line-height: 1; color: #fff; background: #dc2626; border-radius: 4px; padding: 2px 4px; }
 .mood-tag { flex-shrink: 0; font-size: 12px; line-height: 1; color: #fcd34d; cursor: default; }
-.last { color: var(--side-muted); font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .85; }
+.last { display: flex; align-items: center; gap: 8px; color: var(--side-muted); font-size: 12px; margin-top: 4px; opacity: .85; }
+.last-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 接待大厅会话：发送即接待的提示条 */
 .claim-hint-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px;
   color: #b8860b; background: #fffbeb; border-top: 1px solid #fde68a; }
@@ -170,7 +163,7 @@ button { font-family: inherit; }
   box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: border-color .2s, box-shadow .2s; }
 .composer:focus-within { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.1); }
 .composer textarea { width: 100%; min-height: 58px; padding: 10px 12px 4px; border: 0; outline: none; resize: none;
-  font-size: 16px; line-height: 1.5; font-family: inherit; display: block; background: transparent; }
+  font-size: 14px; line-height: 1.5; font-family: inherit; display: block; background: transparent; }
 .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 8px; }
 .tools { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .tool { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent;
@@ -291,7 +284,7 @@ button.loading::before {
 .login-brand { font-size: 16px; font-weight: 700; color: #0f172a; }
 .login-tip { margin: 0; color: #64748b; font-size: 14px; }
 .login-card label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #334155; }
-.login-card input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 16px; outline: none; }
+.login-card input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; outline: none; }
 .login-card input:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.14); }
 .login-error { color: #dc2626; font-size: 14px; }
 .login-card button { background: #2457c5; border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px; }
@@ -425,10 +418,10 @@ button.loading::before {
 
 /* ---- 队列筛选与搜索 ---- */
 .waiting-badge { margin-left: auto; background: rgba(36,87,197,.28); color: #a0cfff; font-size: 12px; font-weight: 600; border-radius: 12px; padding: 2px 8px; }
-.queue-search { height:40px;flex: 1; border: 1px solid var(--side-border); border-radius: 8px; font-size: 16px; padding: 4px 8px; outline: none; background: rgba(0,0,0,.2); color: var(--side-text); min-width: 0; }
+.queue-search { height:40px;flex: 1; border: 1px solid var(--side-border); border-radius: 8px; font-size: 14px; padding: 4px 8px; outline: none; background: rgba(0,0,0,.2); color: var(--side-text); min-width: 0; }
 .queue-search::placeholder { color: var(--side-muted); }
 .queue-search:focus { border-color: var(--accent); }
-.queue-conn { flex-shrink: 0; font-size: 12px; color: var(--side-muted); cursor: default; }
+.queue-conn { flex-shrink: 0; font-size: 8px; color: var(--side-muted); cursor: default; }
 .queue-conn.connected { color: #4ade80; }
 .queue .empty { color: var(--side-muted); }
 
@@ -453,7 +446,7 @@ button.loading::before {
 .queue-pool .q-section-head { background: #1b2d50; }
 .queue-pool .q-section-head:hover { background: #1f3860; }
 
-.q-caret { font-size: 12px; color: var(--side-muted); transition: transform .15s ease; flex-shrink: 0; }
+.q-caret { font-size: 24px; color: var(--side-muted); transition: transform .15s ease; flex-shrink: 0; }
 .q-caret.open { transform: rotate(90deg); }
 .q-section-title { flex: none; }
 
@@ -468,8 +461,9 @@ button.loading::before {
 .q-filter-row button.active { background: rgba(255,255,255,.14); color: var(--side-text); font-weight: 600; }
 /* 计数一律纯数字，无背景无圆角：待接待=中性，待回复=红字 */
 .q-num { font-size: 12px; font-weight: 600; color: var(--side-muted); font-variant-numeric: tabular-nums; }
-.q-num.warn { color: #ef4444; }
 .q-tab-num { font-size: 12px; font-weight: 700; color: #ef4444; font-variant-numeric: tabular-nums; }
+/* 分类内有未读会话：tab 名旁亮绿点，直到该分类全部查看 */
+.q-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
 
 /* 手风琴收起/展开动画：grid 行高 0fr↔1fr 过渡，无需 JS 测量内容高度 */
 .q-collapse { display: grid; grid-template-rows: 0fr; visibility: hidden;
@@ -508,10 +502,10 @@ button.loading::before {
 .resolve-btn { width: 100%; background: #16a34a; border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 4px; }
 .resolve-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
 
-/* ---- 通用面板页（运营中心等）---- */
+/* ---- 通用面板页（数据概览等）---- */
 .panel-page { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 18px 22px; background: #f8fafc; }
 .panel-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
-/* 运营中心内的功能区块（数据概览 / 跟进事项） */
+/* 数据概览内的功能区块（数据看板 / 跟进事项） */
 .panel-block { display: flex; flex-direction: column; }
 .panel-block + .panel-block { margin-top: 18px; }
 .block-title { font-size: 16px; font-weight: 600; color: #0f172a; margin: 0; }
@@ -560,16 +554,16 @@ button.loading::before {
 .note-meta b { color: #334155; }
 .note-text { font-size: 14px; color: #0f172a; white-space: pre-wrap; word-break: break-word; }
 .note-compose { display: flex; flex-direction: column; gap: 8px; }
-.note-compose textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 16px; resize: vertical; outline: none; }
+.note-compose textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 14px; resize: vertical; outline: none; }
 .note-compose textarea:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.1); }
 .claim-like-btn { align-self: flex-end; min-width: 92px; height: 34px; padding: 0 16px; border: 0; border-radius: 8px; background: #2457c5; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; }
 .key-form { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.key-form input { flex: 1; min-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 16px; outline: none; }
+.key-form input { flex: 1; min-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; outline: none; }
 .key-form input:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.14); }
 .key-form .claim-like-btn { align-self: auto; }
 /* 租户搜索 / 分页 / 新建弹窗表单 */
 .tenant-search { width: 240px; max-width: 100%; border: 1px solid #cbd5e1; border-radius: 8px;
-  padding: 8px 12px; font-size: 16px; outline: none; font-family: inherit; }
+  padding: 8px 12px; font-size: 14px; outline: none; font-family: inherit; }
 .tenant-search:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.14); }
 .pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
 .pager-info { font-size: 12px; color: #64748b; }
@@ -583,9 +577,14 @@ button.loading::before {
 .field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 6px; }
 .field .req { color: #dc2626; font-style: normal; }
 .field input, .field textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px;
-  padding: 10px 12px; font-size: 16px; outline: none; font-family: inherit; resize: vertical; }
+  padding: 10px 12px; font-size: 14px; outline: none; font-family: inherit; resize: vertical; }
 .field input:focus, .field textarea:focus { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.14); }
 .field-hint { margin: 0 0 14px; font-size: 12px; color: #94a3b8; }
+/* 移动端输入框统一 16px：避免 iOS Safari 聚焦时自动缩放页面 */
+@media (max-width: 640px) {
+  .login-card input, .queue-search, .note-compose textarea, .key-form input,
+  .composer textarea, .tenant-search, .field input, .field textarea { font-size: 16px; }
+}
 /* i 信息图标：悬停/聚焦显示气泡提示 */
 .info-tip { position: relative; display: inline-flex; align-items: center; justify-content: center;
   width: 14px; height: 14px; margin-left: 6px; border-radius: 50%; border: 1px solid #94a3b8;

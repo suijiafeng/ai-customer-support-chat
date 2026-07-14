@@ -32,7 +32,7 @@ type View = 'sessions' | 'ops' | 'tenants';
 type ViewDef = { key: View; label: string; icon: 'inbox' | 'bar-chart' | 'building' };
 const VIEWS: ViewDef[] = [
   { key: 'sessions', label: '会话接待', icon: 'inbox' },
-  { key: 'ops', label: '运营中心', icon: 'bar-chart' },
+  { key: 'ops', label: '数据概览', icon: 'bar-chart' },
 ];
 
 function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () => void }) {
@@ -88,7 +88,7 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
           ))}
         </nav>
         <div className="menu-wraper">
-          <AgentMenu agent={agent} sessions={sessions} onLogout={onLogout} />
+          <AgentMenu agent={agent} sessions={sessions} connected={connected} onLogout={onLogout} />
         </div>
       </header>
       <div className="body">
@@ -99,7 +99,6 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
           open={queueOpen}
           agent={agent}
           ready={queueReady}
-          connected={connected}
         />
         {queueOpen && <div className="queue-overlay" onClick={closeQueue} aria-hidden="true" />}
         {view === 'sessions' && <ChatPanel session={activeSession} agent={agent} />}
