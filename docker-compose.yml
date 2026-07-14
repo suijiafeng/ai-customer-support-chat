@@ -37,9 +37,11 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-}
       DB_DRIVER: ${DB_DRIVER:-}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-assistflow}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assistflow}?sslmode=disable}
-      # 拆分部署下 demo 已由独立容器（:8080）提供，server 内置的 demo 站默认关闭；
-      # 需要 server 根路径也提供 demo 时设 DEMO_ENABLED=true
+      # 拆分部署下 demo/widget/workstation 已由独立容器（:8080/:8082/:8081）提供，
+      # server 内置的三个静态站点默认关闭，只保留 API；需要时在 .env 里单独设回 true
       DEMO_ENABLED: ${DEMO_ENABLED:-false}
+      WIDGET_ENABLED: ${WIDGET_ENABLED:-false}
+      WORKSTATION_ENABLED: ${WORKSTATION_ENABLED:-false}
       NODE_ENV: production
     volumes:
       - server_data:/data

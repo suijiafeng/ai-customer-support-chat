@@ -27,8 +27,12 @@ export const appConfig = {
   port: Number(process.env.PORT || 3001),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   aiFeatureEnabled: parseBooleanEnv(process.env.AI_ENABLED, false),
-  // 演示站开关：默认对外提供根路径的 demo 站；生产只想暴露 API/工作台/widget 时设 false
+  // 静态站点开关（默认全开）：按需关闭后对应路径返回 404，API 不受影响。
+  // demo=根路径演示站，widget=/widget 嵌入脚本，workstation=/workstation 客服工作台。
+  // 拆分部署（前端走 CDN/独立容器）时通常全关，server 只保留 API。
   demoEnabled: parseBooleanEnv(process.env.DEMO_ENABLED, true),
+  widgetEnabled: parseBooleanEnv(process.env.WIDGET_ENABLED, true),
+  workstationEnabled: parseBooleanEnv(process.env.WORKSTATION_ENABLED, true),
   aiProvider: process.env.AI_PROVIDER || 'openai',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4o',
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',

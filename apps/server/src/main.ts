@@ -40,22 +40,27 @@ async function bootstrap() {
     next();
   });
 
-  app.use(
-    '/widget',
-    express.static(appConfig.staticDirs.widget, {
-      setHeaders(res, filePath) {
-        if (filePath.endsWith('.js')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-      },
-    })
-  );
-  app.use(
-    '/workstation',
-    express.static(appConfig.staticDirs.workstation, {
-      setHeaders(res, filePath) {
-        if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-      },
-    })
-  );
+  // 三个内置静态站点均可用环境变量单独关闭（见 config.ts），关闭后对应路径 404
+  if (appConfig.widgetEnabled) {
+    app.use(
+      '/widget',
+      express.static(appConfig.staticDirs.widget, {
+        setHeaders(res, filePath) {
+          if (filePath.endsWith('.js')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        },
+      })
+    );
+  }
+  if (appConfig.workstationEnabled) {
+    app.use(
+      '/workstation',
+      express.static(appConfig.staticDirs.workstation, {
+        setHeaders(res, filePath) {
+          if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        },
+      })
+    );
+  }
 
   // 演示站：DEMO_ENABLED=false 时不挂载（对外只暴露 API/widget/工作台，根路径 404）
   const demoIndex = path.join(appConfig.staticDirs.demo, 'index.html');
