@@ -1,8 +1,8 @@
 export default `
 .quick-pop { position: absolute; bottom: 104px; left: 10px; max-width: min(360px, calc(100% - 20px));
-  background: #fff; border: 1px solid #e8edf4; border-radius: 10px; box-shadow: 0 12px 32px rgba(15,23,42,.14);
+  background: #fff; border: 1px solid #e8edf4; border-radius: 12px; box-shadow: 0 12px 32px rgba(15,23,42,.14);
   padding: 6px; display: flex; flex-direction: column; z-index: 6; }
-.quick-pop button { background: none; border: none; border-radius: 7px; color: #334155; cursor: pointer;
+.quick-pop button { background: none; border: none; border-radius: 8px; color: #334155; cursor: pointer;
   font-size: 14px; padding: 8px 10px; text-align: left; font-family: inherit; }
 .quick-pop button:hover { background: #f1f5f9; }
 
@@ -20,7 +20,7 @@ export default `
 .fab.dragging:hover, .fab.dragging:active { transform: none; }
 .fab { position: relative; }
 .fab-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 6px;
-  border-radius: 9px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 700; line-height: 18px;
+  border-radius: 12px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 700; line-height: 18px;
   text-align: center; box-shadow: 0 0 0 2px #fff; }
 /* 访客消息发送状态 / 失败重试 */
 .msg-status { font-size: 12px; color: #aab2c0; margin: 4px 4px 0; text-align: right; }
@@ -55,7 +55,7 @@ export default `
 .panel.dragging { box-shadow: 0 24px 60px rgba(15,23,42,.32); }
 .head .title { display: flex; gap: 16px; }
 .head .sub { font-size: 12px; font-weight: 400; opacity: .85; display: flex; align-items: center; gap: 6px; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: #9bdc8a; display: inline-block; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #9bdc8a; display: inline-block; }
 .dot.off { background: #f0c36d; }
 .x { background: transparent; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;
   width: 30px; height: 30px; border-radius: 8px; transition: background .15s; }
@@ -102,7 +102,7 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
   border: 0; border-radius: 12px; padding: 10px 12px 4px; font-size: 16px; line-height: 1.5;
   outline: none; font-family: inherit; background: transparent; }
 .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 8px; }
-.send { border: none; background: #2457c5; color: #fff; border-radius: 9px;
+.send { border: none; background: #2457c5; color: #fff; border-radius: 12px;
   min-width: 68px; height: 32px; padding: 0 16px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }
 .send:hover:not(:disabled) { opacity: .92; }
 .send:active:not(:disabled) { transform: scale(.97); }
@@ -124,11 +124,11 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 .md-pre code { background: none; padding: 0; font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.imgs img { max-width: 140px; max-height: 140px; border-radius: 10px; cursor: pointer; display: block; }
+.imgs img { max-width: 140px; max-height: 140px; border-radius: 12px; cursor: pointer; display: block; }
 .image-link { padding: 0; border: 0; background: transparent; cursor: pointer; }
 .toolbar { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .tool { background: transparent; border: none; font-size: 18px; cursor: pointer; line-height: 1;
-  width: 30px; height: 30px; padding: 0; border-radius: 7px; transition: background .15s;
+  width: 30px; height: 30px; padding: 0; border-radius: 8px; transition: background .15s;
   display: flex; align-items: center; justify-content: center; }
 .tool:hover, .tool.active { background: #eef2fb; }
 .key-hint { margin-left: 4px; color: #9aa3b2; font-size: 12px; white-space: nowrap; }
@@ -154,7 +154,7 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 .ep-grid { display: grid; grid-template-columns: repeat(8, 1fr); padding: 6px; gap: 2px;
   max-height: 220px; overflow-y: auto; }
 .ep-btn { background: none; border: none; cursor: pointer; font-size: 20px; padding: 4px;
-  border-radius: 6px; line-height: 1; transition: background .1s; text-align: center; }
+  border-radius: 8px; line-height: 1; transition: background .1s; text-align: center; }
 .ep-btn:hover { background: #f0f4ff; }
 
 /* 窄屏（≤600px）：略收窄面板，留出边距 */
@@ -172,5 +172,5 @@ textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 12
 .afw.mobile .emoji-pop { bottom: 96px; }
 .afw.mobile .key-hint { display: none; }
 .afw.mobile .tool { width: 36px; height: 36px; }
-.afw.mobile .quick-pop { left: 0; right: 0; max-width: 100%; border-radius: 10px 10px 0 0; bottom: 100px; }
+.afw.mobile .quick-pop { left: 0; right: 0; max-width: 100%; border-radius: 12px 12px 0 0; bottom: 100px; }
 `;
