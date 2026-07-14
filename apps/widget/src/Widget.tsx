@@ -89,18 +89,21 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     onOpen: () => setShowQuick(false),
   });
 
-  // 面板打开时锁住宿主页面滚动，防止穿透
+  // 防滚动穿透只在移动端做（全屏面板 + backdrop + body 锁）：
+  // 桌面端面板是右下角浮窗，不遮罩、不锁滚动，宿主页面保持完全可用；
+  // 聊天列表自身的 overscroll-behavior: contain 已阻止滚动链传给宿主。
   useEffect(() => {
+    if (!(open && mobile)) return;
     const prev = document.body.style.overflow;
-    if (open) document.body.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
-  }, [open]);
+  }, [open, mobile]);
 
   // backdrop 上的 wheel/touchmove 必须用原生非被动监听器才能 preventDefault；
   // React 合成事件的 onWheel/onTouchMove 在 Chrome 中默认被标记为 passive，调用
   // preventDefault() 无效并触发控制台警告。
   useEffect(() => {
-    if (!open) return;
+    if (!(open && mobile)) return;
     const el = backdropRef.current;
     if (!el) return;
     const noScroll = (e: Event) => e.preventDefault();
@@ -110,7 +113,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
       el.removeEventListener('wheel', noScroll);
       el.removeEventListener('touchmove', noScroll);
     };
-  }, [open]);
+  }, [open, mobile]);
 
   // 点击 composer 区域外时关闭表情/快捷提问弹层
   // widget 运行在 Shadow DOM 中，e.target 在 shadow 边界外会被重定向；
@@ -261,13 +264,15 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     <div className={`afw${mobile ? ' mobile' : narrow ? ' narrow' : ''}`}>
       {open && (
         <>
-          <button
-            ref={backdropRef}
-            className="backdrop"
-            type="button"
-            aria-label="关闭聊天窗口"
-            onClick={toggle}
-          />
+          {mobile && (
+            <button
+              ref={backdropRef}
+              className="backdrop"
+              type="button"
+              aria-label="关闭聊天窗口"
+              onClick={toggle}
+            />
+          )}
           <div className={`panel${dragging ? ' dragging' : ''}`} ref={panelEl} style={panelStyle}>
             {!mobile &&
               RESIZE_DIRS.map((dir) => (
@@ -289,8 +294,8 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
             >
               <span className="title">
                 {displayTitle}
-               {!mobile&&<span className="sub">
-                  <span className={`dot ${connection === 'synced' ? '' : 'off'}`} />
+               {!mobile&&<span className={`sub ${connection === 'synced' ? 'ok' : 'busy'}`}>
+                  <span className="dot" />
                   {connection === 'synced' ? '消息已同步' : '正在同步'}
                 </span>}
               </span>

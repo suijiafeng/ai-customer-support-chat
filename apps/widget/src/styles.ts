@@ -31,8 +31,8 @@ export default `
   background: rgba(15,23,42,.34); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
   animation: afw-fade .18s ease-out; touch-action: none; }
 @keyframes afw-fade { from { opacity: 0; } to { opacity: 1; } }
-/* 面板：与悬浮球分离，固定在视口居中（inset+margin auto 居中，避免与弹出动画 transform 冲突） */
-.panel { position: fixed; inset: 0; margin: auto;
+/* 面板：桌面端为右下角浮窗（无遮罩，宿主页面保持可用；移动端全屏见 .afw.mobile 覆盖） */
+.panel { position: fixed; inset: auto 20px 24px auto; margin: 0;
   width: min(480px, calc(100vw - 40px)); height: min(720px, calc(100vh - 100px));
   background: #fff; border-radius: 16px; box-shadow: 0 28px 80px rgba(15,23,42,.38);
   display: flex; flex-direction: column; overflow: hidden; z-index: 2147483002;
@@ -54,9 +54,11 @@ export default `
 .panel.dragging .head { cursor: grabbing; }
 .panel.dragging { box-shadow: 0 24px 60px rgba(15,23,42,.32); }
 .head .title { display: flex; gap: 16px; }
-.head .sub { font-size: 12px; font-weight: 400; opacity: .85; display: flex; align-items: center; gap: 6px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; display: inline-block; }
-.dot.off { background: #fcd34d; }
+/* 同步状态：文字与圆点同色，已同步=浅绿，同步中=浅黄（蓝色头部上的可读浅色） */
+.head .sub { font-size: 12px; font-weight: 400; display: flex; align-items: center; gap: 6px; }
+.head .sub.ok { color: #86efac; }
+.head .sub.busy { color: #fde68a; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
 .x { background: transparent; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;
   width: 30px; height: 30px; border-radius: 8px; transition: background .15s; }
 .x:hover { background: rgba(255,255,255,.18); }

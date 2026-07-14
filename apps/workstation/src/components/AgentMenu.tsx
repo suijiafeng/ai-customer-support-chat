@@ -84,10 +84,11 @@ export default function AgentMenu({ agent, sessions, connected, onLogout }: Agen
               </strong>
               <span>
                 工号 {agent.id} ·{' '}
-                <span className="online">
-                  <span className={`queue-conn${connected ? ' connected' : ''}`} title={connected ? '实时推送已连接' : '轮询模式（2s）'}>
-                    {connected ? '●' : '○'}
-                  </span>
+                <span
+                  className={`online${connected ? '' : ' off'}`}
+                  title={connected ? '实时推送已连接' : '实时通道断开，已降级为轮询（2s）'}
+                >
+                  <i aria-hidden="true" />
                   {connected ? '在线' : '离线'}
                 </span>
               </span>

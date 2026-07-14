@@ -175,8 +175,11 @@ button { font-family: inherit; }
 .send-btn:disabled { background: #a0cfff; cursor: not-allowed; }
 .send-btn.loading { opacity: .7; cursor: default; }
 
-/* 连接状态指示（聊天头部） */
+/* 连接状态指示（聊天头部）：已同步=绿，同步中=琥珀，重连中=红 */
 .conn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
+.conn-synced { color: #16a34a; }
+.conn-syncing { color: #d97706; }
+.conn-reconnecting { color: #dc2626; }
 /* 加载失败/重试块 */
 .state-block { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 12px; color: #94a3b8; font-size: 14px; background: #f1f3f6; }
@@ -270,8 +273,10 @@ button.loading::before {
 .agent-card { display: flex; gap: 12px; align-items: center; padding: 16px 16px 12px; }
 .agent-card-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #64748b; }
 .agent-card-info strong { font-size: 14px; color: #0f172a; }
+/* 在线状态：圆点跟随文字颜色；SSE 断开降级轮询时置灰 */
 .online { display: inline-flex; align-items: center; gap: 6px; color: #16a34a; }
-.online i { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; }
+.online i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.online.off { color: #94a3b8; }
 .agent-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
 .agent-stats div { display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
 .agent-stats b { font-size: 16px; color: #0f172a; }
@@ -385,8 +390,6 @@ button.loading::before {
 .queue-search { height:40px;flex: 1; border: 1px solid var(--side-border); border-radius: 8px; font-size: 14px; padding: 4px 8px; outline: none; background: rgba(0,0,0,.2); color: var(--side-text); min-width: 0; }
 .queue-search::placeholder { color: var(--side-muted); }
 .queue-search:focus { border-color: var(--accent); }
-.queue-conn { flex-shrink: 0; font-size: 8px; color: var(--side-muted); cursor: default; }
-.queue-conn.connected { color: #4ade80; }
 .queue .empty { color: var(--side-muted); }
 
 /* ---- 公共池 / 会话列表 手风琴分区 ---- */
