@@ -27,6 +27,8 @@ export const appConfig = {
   port: Number(process.env.PORT || 3001),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   aiFeatureEnabled: parseBooleanEnv(process.env.AI_ENABLED, false),
+  // 演示站开关：默认对外提供根路径的 demo 站；生产只想暴露 API/工作台/widget 时设 false
+  demoEnabled: parseBooleanEnv(process.env.DEMO_ENABLED, true),
   aiProvider: process.env.AI_PROVIDER || 'openai',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4o',
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',

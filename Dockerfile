@@ -32,6 +32,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+# 演示站开关：镜像内置 demo 站并默认挂在根路径；生产只想暴露 API/工作台/widget 时
+# 运行时用 -e DEMO_ENABLED=false 关闭（无需重新构建镜像）
+ENV DEMO_ENABLED=true
 
 COPY package*.json ./
 COPY packages/shared/package.json ./packages/shared/

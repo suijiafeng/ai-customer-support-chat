@@ -10,6 +10,11 @@ const ticketSessionId = `${runId}-ticket`;
 const patchTicketSessionId = `${runId}-patch-ticket`;
 let ticketId = null;
 
+// 访客聊天需要「已注册的 siteKey + 配套 tenantId」：登录后注册一个本次运行专用的密钥，
+// 结束时删除，避免在持久化库里越积越多
+const smokeSiteKey = `${runId}-site`;
+let smokeTenantId = null;
+
 const cases = [
   {
     name: 'agent login',
@@ -22,6 +27,14 @@ const cases = [
     },
     assert: ({ a, b }) => Boolean(agentToken) && Boolean(agentToken2)
       && a.agent?.name === '客服9527' && b.agent?.name === '客服9528',
+  },
+  {
+    name: 'register smoke site key',
+    run: () => post('/api/widget-keys', { key: smokeSiteKey, name: '冒烟测试站点' }),
+    assert: (data) => {
+      smokeTenantId = data.key?.id || null;
+      return data.key?.key === smokeSiteKey && data.key?.active === true && Boolean(smokeTenantId);
+    },
   },
   {
     name: 'login rejects wrong password',
@@ -39,7 +52,7 @@ const cases = [
       const response = await fetch(`${baseUrl}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: `${runId}-stream`, message: '在吗', siteKey: 'demo-site' }),
+        body: JSON.stringify({ sessionId: `${runId}-stream`, message: '在吗', siteKey: smokeSiteKey, tenantId: smokeTenantId }),
       });
       const text = await response.text();
       const block = text.split('\n\n').find((b) => b.includes('event: done'));
@@ -57,7 +70,8 @@ const cases = [
       const payload = {
         sessionId: `${runId}-idem`,
         message: '项目怎么报价？',
-        siteKey: 'demo-site',
+        siteKey: smokeSiteKey,
+        tenantId: smokeTenantId,
         clientMessageId: `${runId}-msg-1`,
       };
       const first = await post('/api/chat', payload);
@@ -83,7 +97,8 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: inquirySessionId,
       message: '帮我查一下项目 P1001',
-      siteKey: 'demo-site',
+      siteKey: smokeSiteKey,
+      tenantId: smokeTenantId,
       visitor: { code: `${runId}-1` },
     }),
     assert: (data) => data.intent === 'inquiry_status'
@@ -99,7 +114,8 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: faqMissSessionId,
       message: '这个体验太差了，我要投诉',
-      siteKey: 'demo-site',
+      siteKey: smokeSiteKey,
+      tenantId: smokeTenantId,
       visitor: { code: `${runId}-complaint` },
     }),
     assert: (data) => data.needHuman === false
@@ -111,7 +127,8 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
       message: '我要转人工',
-      siteKey: 'demo-site',
+      siteKey: smokeSiteKey,
+      tenantId: smokeTenantId,
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => {
@@ -162,7 +179,8 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
       message: '开发者接入后这条不需要 AI 自动回复',
-      siteKey: 'demo-site',
+      siteKey: smokeSiteKey,
+      tenantId: smokeTenantId,
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent === true
@@ -188,7 +206,8 @@ const cases = [
     run: () => post('/api/chat', {
       sessionId: ticketSessionId,
       message: '再帮我查一下项目 P1001',
-      siteKey: 'demo-site',
+      siteKey: smokeSiteKey,
+      tenantId: smokeTenantId,
       visitor: { code: `${runId}-2` },
     }),
     assert: (data) => data.handledByAgent !== true
@@ -209,7 +228,8 @@ const cases = [
       const handoff = await post('/api/chat', {
         sessionId: patchTicketSessionId,
         message: '我要转人工',
-        siteKey: 'demo-site',
+        siteKey: smokeSiteKey,
+      tenantId: smokeTenantId,
         visitor: { code: `${runId}-patch` },
       });
       return patch(`/api/tickets/${handoff.ticket.id}`, { status: 'processing' });
@@ -244,17 +264,19 @@ const cases = [
   {
     name: 'admin can create and use a new widget key; disabling it blocks chat',
     run: async () => {
-      const created = await post('/api/widget-keys', { key: `${runId}-wk`, name: '冒烟测试站点' });
+      const created = await post('/api/widget-keys', { key: `${runId}-wk`, name: '冒烟测试站点2' });
       const chatOk = await post('/api/chat', {
         sessionId: `${runId}-wk-session`,
         message: '你好',
         siteKey: `${runId}-wk`,
+        tenantId: created.key?.id,
       });
       await patch(`/api/widget-keys/${runId}-wk`, { active: false });
       const chatAfterDisable = await post('/api/chat', {
         sessionId: `${runId}-wk-session`,
         message: '还在吗',
         siteKey: `${runId}-wk`,
+        tenantId: created.key?.id,
       });
       return { created, chatOk, chatAfterDisable };
     },
@@ -262,6 +284,14 @@ const cases = [
       && created.key?.active === true
       && Boolean(chatOk.reply || chatOk.session)
       && chatAfterDisable.error === 'invalid_site_key',
+  },
+  {
+    name: 'cleanup smoke widget keys',
+    run: async () => ({
+      site: await del(`/api/widget-keys/${smokeSiteKey}`),
+      wk: await del(`/api/widget-keys/${runId}-wk`),
+    }),
+    assert: ({ site, wk }) => site.ok === true && wk.ok === true,
   },
 ];
 
@@ -302,9 +332,18 @@ function authHeaders({ auth = true, token } = {}) {
   return auth && value ? { Authorization: `Bearer ${value}` } : {};
 }
 
+// 后端统一响应包装（ResponseInterceptor / HttpExceptionFilter）：
+// 成功 {code:0, msg:'ok', data:<载荷>}，失败 {code:<HTTP状态>, msg:<错误标识>, data:<附加字段|null>}。
+// 用例断言保持扁平结构：成功取 data，失败还原为旧格式 {error: msg, ...附加字段}
+function unwrap(json) {
+  if (!json || typeof json !== 'object' || typeof json.code !== 'number') return json;
+  if (json.code === 0) return json.data ?? {};
+  return { error: json.msg, ...(json.data && typeof json.data === 'object' ? json.data : {}) };
+}
+
 async function get(path, options) {
   const response = await fetch(`${baseUrl}${path}`, { headers: authHeaders(options) });
-  return response.json();
+  return unwrap(await response.json());
 }
 
 async function post(path, body, options) {
@@ -314,7 +353,7 @@ async function post(path, body, options) {
     body: JSON.stringify(body),
   });
 
-  return response.json();
+  return unwrap(await response.json());
 }
 
 async function patch(path, body, options) {
@@ -324,5 +363,14 @@ async function patch(path, body, options) {
     body: JSON.stringify(body),
   });
 
-  return response.json();
+  return unwrap(await response.json());
+}
+
+async function del(path, options) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'DELETE',
+    headers: authHeaders(options),
+  });
+
+  return unwrap(await response.json());
 }
