@@ -148,7 +148,7 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
       : Math.max(0, s.messageCount - (seenRef.current[s.sessionId] ?? s.messageCount));
   const isUnread = (s: SessionSummary) => unreadCount(s) > 0;
 
-  const { pool, others, poolTotal, replyCount, tabUnread, unreadTotal } = useMemo(() => {
+  const { pool, others, poolTotal, tabUnread, unreadTotal } = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     const isPool = (s: SessionSummary) => !s.assignedAgentId && s.status !== 'closed';
     const isClosed = (s: SessionSummary) => isDone(s.status);
@@ -190,10 +190,6 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
           (Number(needsHuman(b)) - Number(needsHuman(a))) ||
           byRecent(a, b)
       );
-    // 待回复计数：不受关键字与当前筛选影响，反映真实欠账
-    const replyCount = sessions.filter(
-      (s) => !isPool(s) && !isClosed(s) && isMine(s) && awaitingReply(s)
-    ).length;
     // 各分类是否还有未读会话：tab 上亮绿点，直到该分类内全部查看
     const tabUnread: Record<Filter, boolean> = { reply: false, active: false, all: false, closed: false };
     let unreadTotal = 0;
@@ -207,7 +203,7 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
         else tabUnread.active = true;
       }
     }
-    return { pool, others, poolTotal, replyCount, tabUnread, unreadTotal };
+    return { pool, others, poolTotal, tabUnread, unreadTotal };
   }, [sessions, filter, keyword, agent, activeId]);
 
   const renderItem = (s: SessionSummary) => (
@@ -278,7 +274,6 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
                     onClick={() => setFilter(f.key)}
                   >
                     {f.label}
-                    {f.key === 'reply' && replyCount > 0 && <span className="q-tab-num">({replyCount})</span>}
                     {tabUnread[f.key] && <span className="q-tab-dot" title="该分类有新消息" aria-label="有新消息" />}
                   </button>
                 ))}

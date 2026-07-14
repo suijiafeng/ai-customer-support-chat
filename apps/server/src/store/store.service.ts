@@ -46,18 +46,14 @@ export class StoreService implements OnModuleInit, OnModuleDestroy {
   }
 
   saveSession = (session: Parameters<Store['saveSession']>[0]) => this.store.saveSession(session);
-  deleteSession = (id: string) => this.store.deleteSession(id);
   saveConversation = (id: string, messages: Parameters<Store['saveConversation']>[1]) =>
     this.store.saveConversation(id, messages);
-  deleteConversation = (id: string) => this.store.deleteConversation(id);
   saveTicket = (ticket: Parameters<Store['saveTicket']>[0]) => this.store.saveTicket(ticket);
-  deleteTicket = (id: string) => this.store.deleteTicket(id);
   saveWidgetKey = (key: Parameters<Store['saveWidgetKey']>[0]) => this.store.saveWidgetKey(key);
   deleteWidgetKey = (key: string) => this.store.deleteWidgetKey(key);
 
   loadSession = (id: string) => this.store.getSession(id);
   loadConversation = (id: string) => this.store.getConversation(id);
-  loadTicket = (id: string) => this.store.getTicket(id);
 
   saveDailyMetric = (point: Parameters<Store['saveDailyMetric']>[0]) =>
     this.store.saveDailyMetric(point);

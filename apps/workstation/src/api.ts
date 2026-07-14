@@ -1,13 +1,12 @@
 import type { Message } from '@assistflow/shared';
-import { fmtTime, linkParts } from '@assistflow/shared';
+import { fmtTime } from '@assistflow/shared';
 
 // 后端基地址：默认与工作台同源（留空）；独立部署时通过 VITE_API_BASE 指向 server 域名
 export const API = import.meta.env.VITE_API_BASE || '';
 // SSE 专用基地址：Vercel 等边缘代理会切断长连接，需直连后端；未配置时回退到 API
 export const SSE_BASE = import.meta.env.VITE_SSE_BASE || API;
 
-export { fmtTime, linkParts };
-export type { LinkPart } from '@assistflow/shared';
+export { fmtTime };
 
 export const newId = () => crypto.randomUUID();
 
@@ -101,12 +100,6 @@ export async function login(agentNo: string, password: string): Promise<AgentIde
 export function normalizeMessages(list: Message[] = []): UiMessage[] {
   return list.map((m) => ({ ...m, from: (m as any).from || m.actor || 'system' }));
 }
-
-export const statusTag = (s: string): string =>
-  ({ bot: 'info', waiting_human: 'warning', assigned: 'success', resolved: 'info', closed: 'info' } as Record<string, string>)[s] || 'info';
-
-export const statusText = (s: string): string =>
-  ({ bot: 'AI 回答', waiting_human: '待跟进', assigned: '接待中', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[s] || s;
 
 // ---- 意图代码 → 人话 ----
 // FAQ / 流程意图（与 server data/faqs.json 及 chat.service 的取值对应）

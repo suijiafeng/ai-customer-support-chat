@@ -41,10 +41,6 @@ export class SessionsService implements OnModuleInit {
     return [...this.sessions.values()];
   }
 
-  get sessionCount(): number {
-    return this.sessions.size;
-  }
-
   get messageCount(): number {
     return [...this.conversations.values()].reduce((total, messages) => total + messages.length, 0);
   }

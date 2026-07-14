@@ -89,5 +89,5 @@ export function useSessionMessages(sessionId: string | null) {
     };
   }, [sessionId, loadHistory]);
 
-  return { messages, setMessages, applyServer, status, connection, reload: loadHistory };
+  return { messages, applyServer, status, connection, reload: loadHistory };
 }

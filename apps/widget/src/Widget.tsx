@@ -78,7 +78,6 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
 
   const {
     showEmoji,
-    emojiLoading,
     toggleEmoji,
     handleSelect: handleEmojiSelect,
     close: closeEmoji,

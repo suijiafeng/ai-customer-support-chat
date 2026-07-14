@@ -22,5 +22,5 @@ export function useEmojiPicker({ onInsert, onOpen }: UseEmojiPickerParams) {
 
   const close = useCallback(() => setShowEmoji(false), []);
 
-  return { showEmoji, emojiLoading: false, emojiRef: { current: null }, toggleEmoji, handleSelect, close };
+  return { showEmoji, toggleEmoji, handleSelect, close };
 }
