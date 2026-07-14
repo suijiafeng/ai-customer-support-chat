@@ -183,6 +183,8 @@ export interface TenantStats {
 /** 队列视图里的会话（附带消息数） */
 export interface SessionSummary extends Session {
   messageCount: number;
+  /** 最后一条消息的发送方：user=访客（客服欠回复），assistant=AI/客服（等访客回） */
+  lastMessageRole?: 'user' | 'assistant' | null;
 }
 
 export interface DailyMetricPoint {
