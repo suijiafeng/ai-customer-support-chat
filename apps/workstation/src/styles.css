@@ -11,7 +11,7 @@ html, body, #root { height: 100%; margin: 0; }
   --side-muted: #8097b8;
   --side-border: #243352;
   --side-hover: #1f3050;
-  --side-active: #274069;
+  --side-active: #1b2d50;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #334155; }
 button { font-family: inherit; }
@@ -34,7 +34,7 @@ button { font-family: inherit; }
 .body { flex: 1; display: flex; min-height: 0; position: relative; }
 .queue { width: 300px; background: var(--side-bg); color: var(--side-text); display: flex; flex-direction: column; }
 .queue-overlay { display: none; }
-.queue-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--side-border); }
+.queue-top { display: flex; align-items: center; padding: 4px; }
 .queue-scroll { flex: 1; overflow-y: auto; }
 .sess { display: flex; align-items: flex-start; padding: 12px 14px; cursor: pointer; border-bottom: 1px solid var(--side-border); border-left: 3px solid transparent; min-height: 44px; transition: background .12s, opacity .12s; }
 .sess:hover { background: var(--side-hover); }
@@ -387,7 +387,7 @@ button.loading::before {
 }
 
 /* ---- 队列筛选与搜索 ---- */
-.queue-search { height:40px;flex: 1; border: 1px solid var(--side-border); border-radius: 8px; font-size: 14px; padding: 4px 8px; outline: none; background: rgba(0,0,0,.2); color: var(--side-text); min-width: 0; }
+.queue-search { height:46px;flex: 1; border: 1px solid var(--side-border); border-radius:4px; font-size: 14px; padding: 4px 8px; outline: none; background: rgba(0,0,0,.2); color: var(--side-text); min-width: 0; }
 .queue-search::placeholder { color: var(--side-muted); }
 .queue-search:focus { border-color: var(--accent); }
 .queue .empty { color: var(--side-muted); }
@@ -400,9 +400,9 @@ button.loading::before {
 /* 分区标题行：中等字号，可点击折叠 */
 .q-section-head {
   width: 100%; display: flex; align-items: center; gap: 8px;
-  padding: 12px 14px 10px; border: 0; background: var(--side-bg);
+  padding: 12px 10px; border: 0; background: var(--side-bg);
   /* 字号分层：分区标题 16 > 条目名称 14 > 预览/时间/筛选 12 */
-  color: var(--side-text); font-size: 16px; font-weight: 600;
+  color: var(--side-text); font-size: 14px; font-weight: 600;
   cursor: pointer; font-family: inherit; text-align: left;
   border-bottom: 1px solid var(--side-border);
   transition: background .12s;
@@ -410,12 +410,13 @@ button.loading::before {
 }
 .q-section-head:hover { background: var(--side-hover); }
 /* 吸顶标题必须不透明，否则列表滚动时内容会从标题下透出 */
-.queue-pool .q-section-head { background: #1b2d50; }
+.queue-pool .q-section-head { background: var(--side-active); }
 .queue-pool .q-section-head:hover { background: #1f3860; }
 
-.q-caret { font-size: 24px; color: var(--side-muted); transition: transform .15s ease; flex-shrink: 0; }
+.q-caret { margin-left: auto; font-size: 24px; color: var(--side-muted); transition: transform .15s ease; flex-shrink: 0; }
 .q-caret.open { transform: rotate(90deg); }
 .q-section-title { flex: none; }
+.q-section-head svg { flex-shrink: 0; }
 
 /* 会话列表筛选行（标题下方独立一行）：待回复 / 处理中 / 全部 / 已结束 */
 .q-filter-row { display: flex; gap: 2px; padding: 6px 10px;
@@ -467,6 +468,26 @@ button.loading::before {
 .detail-foot { padding: 12px 14px; border-top: 1px solid #f0f0f0; }
 .resolve-btn { width: 100%; background: #16a34a; border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 4px; }
 .resolve-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+/* ---- 数据管理（顶层视图 + 左侧二级子菜单）---- */
+/* 宽度、配色、行高、内边距均与会话接待的 .queue / .sess 保持一致，视觉上是同一套侧栏风格 */
+.admin-layout { flex: 1; min-width: 0; display: flex; min-height: 0; background: #f8fafc; }
+.admin-sidenav { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--side-bg); border-right: 1px solid var(--side-border); overflow-y: auto; }
+.admin-sidenav button { display: flex; align-items: center; gap: 8px; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--side-border); border-left: 3px solid transparent; color: var(--side-text); cursor: pointer; font-size: 14px; font-weight: 500; padding: 16px 6px; min-height: 44px; transition: background .12s; }
+.admin-sidenav button svg { flex-shrink: 0; }
+.admin-sidenav button:hover { background: var(--side-hover); }
+.admin-sidenav button.active { background: var(--side-active);  color: #fff; font-weight: 600; }
+/* 移动端：数据管理子菜单改为默认收起的抽屉，与 .queue 行为一致 */
+@media (max-width: 640px) {
+  .admin-sidenav {
+    position: absolute; top: 0; left: 0; bottom: 0; z-index: 30;
+    width: 82%; max-width: 320px; border-right: 1px solid var(--side-border);
+    box-shadow: 4px 0 24px rgba(15,23,42,.18);
+    transform: translateX(-100%); transition: transform .22s cubic-bezier(.2,.8,.2,1);
+  }
+  .admin-sidenav.open { transform: translateX(0); }
+  .admin-sidenav button { padding: 14px 16px; }
+}
 
 /* ---- 通用面板页（数据概览等）---- */
 .panel-page { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 18px 22px; background: #f8fafc; }

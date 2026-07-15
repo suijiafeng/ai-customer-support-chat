@@ -8,6 +8,8 @@ import Login from './components/Login.js';
 import AgentMenu from './components/AgentMenu.js';
 import OperationsPanel from './components/OperationsPanel.js';
 import TenantsPanel from './components/TenantsPanel.js';
+import ModelsPanel from './components/ModelsPanel.js';
+import UsersPanel from './components/UsersPanel.js';
 import { FeedbackHost } from './ui/feedback.js';
 import Icon from './ui/Icon.js';
 
@@ -27,12 +29,23 @@ export default function App() {
   );
 }
 
-type View = 'sessions' | 'ops' | 'tenants';
+type View = 'sessions' | 'system';
 
-type ViewDef = { key: View; label: string; icon: 'inbox' | 'bar-chart' | 'building' };
+type ViewDef = { key: View; label: string; icon: 'inbox' | 'building' };
 const VIEWS: ViewDef[] = [
   { key: 'sessions', label: '会话接待', icon: 'inbox' },
+  { key: 'system', label: '数据管理', icon: 'building' },
+];
+
+// 数据管理下的二级子菜单；数据概览人人可见，其余管理类功能仅 admin 可见。
+// 后续新增管理功能（比如工单规则、公告管理）直接加进这个数组即可
+type SystemSubView = 'ops' | 'tenants' | 'models' | 'users';
+type SystemSubViewDef = { key: SystemSubView; label: string; icon: 'bar-chart' | 'building' | 'zap' | 'user'; adminOnly?: boolean };
+const SYSTEM_SUB_VIEWS: SystemSubViewDef[] = [
   { key: 'ops', label: '数据概览', icon: 'bar-chart' },
+  { key: 'tenants', label: '租户管理', icon: 'building', adminOnly: true },
+  { key: 'models', label: '模型管理', icon: 'zap', adminOnly: true },
+  { key: 'users', label: '用户管理', icon: 'user', adminOnly: true },
 ];
 
 function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () => void }) {
@@ -41,11 +54,13 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
   const [queueOpen, setQueueOpen] = useState(false);
   const closeQueue = useHistoryBack(queueOpen, () => setQueueOpen(false));
   const [view, setView] = useState<View>('sessions');
-  // 租户管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
-  const views = useMemo<ViewDef[]>(
-    () => agent.role === 'admin'
-      ? [...VIEWS, { key: 'tenants' as const, label: '租户管理', icon: 'building' as const }]
-      : VIEWS,
+  const [systemSubView, setSystemSubView] = useState<SystemSubView>('ops');
+  // 移动端"数据管理"子菜单参照会话队列做成默认收起的抽屉
+  const [systemMenuOpen, setSystemMenuOpen] = useState(false);
+  const closeSystemMenu = useHistoryBack(systemMenuOpen, () => setSystemMenuOpen(false));
+  // 租户/模型/用户管理仅 admin 可见；后端本身也会拒绝非 admin 请求，这里是双重保险
+  const systemSubViews = useMemo(
+    () => SYSTEM_SUB_VIEWS.filter((sv) => !sv.adminOnly || agent.role === 'admin'),
     [agent.role],
   );
 
@@ -64,18 +79,28 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
     <div className="app">
       <header className="topbar">
         <div className="topbar-left">
-          <button
-            className="menu-btn"
-            aria-label={queueOpen ? '收起会话队列' : '展开会话队列'}
-            aria-expanded={queueOpen}
-            onClick={() => queueOpen ? closeQueue() : setQueueOpen(true)}
-          ><Icon name="menu" size={20} /></button>
+          {view === 'sessions' && (
+            <button
+              className="menu-btn"
+              aria-label={queueOpen ? '收起会话队列' : '展开会话队列'}
+              aria-expanded={queueOpen}
+              onClick={() => queueOpen ? closeQueue() : setQueueOpen(true)}
+            ><Icon name="menu" size={20} /></button>
+          )}
+          {view === 'system' && (
+            <button
+              className="menu-btn"
+              aria-label={systemMenuOpen ? '收起数据管理菜单' : '展开数据管理菜单'}
+              aria-expanded={systemMenuOpen}
+              onClick={() => systemMenuOpen ? closeSystemMenu() : setSystemMenuOpen(true)}
+            ><Icon name="menu" size={20} /></button>
+          )}
           <button className="brand" type="button" onClick={() => setView('sessions')}>
             AssistFlow 客服工作台
           </button>
         </div>
         <nav className="view-tabs" aria-label="功能页签">
-          {views.map((v) => (
+          {VIEWS.map((v) => (
             <button
               key={v.key}
               aria-current={view === v.key}
@@ -92,20 +117,44 @@ function Workstation({ agent, onLogout }: { agent: AgentIdentity; onLogout: () =
         </div>
       </header>
       <div className="body">
-        <SessionQueue
-          sessions={sessions}
-          activeId={activeId}
-          onSelect={(id) => { handleSelect(id); setView('sessions'); }}
-          open={queueOpen}
-          agent={agent}
-          ready={queueReady}
-        />
-        {queueOpen && <div className="queue-overlay" onClick={closeQueue} aria-hidden="true" />}
-        {view === 'sessions' && <ChatPanel session={activeSession} agent={agent} />}
-        {view === 'ops' && (
-          <OperationsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
+        {view === 'sessions' && (
+          <>
+            <SessionQueue
+              sessions={sessions}
+              activeId={activeId}
+              onSelect={handleSelect}
+              open={queueOpen}
+              agent={agent}
+              ready={queueReady}
+            />
+            {queueOpen && <div className="queue-overlay" onClick={closeQueue} aria-hidden="true" />}
+            <ChatPanel session={activeSession} agent={agent} />
+          </>
         )}
-        {view === 'tenants' && agent.role === 'admin' && <TenantsPanel />}
+        {view === 'system' && (
+          <div className="admin-layout">
+            <nav className={`admin-sidenav${systemMenuOpen ? ' open' : ''}`} aria-label="数据管理子菜单">
+              {systemSubViews.map((sv) => (
+                <button
+                  key={sv.key}
+                  aria-current={systemSubView === sv.key}
+                  className={systemSubView === sv.key ? 'active' : ''}
+                  onClick={() => { setSystemSubView(sv.key); if (systemMenuOpen) closeSystemMenu(); }}
+                >
+                  <Icon name={sv.icon} size={16} />
+                  {sv.label}
+                </button>
+              ))}
+            </nav>
+            {systemMenuOpen && <div className="queue-overlay" onClick={closeSystemMenu} aria-hidden="true" />}
+            {systemSubView === 'ops' && (
+              <OperationsPanel agent={agent} onOpenSession={(id) => { setView('sessions'); handleSelect(id); }} />
+            )}
+            {systemSubView === 'tenants' && agent.role === 'admin' && <TenantsPanel />}
+            {systemSubView === 'models' && agent.role === 'admin' && <ModelsPanel />}
+            {systemSubView === 'users' && agent.role === 'admin' && <UsersPanel />}
+          </div>
+        )}
       </div>
     </div>
   );

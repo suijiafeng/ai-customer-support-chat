@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SessionSummary } from '@assistflow/shared';
 import { fmtTime, type AgentIdentity } from '../api.js';
+import Icon from '../ui/Icon.js';
 
 // 列表时间：当天显示 HH:MM，非当天显示 M/D
 function fmtListTime(iso?: string): string {
@@ -122,7 +123,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 export default function SessionQueue({ sessions, activeId, onSelect, open = false, agent, ready = false }: SessionQueueProps) {
   const [filter, setFilter] = useState<Filter>('reply');
   const [keyword, setKeyword] = useState('');
-  const [poolOpen, setPoolOpen] = useState(true);
+  const [poolOpen, setPoolOpen] = useState(false);
   const [listOpen, setListOpen] = useState(true);
 
   // 未读标记：messageCount 超过已读基线即未读；打开会话即更新基线
@@ -232,9 +233,10 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
             onClick={() => setPoolOpen((v) => !v)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPoolOpen((v) => !v); } }}
           >
-            <span className={`q-caret${poolOpen ? ' open' : ''}`}>▸</span>
+            <Icon name="inbox" size={16} />
             <span className="q-section-title">接待大厅</span>
             {poolTotal > 0 && <span className="q-num" title={`${poolTotal} 位访客待接待`}>({poolTotal})</span>}
+            <span className={`q-caret${poolOpen ? ' open' : ''}`}>▸</span>
           </div>
           <div className={`q-collapse${poolOpen ? ' open' : ''}`} aria-hidden={!poolOpen}>
             <div className="q-collapse-inner">
@@ -258,9 +260,10 @@ export default function SessionQueue({ sessions, activeId, onSelect, open = fals
             onClick={() => setListOpen((v) => !v)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setListOpen((v) => !v); } }}
           >
-            <span className={`q-caret${listOpen ? ' open' : ''}`}>▸</span>
+            <Icon name="list" size={16} />
             <span className="q-section-title">会话列表</span>
             {unreadTotal > 0 && <span className="q-num" title={`${unreadTotal} 条会话有新消息`}>({unreadTotal})</span>}
+            <span className={`q-caret${listOpen ? ' open' : ''}`}>▸</span>
           </div>
           <div className={`q-collapse${listOpen ? ' open' : ''}`} aria-hidden={!listOpen}>
             <div className="q-collapse-inner">
