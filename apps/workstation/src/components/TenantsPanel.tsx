@@ -151,7 +151,6 @@ export default function TenantsPanel() {
         </div>
         <div className="toolbar-right">
           <button className="claim-like-btn" onClick={() => setShowCreate(true)}>新建租户</button>
-          <button className="ghost-btn" onClick={load}>刷新</button>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 // 轻量应用内反馈：toast 提示 + confirm 对话框，替代原生 window.alert/confirm。
 // 用模块级订阅，组件外（如 catch 块）也能直接调用 showToast / confirmDialog。
 
-type ToastKind = 'info' | 'success' | 'error';
+type ToastKind = 'info' | 'success' | 'warning' | 'error';
 interface ToastItem { id: number; text: string; kind: ToastKind; }
 interface ConfirmReq {
   id: number;

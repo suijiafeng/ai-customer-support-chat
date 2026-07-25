@@ -37,10 +37,10 @@ export default function MetricsPanel() {
   const barOption = useMemo<echarts.EChartsOption | null>(() => {
     if (!metrics) return null;
     const rows = [
-      { label: '待跟进会话', value: metrics.queue.waitingHuman, color: '#f59e0b' },
-      { label: '接待中会话', value: metrics.queue.assigned, color: '#2563eb' },
-      { label: '待处理工单', value: metrics.tickets.open, color: '#ef4444' },
-      { label: '处理中工单', value: metrics.tickets.processing, color: '#6366f1' },
+      { label: '待跟进会话', value: metrics.queue.waitingHuman, color: '#7d9ae4' },
+      { label: '接待中会话', value: metrics.queue.assigned, color: '#2457c5' },
+      { label: '待处理工单', value: metrics.tickets.open, color: '#e88b8b' },
+      { label: '处理中工单', value: metrics.tickets.processing, color: '#c53030' },
     ];
     return {
       grid: { left: 92, right: 24, top: 8, bottom: 22 },
@@ -59,9 +59,9 @@ export default function MetricsPanel() {
     if (!metrics) return null;
     const bot = Math.max(0, metrics.totals.sessions - metrics.queue.waitingHuman - metrics.queue.assigned - metrics.queue.closed);
     const data = [
-      { name: 'AI 接待', value: bot, itemStyle: { color: '#10b981' } },
-      { name: '待跟进', value: metrics.queue.waitingHuman, itemStyle: { color: '#f59e0b' } },
-      { name: '接待中', value: metrics.queue.assigned, itemStyle: { color: '#2563eb' } },
+      { name: 'AI 接待', value: bot, itemStyle: { color: '#16a34a' } },
+      { name: '待跟进', value: metrics.queue.waitingHuman, itemStyle: { color: '#d97706' } },
+      { name: '接待中', value: metrics.queue.assigned, itemStyle: { color: '#2457c5' } },
       { name: '已关闭', value: metrics.queue.closed, itemStyle: { color: '#94a3b8' } },
     ];
     return {
@@ -85,9 +85,9 @@ export default function MetricsPanel() {
     xAxis: { type: 'category', boundaryGap: false, data: history.map((h) => h.date.slice(5)), axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
     yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#eef2f7' } } },
     series: [
-      { name: '待跟进', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.waiting), itemStyle: { color: '#f59e0b' }, areaStyle: { opacity: 0.06 } },
-      { name: '接待中', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.assigned), itemStyle: { color: '#2563eb' }, areaStyle: { opacity: 0.06 } },
-      { name: '活跃会话', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.activeSessions), itemStyle: { color: '#10b981' }, areaStyle: { opacity: 0.06 } },
+      { name: '待跟进', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.waiting), itemStyle: { color: '#d97706' }, areaStyle: { opacity: 0.08 } },
+      { name: '接待中', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.assigned), itemStyle: { color: '#2457c5' }, areaStyle: { opacity: 0.08 } },
+      { name: '活跃会话', type: 'line', smooth: true, showSymbol: true, data: history.map((h) => h.activeSessions), itemStyle: { color: '#16a34a' }, areaStyle: { opacity: 0.08 } },
     ],
   }), [history]);
 
@@ -103,7 +103,6 @@ export default function MetricsPanel() {
         <h2 className="block-title">数据概览</h2>
         <div className="toolbar-right">
           {metrics && <span className="metrics-time">更新于 {fmtTime(metrics.generatedAt)}（15 秒自动刷新）</span>}
-          <button className="ghost-btn" onClick={load}>刷新</button>
         </div>
       </div>
 
@@ -114,17 +113,17 @@ export default function MetricsPanel() {
       ) : (
         <div className="chart-grid">
           <section className="chart-card">
-            <h3>会话状态分布（饼图）</h3>
+            <h3>会话状态分布</h3>
             {pieHasData && pieOption ? <EChart option={pieOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} />}
           </section>
 
           <section className="chart-card">
-            <h3>待办负载（柱状图）</h3>
+            <h3>待办负载</h3>
             {barHasData && barOption ? <EChart option={barOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} />}
           </section>
 
           <section className="chart-card">
-            <h3>每日趋势（折线图）</h3>
+            <h3>每日趋势</h3>
             {lineHasData ? <EChart option={lineOption} height={CHART_H} /> : <ChartEmpty height={CHART_H} text="正在采集数据…" />}
             <p className="chart-note">按天聚合，最多展示最近 {MAX_DAYS} 天。</p>
           </section>

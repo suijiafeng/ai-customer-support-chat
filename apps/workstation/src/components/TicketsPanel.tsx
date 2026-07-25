@@ -106,7 +106,6 @@ export default function TicketsPanel({ agent, onOpenSession }: TicketsPanelProps
               <button role="tab" aria-selected={scope === 'mine'} className={scope === 'mine' ? 'active' : ''} onClick={() => setScope('mine')}>我的</button>
             </div>
           )}
-          <button className="ghost-btn" onClick={load}><Icon name="refresh" size={13} />刷新</button>
         </div>
       </div>
 
