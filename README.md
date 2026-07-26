@@ -181,12 +181,10 @@ docker run -d --name assistflow -p 3001:3001 \
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `AI_ENABLED` | `false` | AI 模型总开关；默认只使用本地 FAQ |
-| `AI_PROVIDER` | `openai` | `openai` 或 `deepseek` |
-| `OPENAI_API_KEY` | — | OpenAI API Key |
-| `OPENAI_MODEL` | `gpt-4o` | OpenAI 模型 |
-| `DEEPSEEK_API_KEY` | — | DeepSeek API Key |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型 |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek 接口地址 |
+| `AI_PROVIDER` | `openai` | 预设厂商（见下表），自带接口地址与默认模型 |
+| `AI_API_KEY` | — | 模型 API Key（兼容旧名 `OPENAI_API_KEY` / `DEEPSEEK_API_KEY`） |
+| `AI_BASE_URL` | 取自预设 | OpenAI 兼容接口地址；覆盖预设或用于自建网关 |
+| `AI_MODEL` | 取自预设 | 模型名，如 `deepseek-chat`、`qwen-plus`、`gpt-4o` |
 | `PORT` | `3001` | 服务监听端口 |
 | `AUTH_SECRET` | 开发默认值 | 客服 JWT 签名密钥；**生产必须设置**（缺失拒绝启动） |
 | `DB_DRIVER` | 自动推断 | 持久化后端：`sqlite`（默认）/ `postgres` / `memory`；不设时配了 `DATABASE_URL` 走 postgres，否则 sqlite |
@@ -195,6 +193,25 @@ docker run -d --name assistflow -p 3001:3001 \
 | `DATA_DIR` | `apps/server/data` | faqs/inquiries/agents 数据目录 |
 | `NODE_ENV` | — | `production` 时收紧错误信息并强制 AUTH_SECRET |
 | `ALERT_WEBHOOK_URL` | — | 持久化写入失败时的告警 webhook（接受 JSON POST `{ text }`，如 Slack Incoming Webhook）；留空不告警，同一 5 分钟窗口内最多触发一次 |
+
+所有厂商都走 OpenAI 兼容协议，只需一套 `AI_*` 变量。`AI_PROVIDER` 选中预设后即可只填 `AI_API_KEY`：
+
+| `AI_PROVIDER` | 厂商 | 默认 `AI_BASE_URL` | 默认 `AI_MODEL` |
+|------|------|------|------|
+| `openai` | OpenAI | 官方默认 | `gpt-4o` |
+| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+| `anthropic` | Anthropic (Claude) | `https://api.anthropic.com/v1` | `claude-sonnet-4-5` |
+| `gemini` | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` |
+| `zhipu` | 智谱 AI | `https://open.bigmodel.cn/api/paas/v4` | `glm-4.5` |
+| `moonshot` | Moonshot (Kimi) | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+| `qwen` | 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| `openrouter` | OpenRouter | `https://openrouter.ai/api/v1` | `openai/gpt-4o` |
+| `groq` | Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| `siliconflow` | 硅基流动 | `https://api.siliconflow.cn/v1` | `deepseek-ai/DeepSeek-V3` |
+| `xai` | xAI (Grok) | `https://api.x.ai/v1` | `grok-4` |
+| `ollama` | Ollama 本地 | `http://localhost:11434/v1` | `qwen3:8b`（无需 Key） |
+| `custom` | 自定义 | 需自行填写 `AI_BASE_URL` | 需自行填写 `AI_MODEL` |
+
 
 > 配置文件：`.env` 为可提交的安全兜底，私有配置与密钥写入 `.env.local`（已 gitignore）。加载优先级：真实环境变量 > `.env.local` > `.env`。SQLite 默认启用，需 Node 以 `--experimental-sqlite` 启动（`npm run start` 与 Docker 镜像已自动带上）。
 
@@ -360,4 +377,4 @@ docker compose up --build
 
 默认持久化用本地 Postgres（`DATABASE_URL` 按 `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` 自动拼好，连到 compose 里的 `postgres` 服务）。想接外部 Postgres（Neon/Supabase）就设 `DATABASE_URL` 覆盖；想改回零配置 SQLite 就设 `DB_DRIVER=sqlite`（此时可以从 `docker-compose.yml` 里去掉 `postgres` 服务与 `server` 的 `depends_on`）。
 
-其余可覆盖的环境变量：构建时注入的跨服务地址 `WORKSTATION_API_BASE`、`DEMO_WIDGET_SRC`、`DEMO_API_BASE`、`DEMO_WORKSTATION_URL`（默认已指向上面几个本地端口）；透传给 server 的 `AI_ENABLED`/`AI_PROVIDER`/`OPENAI_API_KEY`/`DEEPSEEK_API_KEY`。生产场景仍建议按上面「拆分部署」把 workstation/widget/demo 放到 CDN。
+其余可覆盖的环境变量：构建时注入的跨服务地址 `WORKSTATION_API_BASE`、`DEMO_WIDGET_SRC`、`DEMO_API_BASE`、`DEMO_WORKSTATION_URL`（默认已指向上面几个本地端口）；透传给 server 的 `AI_ENABLED`/`AI_PROVIDER`/`AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL`。生产场景仍建议按上面「拆分部署」把 workstation/widget/demo 放到 CDN。

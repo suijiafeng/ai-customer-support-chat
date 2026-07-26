@@ -30,11 +30,10 @@ services:
     environment:
       AUTH_SECRET: "${AUTH_SECRET:?请设置 AUTH_SECRET，例如 openssl rand -hex 32}"
       AI_ENABLED: ${AI_ENABLED:-false}
-      AI_PROVIDER: ${AI_PROVIDER:-openai}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
       DB_DRIVER: ${DB_DRIVER:-}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-assistflow}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assistflow}?sslmode=disable}
       # 拆分部署下 demo/widget/workstation 已由独立容器（:8080/:8082/:8081）提供，

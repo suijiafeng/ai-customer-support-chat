@@ -28,15 +28,15 @@ export type ReplyDeltaHandler = (delta: string) => void;
 /** AI 超时（毫秒）：超时后降级为本地规则回复 */
 const AI_TIMEOUT_MS = 30_000;
 
-/** AI 适配层：openai / deepseek 双 provider + 本地规则降级。自原 buildReply 平移。 */
+/** AI 适配层：任意 OpenAI 兼容服务（AI_BASE_URL/AI_MODEL/AI_API_KEY）+ 本地规则降级。 */
 @Injectable()
 export class AiService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiService.name);
-  private readonly openaiClient = process.env.OPENAI_API_KEY ? new OpenAI() : null;
-  private readonly deepseekClient = process.env.DEEPSEEK_API_KEY
+  /** 单一 OpenAI 兼容客户端：AI_API_KEY + 可选 AI_BASE_URL（留空即 OpenAI 官方） */
+  private readonly client = appConfig.aiApiKey
     ? new OpenAI({
-        apiKey: process.env.DEEPSEEK_API_KEY,
-        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+        apiKey: appConfig.aiApiKey,
+        ...(appConfig.aiBaseUrl ? { baseURL: appConfig.aiBaseUrl } : {}),
       })
     : null;
 
@@ -50,11 +50,11 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
   }
 
   getActiveModel(): string {
-    return appConfig.aiProvider === 'deepseek' ? appConfig.deepseekModel : appConfig.openaiModel;
+    return appConfig.aiModel;
   }
 
   getConfiguredClient(): OpenAI | null {
-    return appConfig.aiProvider === 'deepseek' ? this.deepseekClient : this.openaiClient;
+    return this.client;
   }
 
   getActiveClient(): OpenAI | null {
