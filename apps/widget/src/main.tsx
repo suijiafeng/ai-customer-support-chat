@@ -15,8 +15,8 @@ function readConfig() {
   const scriptOrigin = el?.src ? new URL(el.src, window.location.href).origin : window.location.origin;
   return {
     apiBase: (ds.apiBase || scriptOrigin).replace(/\/$/, ''),
-    siteKey: ds.key || 'd0KX6-CDtI-Gaxc-fR1K',
-    tenantId: ds.name || 'tn_846ad88eee',
+    siteKey: ds.key || 'BV1b-HT6U-JcTj-7Rds',
+    tenantId: ds.name || 'tn_bd8020dbc0',
     title: ds.title || '',
   };
 }

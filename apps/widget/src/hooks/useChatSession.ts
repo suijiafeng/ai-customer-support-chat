@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createMessageArchive } from '@assistflow/shared';
 import { loadVisitorId, ensureVisitorId, isVisitorIdValid } from '../visitorId.js';
 import { newId, normalizeMessages, streamChat, type PendingImage, type UiMessage } from '../chatApi.js';
+import { saveVisitorToken, visitorAuthHeaders, withVisitorQuery } from '../visitorToken.js';
 
 // 流式中断后等待会话 SSE 推回最终结果的兜底时长：超时仍未收到则把消息标为失败可重试
 const STREAM_FALLBACK_MS = 12000;
@@ -118,11 +119,15 @@ export function useChatSession({
     sessionEvents.current?.close();
     const sessionId = sessionIdRef.current;
     try {
-      const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
+      const data = await requestJson(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        headers: visitorAuthHeaders(sessionId),
+      });
       setMessages(data.messages);
     } catch {}
 
-    const es = new EventSource(`${apiBase}/api/sessions/${encodeURIComponent(sessionId)}/events`);
+    const es = new EventSource(
+      withVisitorQuery(`${apiBase}/api/sessions/${encodeURIComponent(sessionId)}/events`, sessionId)
+    );
     sessionEvents.current = es;
     es.onopen = () => setConnection('synced');
     es.addEventListener('session', (event) => {
@@ -234,6 +239,9 @@ export function useChatSession({
             body: JSON.stringify(payload),
           });
         }
+        // 两条路径（流式 / 一次性回退）汇合于此：服务端在每次响应里下发访客令牌，
+        // 存下来供后续读取会话详情与 SSE 使用；每次都覆盖 = 顺带续期
+        saveVisitorToken(sessionIdRef.current, data?.visitorToken);
         setMessages(data.messages || [], true);
       } catch (err: any) {
         const inflight = inflightRef.current;

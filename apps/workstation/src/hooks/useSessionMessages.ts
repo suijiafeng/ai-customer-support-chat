@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '@assistflow/shared';
 import { createMessageArchive } from '@assistflow/shared';
-import { API, SSE_BASE, requestJson, normalizeMessages, type UiMessage } from '../api.js';
+import { API, SSE_BASE, fetchSseTicket, requestJson, normalizeMessages, type UiMessage } from '../api.js';
 
 // 客服侧对话归档：服务端窗口外的旧消息留在工作台本地，合并渲染完整历史
 const messageArchive = createMessageArchive(
@@ -62,30 +62,46 @@ export function useSessionMessages(sessionId: string | null) {
     setMessages([]);
     loadHistory();
 
-    const es = new EventSource(`${SSE_BASE}/api/sessions/${encodeURIComponent(sessionId)}/events`);
-    esRef.current = es;
-    es.onopen = () => {
-      if (cancelledRef.current) return;
-      everOpenRef.current = true;
-      setConnection('synced');
+    // 单会话 SSE 与队列 SSE 一样要带客服票据：服务端对会话读取强制鉴权
+    // （客服 token 或访客令牌），不带凭证会被 403 挡下，UI 上表现为
+    // 「连接中断，重连中…」且永远连不上。EventSource 无法自定义请求头，故走 ?ticket=。
+    const connect = (es: EventSource) => {
+      esRef.current = es;
+      es.onopen = () => {
+        if (cancelledRef.current) return;
+        everOpenRef.current = true;
+        setConnection('synced');
+      };
+      es.addEventListener('session', (event) => {
+        try {
+          const data = JSON.parse((event as MessageEvent).data);
+          if (!cancelledRef.current) {
+            setMessages(normalizeMessages(messageArchive.merge(sessionId, data.messages) as Message[]));
+            setStatus('ready');
+          }
+        } catch {}
+      });
+      // 已经连上过再报错 = 断线重连中；从未连上 = 仍在初次连接
+      es.onerror = () => {
+        if (!cancelledRef.current) setConnection(everOpenRef.current ? 'reconnecting' : 'syncing');
+      };
     };
-    es.addEventListener('session', (event) => {
-      try {
-        const data = JSON.parse((event as MessageEvent).data);
-        if (!cancelledRef.current) {
-          setMessages(normalizeMessages(messageArchive.merge(sessionId, data.messages) as Message[]));
-          setStatus('ready');
-        }
-      } catch {}
-    });
-    // 已经连上过再报错 = 断线重连中；从未连上 = 仍在初次连接
-    es.onerror = () => {
-      if (!cancelledRef.current) setConnection(everOpenRef.current ? 'reconnecting' : 'syncing');
-    };
+
+    const base = `${SSE_BASE}/api/sessions/${encodeURIComponent(sessionId)}/events`;
+    fetchSseTicket()
+      .then((ticket) => {
+        if (cancelledRef.current) return;
+        connect(new EventSource(`${base}?ticket=${encodeURIComponent(ticket)}`));
+      })
+      .catch(() => {
+        // 取票失败不静默吞掉：仍尝试连接，由服务端判定并让 onerror 走既有的重连提示
+        if (cancelledRef.current) return;
+        connect(new EventSource(base));
+      });
 
     return () => {
       cancelledRef.current = true;
-      es.close();
+      esRef.current?.close();
     };
   }, [sessionId, loadHistory]);
 

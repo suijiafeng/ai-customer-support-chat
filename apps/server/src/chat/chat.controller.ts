@@ -13,6 +13,7 @@ import {
 import { SkipThrottle, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { ClientMeta } from '../common/normalize.js';
+import { AuthService } from '../auth/auth.service.js';
 import { WidgetKeysService } from '../widget-keys/widget-keys.service.js';
 import { ChatService } from './chat.service.js';
 
@@ -25,8 +26,22 @@ export class ChatController {
 
   constructor(
     private readonly chat: ChatService,
-    private readonly widgetKeys: WidgetKeysService
+    private readonly widgetKeys: WidgetKeysService,
+    private readonly auth: AuthService
   ) {}
+
+  /**
+   * 随对话响应下发访客令牌：会话就是在这一刻建立的，这里是唯一能自然签发的时机。
+   * 每次都重新签发 = 顺带续期，活跃访客不会因为 TTL 到期丢掉自己的历史。
+   */
+  private withVisitorToken<T>(result: T): T | (T & { visitorToken: string }) {
+    // handleChat 也可能返回 { error } 这种没有 sessionId 的形状（如租户校验失败），
+    // 那种情况下不签发令牌——没有会话就没有要保护的东西
+    const sessionId = (result as { sessionId?: unknown } | null)?.sessionId;
+    return typeof sessionId === 'string' && sessionId
+      ? { ...result, visitorToken: this.auth.issueVisitorToken(sessionId) }
+      : result;
+  }
 
   @UseGuards(ThrottlerGuard)
   @Throttle({ chat: { ttl: 60000, limit: 20 } })
@@ -35,7 +50,7 @@ export class ChatController {
     this.assertHasContent(body);
     this.assertValidSiteKey(body, req);
     try {
-      return await this.chat.handleChat(body, undefined, this.clientMeta(req));
+      return this.withVisitorToken(await this.chat.handleChat(body, undefined, this.clientMeta(req)));
     } catch (error: any) {
       this.logger.error(`[POST /api/chat] 处理失败: ${error?.stack || error}`);
       throw new InternalServerErrorException({
@@ -69,7 +84,7 @@ export class ChatController {
         (delta) => emit('delta', { text: delta }),
         this.clientMeta(req)
       );
-      emit('done', result);
+      emit('done', this.withVisitorToken(result));
     } catch (error: any) {
       this.logger.error(`[POST /api/chat/stream] 处理失败: ${error?.stack || error}`);
       emit('error', {

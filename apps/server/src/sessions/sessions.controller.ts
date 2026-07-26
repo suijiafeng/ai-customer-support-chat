@@ -54,11 +54,39 @@ export class SessionsController {
     );
   }
 
+  /**
+   * 访客侧读取的准入判定：必须是「本会话的访客」或「有权查看的客服」，二者居一。
+   *
+   * 令牌从两处取：REST 走 `x-visitor-token` 头，SSE 走 `?vt=`
+   * （EventSource 无法自定义请求头，与客服的 ?ticket= 同理）。
+   *
+   * ALLOW_ANON_SESSION_READ=true 可临时放行未携带令牌的请求，仅供存量 widget 灰度期使用；
+   * 一旦线上 widget 都升到会带令牌的版本就应该关掉。默认关闭——安全默认值不该由部署者操心。
+   */
+  private assertVisitorOrAgent(sessionId: string, req: Request) {
+    const agent = this.agentFromRequest(req);
+    if (agent) return agent;
+
+    const token =
+      (req.headers['x-visitor-token'] as string | undefined) ||
+      (req.query?.vt as string | undefined);
+    if (this.auth.verifyVisitorToken(token, sessionId)) return null;
+
+    if (process.env.ALLOW_ANON_SESSION_READ === 'true') return null;
+
+    throw new ForbiddenException({
+      error: 'visitor token required',
+      detail: '会话读取需要出示该会话的访客令牌（x-visitor-token 头或 ?vt= 查询串）',
+    });
+  }
+
   @Get(':sessionId')
   async getSession(@Param('sessionId') sessionId: string, @Req() req: Request) {
+    // 注意顺序：先鉴权再查库。反过来会把「会话是否存在」这一位信息泄漏给未授权方，
+    // 攻击者可以据此枚举出哪些 sessionId 是真实存在的。
+    const agent = this.assertVisitorOrAgent(sessionId, req);
     const { session, messages } = await this.sessions.loadDetail(sessionId);
     if (!session) throw new NotFoundException({ error: 'session not found' });
-    const agent = this.agentFromRequest(req);
     if (agent && !this.sessions.canView(session, agent)) {
       throw new ForbiddenException({ error: 'session is handled by another agent' });
     }
@@ -68,8 +96,8 @@ export class SessionsController {
 
   @Sse(':sessionId/events')
   sessionEvents(@Param('sessionId') sessionId: string, @Req() req: Request) {
+    const agent = this.assertVisitorOrAgent(sessionId, req);
     const session = this.sessions.get(sessionId);
-    const agent = this.agentFromRequest(req);
     if (agent && session && !this.sessions.canView(session, agent)) {
       throw new ForbiddenException({ error: 'session is handled by another agent' });
     }

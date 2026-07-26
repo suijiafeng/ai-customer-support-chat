@@ -12,6 +12,7 @@ import {
   verifySseTicket,
   type AgentRole,
 } from './jwt.js';
+import { signVisitorToken, verifyVisitorToken } from './visitor-token.js';
 
 export interface AgentAccount {
   id: string;
@@ -96,5 +97,14 @@ export class AuthService implements OnModuleInit {
   verifySseTicket(ticket: string): AuthenticatedAgent | null {
     const claims = verifySseTicket(ticket, this.secret);
     return claims ? { id: claims.sub, name: claims.name, role: claims.role } : null;
+  }
+
+  /** 为访客签发绑定该 sessionId 的读取凭证（见 visitor-token.ts 的设计说明） */
+  issueVisitorToken(sessionId: string): string {
+    return signVisitorToken(sessionId, this.secret);
+  }
+
+  verifyVisitorToken(token: string | undefined | null, sessionId: string): boolean {
+    return verifyVisitorToken(token, sessionId, this.secret);
   }
 }
