@@ -67,9 +67,12 @@ async function sendDemoMessage(page, keyword) {
 
 async function loginWorkstation(page) {
   await page.goto(`${BASE_URL.replace(/\/$/, '')}/workstation/`, { waitUntil: 'networkidle' });
-  await page.getByPlaceholder('请输入工号').fill(AGENT_NO);
-  await page.getByPlaceholder('请输入密码').fill(AGENT_PASSWORD);
-  await page.getByRole('button', { name: '登录' }).click();
+  // 用 label 而非 placeholder 定位：placeholder 是展示文案（工号那栏现在是 "0000"），
+  // 改文案就会让脚本静默失效；label 文字是结构的一部分，稳定得多
+  await page.getByLabel('工号').fill(AGENT_NO);
+  await page.getByLabel('密码').fill(AGENT_PASSWORD);
+  // 同理按结构定位：按钮文案已从「登录」改为「签到上岗」，绑文案的选择器早晚会失效
+  await page.locator('form button[type=submit]').click();
   await page.locator('.app .topbar').waitFor({ state: 'visible', timeout: 15000 });
 }
 
@@ -102,8 +105,10 @@ async function run() {
 
     await shot(desktop, 'workstation-chat-effect-desktop', async () => {
       await desktop.locator('.app .body').waitFor({ state: 'visible' });
-      await desktop.getByPlaceholder('搜索访客 / 消息 / 编号').fill(keyword);
-      const firstSession = desktop.locator('.queue .sess').first();
+      // 部分匹配：搜索框文案尾部改过（原「/ 编号」已去掉），绑全文会失效
+      await desktop.getByPlaceholder(/搜索访客/).fill(keyword);
+      // 队列容器类名由 .queue 改为 .queue-scroll
+      const firstSession = desktop.locator('.queue-scroll .sess').first();
       await firstSession.waitFor({ state: 'visible', timeout: 15000 });
       await firstSession.click();
       await desktop.getByPlaceholder('输入回复…').fill(`已收到你的咨询（${keyword}），我这边先帮你梳理报价范围。`);
