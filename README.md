@@ -209,6 +209,7 @@ docker run -d --name assistflow -p 3001:3001 \
 | `qwen` | 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
 | `openrouter` | OpenRouter | `https://openrouter.ai/api/v1` | `openai/gpt-4o` |
 | `groq` | Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| `github` | GitHub Models | `https://models.github.ai/inference` | `openai/gpt-4.1`（Key 用 GitHub PAT，需 `models:read`） |
 | `siliconflow` | 硅基流动 | `https://api.siliconflow.cn/v1` | `deepseek-ai/DeepSeek-V3` |
 | `xai` | xAI (Grok) | `https://api.x.ai/v1` | `grok-4` |
 | `ollama` | Ollama 本地 | `http://localhost:11434/v1` | `qwen3:8b`（无需 Key） |
@@ -287,7 +288,7 @@ flowchart LR
   D --> F["保存消息与会话"]
   E --> F
   F --> G["SSE 同步访客页与开发者工作台"]
-  G --> H["开发者本人接入"]
+  G --> H["人工客服接入"]
   H --> I["AI 静默，进入本人沟通"]
 ```
 

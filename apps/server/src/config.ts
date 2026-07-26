@@ -49,6 +49,8 @@ export const AI_PROVIDER_PRESETS: Record<string, AiProviderPreset> = {
   },
   openrouter: { label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o' },
   groq: { label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+  // GitHub Models：用 GitHub PAT（需 models:read 权限）鉴权，模型名是 publisher/model 形式
+  github: { label: 'GitHub Models', baseUrl: 'https://models.github.ai/inference', model: 'openai/gpt-4.1' },
   siliconflow: {
     label: '硅基流动',
     baseUrl: 'https://api.siliconflow.cn/v1',
