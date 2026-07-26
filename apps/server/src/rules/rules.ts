@@ -44,9 +44,9 @@ export function createFaqSearcher(faqs: Faq[]) {
 const QUERY_REPLACEMENTS: Array<[string, string]> = [
   ['空档', '档期'],
   ['有空吗', '有档期吗'],
-  ['联系本人', '联系开发者本人'],
-  ['联系真人', '联系开发者本人'],
-  ['人工', '开发者本人'],
+  ['联系人工', '联系客服'],
+  ['联系真人', '联系客户服务人员'],
+  ['人工', '客服'],
   ['vue3', 'vue'],
   ['nextjs', 'next.js'],
   ['next', 'next.js'],

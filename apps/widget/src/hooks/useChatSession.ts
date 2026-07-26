@@ -52,6 +52,8 @@ export function useChatSession({
   const sendingRef = useRef(false); // ref 版本供 send 内部读取，避免 sending state 进入依赖数组
   const [atBottom, setAtBottom] = useState(true);
   const [keyInvalid, setKeyInvalid] = useState(false); // widget 接入密钥无效/停用：重试无意义，需和普通失败区分
+  // 会话是否处于人工接管态：接管期间 AI 让位，需要在界面上说明并给「切回 AI」的出口
+  const [humanAssigned, setHumanAssigned] = useState(false);
 
   const [sessionId, setSessionId] = useState(() => loadVisitorId(siteKey) ?? '');
   const listEl = useRef<HTMLDivElement | null>(null);
@@ -123,6 +125,7 @@ export function useChatSession({
         headers: visitorAuthHeaders(sessionId),
       });
       setMessages(data.messages);
+      setHumanAssigned(data.session?.status === 'assigned');
     } catch {}
 
     const es = new EventSource(
@@ -132,7 +135,10 @@ export function useChatSession({
     es.onopen = () => setConnection('synced');
     es.addEventListener('session', (event) => {
       try {
-        setMessages(JSON.parse((event as MessageEvent).data).messages || []);
+        const payload = JSON.parse((event as MessageEvent).data);
+        setMessages(payload.messages || []);
+        // 客服接管/交还都会推 session 事件，据此实时切换界面上的人工接管提示
+        if (payload.session) setHumanAssigned(payload.session.status === 'assigned');
       } catch {}
     });
     es.onerror = () => setConnection('syncing');
@@ -151,7 +157,7 @@ export function useChatSession({
   }, [siteKey, activate]);
 
   const send = useCallback(
-    async (textOverride?: string) => {
+    async (textOverride?: string, options?: { preferAi?: boolean }) => {
       const text = (textOverride ?? input).trim();
       if ((!text && pending.length === 0) || sendingRef.current) return;
       // 前端先拦截：发送过快时保留输入框内容、不发请求，只给倒计时；后端为最后一道防线
@@ -173,6 +179,8 @@ export function useChatSession({
           visitor: { code: sessionIdRef.current, pageUrl: window.location.href },
           // 幂等键：服务端据此对重试去重，避免「AI 失败 + 重发」产生重复气泡
           clientMessageId: userMsgId,
+          // 访客主动要求先由 AI 回答：服务端据此把接管态会话交还 AI
+          ...(options?.preferAi ? { preferAi: true } : {}),
         };
         const aiMsgId = newId();
         inflightRef.current = { userId: userMsgId, aiId: aiMsgId };
@@ -243,6 +251,7 @@ export function useChatSession({
         // 存下来供后续读取会话详情与 SSE 使用；每次都覆盖 = 顺带续期
         saveVisitorToken(sessionIdRef.current, data?.visitorToken);
         setMessages(data.messages || [], true);
+        if (data?.session) setHumanAssigned(data.session.status === 'assigned');
       } catch (err: any) {
         const inflight = inflightRef.current;
         if (IDENTITY_ERRORS.includes(err?.code)) {
@@ -320,9 +329,14 @@ export function useChatSession({
     setAtBottom(value);
   }, []);
 
+  /** 访客主动把会话切回 AI：以一条正常访客消息发出，服务端解除接管后照常回答 */
+  const switchToAi = useCallback(() => send('让 AI 先回答', { preferAi: true }), [send]);
+
   return {
     connection,
     messages,
+    humanAssigned,
+    switchToAi,
     sending,
     atBottom,
     keyInvalid,

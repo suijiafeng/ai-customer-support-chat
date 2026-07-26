@@ -197,6 +197,8 @@ export class SessionsController {
       status: 'assigned',
       assignedAgentId: session.assignedAgentId || agent.id,
       assignedAgentName: session.assignedAgentName || agent.name,
+      // 接管计时起点：首次接管时写入，后续客服回复以消息时间为准（见 humanIdleMs）
+      assignedAt: session.assignedAt || new Date().toISOString(),
       lastMessage: content,
       ticketId: linkedTicket?.id || session.ticketId,
       workflow: session.workflow

@@ -185,6 +185,8 @@ docker run -d --name assistflow -p 3001:3001 \
 | `AI_API_KEY` | — | 模型 API Key（兼容旧名 `OPENAI_API_KEY` / `DEEPSEEK_API_KEY`） |
 | `AI_BASE_URL` | 取自预设 | OpenAI 兼容接口地址；覆盖预设或用于自建网关 |
 | `AI_MODEL` | 取自预设 | 模型名，如 `deepseek-chat`、`qwen-plus`、`gpt-4o` |
+| `HANDOFF_IDLE_RELEASE_MINUTES` | `10` | 人工接管后客服静默多久自动把会话交还 AI；`0` = 永不交还 |
+| `HANDOFF_NOTICE_COOLDOWN_MINUTES` | `5` | 接管期间「客服已接入」系统提示的最小间隔 |
 | `PORT` | `3001` | 服务监听端口 |
 | `AUTH_SECRET` | 开发默认值 | 客服 JWT 签名密钥；**生产必须设置**（缺失拒绝启动） |
 | `DB_DRIVER` | 自动推断 | 持久化后端：`sqlite`（默认）/ `postgres` / `memory`；不设时配了 `DATABASE_URL` 走 postgres，否则 sqlite |

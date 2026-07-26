@@ -12,6 +12,7 @@ import {
   parseDevice,
   type ClientMeta,
 } from '../common/normalize.js';
+import { appConfig } from '../config.js';
 import { SessionsService } from '../sessions/sessions.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { SessionTicketService } from '../workflow/session-ticket.service.js';
@@ -25,6 +26,27 @@ export class ChatService {
     private readonly tickets: TicketsService,
     private readonly sessionTicket: SessionTicketService
   ) {}
+
+  /**
+   * 接管态下是否把会话交还 AI：访客主动优先，其次是客服静默超时（HANDOFF_IDLE_RELEASE_MINUTES）。
+   * 返回 null 表示继续由人工接待。
+   */
+  private resolveHandoffRelease(sessionId: string, preferAi: boolean): { reason: string; notice: string } | null {
+    if (preferAi) {
+      return {
+        reason: '访客选择先由 AI 回答',
+        notice: '已切回 AI 助手，我先为你解答；需要真人随时说「转人工」。',
+      };
+    }
+    const idleLimit = appConfig.handoffIdleReleaseMs;
+    if (idleLimit > 0 && this.sessions.humanIdleMs(sessionId) >= idleLimit) {
+      return {
+        reason: `客服 ${Math.round(idleLimit / 60_000)} 分钟未回复，自动交还 AI`,
+        notice: '客服暂时不在，我先接着为你解答；ta 回来后会继续跟进。',
+      };
+    }
+    return null;
+  }
 
   async handleChat(
     body: any,
@@ -46,8 +68,9 @@ export class ChatService {
     const attachments = normalizeAttachments(body?.attachments);
     const clientMessageId = String(body?.clientMessageId || '').slice(0, 64) || null;
     const tenantKey = String(body?.siteKey || '').trim() || null;
-    const storedHistory = this.sessions.getMessages(sessionId);
-    const history = storedHistory.slice(-LIMITS.MAX_AI_HISTORY);
+    const preferAi = body?.preferAi === true;
+    let storedHistory = this.sessions.getMessages(sessionId);
+    let history = storedHistory.slice(-LIMITS.MAX_AI_HISTORY);
 
     if (clientMessageId) {
       const dupIndex = storedHistory.findIndex((m) => m.clientMessageId === clientMessageId);
@@ -80,11 +103,39 @@ export class ChatService {
       }
     }
 
+    // 人工接管态有三条出路：访客主动切回 AI / 客服久未回复自动交还 / 仍由人工接待。
+    // 前两种在这里先把会话放回 bot，再落到下面正常的 AI 流程。
+    const release = this.sessions.isHumanAssigned(sessionId)
+      ? this.resolveHandoffRelease(sessionId, preferAi)
+      : null;
+    if (release) {
+      this.sessions.releaseToBot(sessionId, release.reason);
+      storedHistory = this.sessions.setConversation(
+        sessionId,
+        this.sessions.appendMessages(
+          storedHistory,
+          this.sessions.createMessage({ role: 'assistant', actor: 'system', content: release.notice })
+        )
+      );
+      history = storedHistory.slice(-LIMITS.MAX_AI_HISTORY);
+      this.sessionTicket.notify(sessionId);
+    }
+
     if (this.sessions.isHumanAssigned(sessionId)) {
       const activeTicket = this.tickets.getLatestForSession(sessionId);
+      const assignedName = this.sessions.get(sessionId)?.assignedAgentName || '人工客服';
+      // 接管期间 AI 让位，但不能让访客对着空气说话：按冷却间隔补一条状态提示
+      const notice = this.sessions.canPostSystemNotice(sessionId, appConfig.handoffNoticeCooldownMs)
+        ? this.sessions.createMessage({
+            role: 'assistant',
+            actor: 'system',
+            content: `${assignedName} 已接入，正在为你处理，请稍候。`,
+          })
+        : null;
       const nextHistory = this.sessions.appendMessages(
         storedHistory,
-        this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments, clientMessageId })
+        this.sessions.createMessage({ role: 'user', actor: 'customer', content: message, attachments, clientMessageId }),
+        ...(notice ? [notice] : [])
       );
       const workflow: Workflow = {
         ai: {

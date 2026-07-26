@@ -4,8 +4,22 @@ export type SessionStatus = 'bot' | 'waiting_human' | 'assigned' | 'closed';
 export type TicketStatus = 'open' | 'processing' | 'resolved';
 export type Priority = 'normal' | 'high';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
-export type Actor = 'customer' | 'ai' | 'agent';
-export type AiProvider = 'openai' | 'deepseek';
+export type Actor = 'customer' | 'ai' | 'agent' | 'system';
+/** 已知厂商预设（见 server 的 AI_PROVIDER_PRESETS）；自建网关等任意值也合法，故与 string 并集使用。 */
+export type AiProvider =
+  | 'openai'
+  | 'deepseek'
+  | 'anthropic'
+  | 'gemini'
+  | 'zhipu'
+  | 'moonshot'
+  | 'qwen'
+  | 'openrouter'
+  | 'groq'
+  | 'siliconflow'
+  | 'xai'
+  | 'ollama'
+  | 'custom';
 
 export interface Attachment {
   type: 'image';
@@ -162,6 +176,8 @@ export interface Session {
   ticketId: string | null;
   assignedAgentId: string | null;
   assignedAgentName: string | null;
+  /** 进入人工接管的时间：用于「客服久未回复自动交还 AI」的计时起点 */
+  assignedAt?: string | null;
   workflow: Workflow | null;
   createdAt: string;
   updatedAt: string;

@@ -116,6 +116,10 @@ export const appConfig = {
   aiBaseUrl: aiSettings.baseUrl,
   aiModel: aiSettings.model,
   aiProvider: aiSettings.provider,
+  // 人工接管后客服静默多久自动把会话交还 AI（分钟，0 = 永不交还，需客服/工单流程收尾）
+  handoffIdleReleaseMs: Math.max(0, Number(process.env.HANDOFF_IDLE_RELEASE_MINUTES ?? 10)) * 60_000,
+  // 接管期间「客服已接入」提示的最小间隔（分钟），避免访客每发一条就刷一条系统提示
+  handoffNoticeCooldownMs: Math.max(0, Number(process.env.HANDOFF_NOTICE_COOLDOWN_MINUTES ?? 5)) * 60_000,
   dataDir: process.env.DATA_DIR || path.join(repoRoot, 'apps', 'server', 'data'),
   staticDirs: {
     widget: path.join(repoRoot, 'apps', 'widget', 'dist'),

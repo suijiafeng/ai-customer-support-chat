@@ -12,6 +12,14 @@ function RichText({ text, markdown }: { text: string; markdown?: boolean }) {
 }
 
 const MessageRow = memo(function MessageRow({ m, customerName }: { m: UiMessage; customerName?: string }) {
+  // 系统消息（接管提示 / 交还 AI 说明）：居中的一条灰底说明，不带头像和归属
+  if (m.from === 'system') {
+    return (
+      <div className="row system">
+        <div className="bubble">{m.content}</div>
+      </div>
+    );
+  }
   const who = m.from === 'customer'
     ? (customerName || '访客')
     : m.from === 'ai' ? '智能助手' : (m.agentName || '开发者本人');

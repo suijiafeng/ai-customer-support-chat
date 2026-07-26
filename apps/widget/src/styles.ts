@@ -97,6 +97,11 @@ export default `
   box-shadow: 0 4px 12px rgba(15,23,42,.16); display: flex; align-items: center; justify-content: center;
   transition: transform .15s, opacity .15s; }
 .to-bottom:hover { transform: translateY(-1px); }
+.handoff-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 10px 6px; padding: 6px 10px; border-radius: 10px; background: #eef2fb; color: #2457c5; font-size: 12px; }
+.handoff-bar button { border: 1px solid #2457c5; background: #fff; color: #2457c5; border-radius: 8px;
+  padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.handoff-bar button:disabled { opacity: .5; cursor: not-allowed; }
 .composer { margin: 8px 10px 10px; border: 1px solid #cbd5e1; border-radius: 12px;
   background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: border-color .2s, box-shadow .2s; }
 .composer:focus-within { border-color: #2457c5; box-shadow: 0 0 0 3px rgba(36,87,197,.12); }

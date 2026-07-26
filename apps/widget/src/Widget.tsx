@@ -151,6 +151,8 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
     onListScroll,
     send,
     retrySend,
+    humanAssigned,
+    switchToAi,
   } = useChatSession({
     apiBase,
     siteKey,
@@ -168,7 +170,8 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
 
   // 未读红点：首次同步后建立基准，之后关闭状态下收到新消息才计数；打开即清零
   const inboundCount = useMemo(
-    () => messages.filter((m) => m.from === 'ai' || m.from === 'agent').length,
+    // system=接管/交还提示，同样是访客需要看到的进展，一并计入未读
+    () => messages.filter((m) => m.from === 'ai' || m.from === 'agent' || m.from === 'system').length,
     [messages],
   );
   useEffect(() => {
@@ -411,6 +414,13 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
             {cooldown > 0 && (
               <div className="cooldown-bar" role="status">
                 {`发送太频繁，请等 ${cooldown} 秒再试`}
+              </div>
+            )}
+            {/* 人工接管期间 AI 让位：说明当前谁在接待，并给一个不必干等的出口 */}
+            {humanAssigned && !keyInvalid && (
+              <div className="handoff-bar" role="status">
+                <span>人工客服接待中，AI 已暂停自动回复</span>
+                <button onClick={switchToAi} disabled={sending}>让 AI 先回答</button>
               </div>
             )}
             {keyInvalid ? (

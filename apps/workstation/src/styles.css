@@ -122,6 +122,8 @@ button { font-family: inherit; }
 .row { margin: 14px 0; display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
 .row.customer { flex-direction: row; }
 .row.ai, .row.agent { flex-direction: row-reverse; }
+.row.system { justify-content: center; }
+.row.system .bubble { background: #eef2fb; color: #2457c5; font-size: 13px; border-radius: 8px; box-shadow: none; }
 .avatar { flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; background: #94a3b8; }
 .avatar.customer { background: #64748b; }
 .avatar.ai { background: #8097b8; }
@@ -435,7 +437,7 @@ button.loading::before {
 .q-filter-row { display: flex; gap: 2px; padding: 6px 10px;
   border-bottom: 1px solid var(--side-border); }
 .q-filter-row button { background: transparent; border: none; border-radius: 8px;
-  color: var(--side-muted); cursor: pointer; font-size: 14px; padding: 4px 10px;
+  color: var(--side-muted); cursor: pointer; font-size: 12px; padding: 4px 10px;
   transition: background .1s, color .1s; font-family: inherit;
   display: inline-flex; align-items: center; gap: 4px; }
 .q-filter-row button:hover { color: var(--side-text); }

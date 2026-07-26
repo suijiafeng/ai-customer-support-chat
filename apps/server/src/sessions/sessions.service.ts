@@ -49,6 +49,46 @@ export class SessionsService implements OnModuleInit {
     return this.sessions.get(sessionId)?.status === 'assigned';
   }
 
+  /**
+   * 人工侧静默了多久（毫秒）：从「最后一条客服消息」算起，没有客服消息则从接管时刻算起。
+   * 注意不能用 session.updatedAt——访客每发一条都会刷新它，那样永远等不到超时。
+   */
+  humanIdleMs(sessionId: string, now = Date.now()): number {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.status !== 'assigned') return 0;
+    const messages = this.conversations.get(sessionId) || [];
+    const lastAgentAt = [...messages].reverse().find((m) => m.actor === 'agent')?.createdAt;
+    const since = lastAgentAt || session.assignedAt || session.updatedAt;
+    const sinceMs = new Date(since).getTime();
+    return Number.isFinite(sinceMs) ? Math.max(0, now - sinceMs) : 0;
+  }
+
+  /** 把会话从人工交还给 AI：清空归属并回到 bot 状态（超时自动 / 访客主动都走这里）。 */
+  releaseToBot(sessionId: string, reason: string): Session | null {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+    return this.setSession({
+      ...session,
+      status: 'bot',
+      assignedAgentId: null,
+      assignedAgentName: null,
+      assignedAt: null,
+      needHuman: false,
+      reason,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  /** 距上一条系统提示是否已超过冷却时间（避免访客每发一条就刷一条提示）。 */
+  canPostSystemNotice(sessionId: string, cooldownMs: number, now = Date.now()): boolean {
+    if (cooldownMs <= 0) return true;
+    const messages = this.conversations.get(sessionId) || [];
+    const lastNoticeAt = [...messages].reverse().find((m) => m.actor === 'system')?.createdAt;
+    if (!lastNoticeAt) return true;
+    const ts = new Date(lastNoticeAt).getTime();
+    return !Number.isFinite(ts) || now - ts >= cooldownMs;
+  }
+
   canView(session: Session, agent: { id: string; role: string }): boolean {
     if (agent.role === 'admin') return true;
     return !session.assignedAgentId || session.assignedAgentId === agent.id;
@@ -87,7 +127,7 @@ export class SessionsService implements OnModuleInit {
 
   createMessage(params: {
     role: 'user' | 'assistant';
-    actor: 'customer' | 'ai' | 'agent';
+    actor: 'customer' | 'ai' | 'agent' | 'system';
     content: string;
     agentId?: string | null;
     agentName?: string | null;
@@ -146,6 +186,7 @@ export class SessionsService implements OnModuleInit {
       ticketId: workflow.ticket?.id || current?.ticketId || null,
       assignedAgentId: status === 'assigned' ? current?.assignedAgentId || null : null,
       assignedAgentName: status === 'assigned' ? current?.assignedAgentName || null : null,
+      assignedAt: status === 'assigned' ? current?.assignedAt || now : null,
       workflow,
       createdAt: current?.createdAt || now,
       updatedAt: now,
@@ -161,6 +202,11 @@ export class SessionsService implements OnModuleInit {
     const nextSession: Session = {
       ...session,
       status: isResolved ? 'closed' : ticket.status === 'processing' ? 'assigned' : session.status,
+      assignedAt: isResolved
+        ? null
+        : ticket.status === 'processing'
+          ? session.assignedAt || new Date().toISOString()
+          : session.assignedAt,
       priority: ticket.priority,
       needHuman: isResolved ? false : session.needHuman,
       reason: ticket.resolution || session.reason,
@@ -227,7 +273,8 @@ export class SessionsService implements OnModuleInit {
         return {
           ...session,
           messageCount: msgs?.length || 0,
-          lastMessageRole: msgs?.length ? msgs[msgs.length - 1].role : null,
+          // 系统提示不算「有人回复过」，否则队列里会把仍在等客服的会话标成已回复
+          lastMessageRole: lastHumanRole(msgs),
         };
       }),
     };
@@ -254,6 +301,12 @@ function resolveSessionStatus(current: Session | undefined, workflow: Workflow):
   if (current?.status === 'assigned') return 'assigned';
   if (workflow.needHuman) return 'waiting_human';
   return current?.status || 'bot';
+}
+
+/** 最后一条非系统消息的发送方：user=访客在等回复，assistant=AI/客服已回过 */
+function lastHumanRole(messages: Message[] | undefined): 'user' | 'assistant' | null {
+  const last = [...(messages || [])].reverse().find((m) => m.actor !== 'system');
+  return last?.role ?? null;
 }
 
 function sortSessions(a: Session, b: Session): number {
