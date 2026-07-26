@@ -8,12 +8,64 @@ import { showToast } from '../ui/feedback.js';
 import Icon from '../ui/Icon.js';
 import EmojiPicker from './EmojiPicker.js';
 
-const CANNED_REPLIES = [
-  '您好，我是客服，请问有什么可以帮您？',
-  '收到，我先确认一下，请稍等。',
-  '请留下您的联系方式和需求摘要，我们会尽快跟进。',
-  '该问题已记录为跟进事项，会有专人与您联系。',
-  '感谢咨询，如还有问题随时联系我们，祝您生活愉快！',
+// 客服常用语：按接待环节分组，覆盖开场→澄清→报价→跟进→收尾的完整链路。
+// 用「[]」标出需要客服自己替换的占位内容，避免直接发出去露馅。
+const CANNED_GROUPS: Array<{ label: string; items: string[] }> = [
+  {
+    label: '开场接入',
+    items: [
+      '您好，我是客服[工号]，很高兴为您服务，请问有什么可以帮您？',
+      '您好，看到您的留言了，我来跟进这个问题。',
+      '不好意思让您久等了，我这就为您处理。',
+    ],
+  },
+  {
+    label: '需求澄清',
+    items: [
+      '为了更准确地帮您评估，能否补充一下：项目类型、主要功能、期望上线时间？',
+      '我确认一下，您的意思是[复述需求]，对吗？',
+      '方便提供一下相关截图或链接吗？这样我能更快定位问题。',
+    ],
+  },
+  {
+    label: '报价与合作',
+    items: [
+      '报价需要结合功能范围和周期来定，我先根据您的描述整理一份清单，稍后同步给您。',
+      '这个需求可以做，大致周期在[X]，具体排期我确认后回复您。',
+      '合作流程是：需求沟通 → 方案报价 → 确认排期 → 分阶段开发验收 → 交付维护。',
+    ],
+  },
+  {
+    label: '处理与等待',
+    items: [
+      '收到，我先确认一下，请稍等。',
+      '这个问题我需要核实后回复您，预计[X 分钟/小时]内给您答复，麻烦您稍等。',
+      '感谢您的耐心等待，我这边还在确认，一有结果马上告诉您。',
+    ],
+  },
+  {
+    label: '记录与转交',
+    items: [
+      '请留下您的称呼和联系方式，我们会尽快跟进。',
+      '该问题已记录为跟进事项，会有专人与您联系。',
+      '这个问题需要[技术/商务]同事进一步确认，我先帮您转交，稍后由他跟您联系。',
+    ],
+  },
+  {
+    label: '致歉与安抚',
+    items: [
+      '非常抱歉给您带来不便，我理解您的心情，这边马上帮您处理。',
+      '给您造成困扰实在不好意思，问题原因是[原因]，我们已经在处理了。',
+    ],
+  },
+  {
+    label: '收尾结束',
+    items: [
+      '问题都解决了吗？还有其他需要帮忙的吗？',
+      '感谢咨询，如还有问题随时联系我们，祝您生活愉快！',
+      '那我先不打扰您了，有任何进展我会第一时间同步给您。',
+    ],
+  },
 ];
 
 interface ComposerProps {
@@ -148,8 +200,13 @@ export default function Composer({ sessionId, agent, onSent }: ComposerProps) {
 
       {showCanned && (
         <div className="canned-pop" role="menu" aria-label="快捷回复">
-          {CANNED_REPLIES.map((text) => (
-            <button key={text} role="menuitem" onClick={() => insertCanned(text)}>{text}</button>
+          {CANNED_GROUPS.map((group) => (
+            <div key={group.label} className="canned-group" role="group" aria-label={group.label}>
+              <div className="canned-group-label">{group.label}</div>
+              {group.items.map((text) => (
+                <button key={text} role="menuitem" onClick={() => insertCanned(text)}>{text}</button>
+              ))}
+            </div>
           ))}
         </div>
       )}

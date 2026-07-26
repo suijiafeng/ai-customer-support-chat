@@ -691,6 +691,11 @@ button.loading::before {
 .canned-pop { position: absolute; bottom: 104px; left: 14px; max-width: 420px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 12px 32px rgba(19,31,54,.16); padding: 6px; display: flex; flex-direction: column; z-index: 30; animation: pop-in .14s ease-out; }
 .canned-pop button { background: none; border: none; border-radius: 8px; color: #334155; cursor: pointer; font-size: 16px; padding: 8px 10px; text-align: left; }
 .canned-pop button:hover { background: #f1f5f9; }
+/* 常用语按环节分组：条目变多后加滚动，并用分组标题保持可扫读 */
+.canned-pop { max-height: 380px; overflow-y: auto; }
+.canned-group { display: flex; flex-direction: column; }
+.canned-group + .canned-group { border-top: 1px solid #eef2f7; margin-top: 4px; padding-top: 4px; }
+.canned-group-label { color: #94a3b8; font-size: 12px; font-weight: 600; padding: 4px 10px 2px; }
 
 @media (min-width: 641px) and (max-width: 900px) {
   /* 侧边详情面板在 641-900px 直接隐藏；≤640px 由下面的规则改为底部浮层 */
