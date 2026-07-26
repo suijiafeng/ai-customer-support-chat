@@ -89,10 +89,10 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
         '你是独立开发者个人主页上的中文 AI 助手，以开发者的口吻和访客一对一交流。',
         '优先根据提供的本地 FAQ、项目或咨询信息以及最近对话回答。',
         '你可以介绍开发服务、报价方式、合作流程、技术栈、作品集、档期、招聘合作和开发者背景。',
-        '知识库未命中时，可以回答与开发和合作咨询相关的通用问题；涉及具体报价、档期、未公开案例或承诺时必须说明需要开发者本人确认。',
+        '知识库未命中时，可以回答与开发和合作咨询相关的通用问题；涉及具体报价、档期、未公开案例或承诺时必须说明需要人工客服确认。',
         '始终使用第一人称「我」回答，像面对面聊天一样亲切、自然、不打官腔；称呼对方为「你」。',
         '语气简洁、礼貌、可执行，可以适度使用「咱们」「放心」等口语表达，但不要过度堆砌语气词。',
-        '只有访客明确要求联系开发者本人或转人工时，needHuman 才会为 true。',
+        '只有访客明确要求联系人工客服或转人工时，needHuman 才会为 true。',
         '如果 needHuman 为 true，不要代替开发者承诺；请说明开发者暂时不在线，并请访客留下联系方式和需求摘要，后续会有专人联系。',
         '不要编造报价、档期、项目经历、合作承诺或项目进展。',
       ].join('\n');
@@ -117,7 +117,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
 
   async buildReply(params: BuildReplyParams, onDelta?: ReplyDeltaHandler): Promise<ReplyResult> {
     const { message, history, matchedFaqs, intent, handoff, inquiry, ticket } = params;
-    const fallback = this.buildFallbackReply(matchedFaqs, handoff, inquiry, ticket, intent);
+    const fallback = this.buildFallbackReply(matchedFaqs, handoff, inquiry, ticket, intent, message);
     const fallbackResult: ReplyResult = {
       text: fallback,
       ai: {
@@ -151,7 +151,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     const prompt = [
       `意图：${intent}`,
       `needHuman：${handoff.needHuman}`,
-      `联系开发者本人原因：${handoff.reason}`,
+      `联系人工客服原因：${handoff.reason}`,
       `项目或咨询信息：\n${inquiry ? JSON.stringify(inquiry, null, 2) : '无'}`,
       `跟进事项：\n${ticket ? JSON.stringify(ticket, null, 2) : '无'}`,
       `最近对话：\n${compactHistory || '无'}`,
@@ -229,7 +229,9 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     handoff: HandoffDecision,
     inquiry: Inquiry | null,
     ticket: Ticket | null,
-    intent: string
+    intent: string,
+    /** 访客原话：仅用于在同意图的多条兜底话术里稳定选一条 */
+    message = ''
   ): string {
     if (intent === 'out_of_scope') {
       return '这个问题有点超出我当前知识库范围了。我主要能帮你处理开发服务、报价、合作流程、技术栈、档期和项目进展相关问题。你如果愿意，我可以把话题拉回到你的项目需求上，帮你先梳理下一步。';
@@ -238,18 +240,59 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     if (handoff.needHuman) {
       const ticketText = ticket ? `我已经帮你建好了跟进事项 ${ticket.id}，` : '我已经记下来了，';
       const inquiryText = inquiry ? `也关联上了你的${inquiry.type} ${inquiry.id}（${inquiry.title}）。` : '';
-      return `好的，收到！${ticketText}${inquiryText}开发者本人这会儿可能不在线，你方便的话留个称呼、联系方式和需求摘要，他看到后会尽快联系你，不会漏掉的。`;
+      return `好的，收到！${ticketText}${inquiryText}人工客服这会儿可能不在线，你方便的话留个称呼、联系方式和需求摘要，他看到后会尽快联系你，不会漏掉的。`;
     }
 
     if (inquiry) {
       return `我帮你查到了，${inquiry.type} ${inquiry.id}「${inquiry.title}」目前的状态是：${inquiry.statusText}。下一步：${inquiry.nextStep}。${inquiry.eta}。有其他想了解的随时问我。`;
     }
 
-    return (
-      matchedFaqs[0]?.answer ||
-      '不好意思，这个问题我一下子没找到现成的答案。你可以再补充一点信息，比如需求范围、预算、期望时间，我再帮你看看；或者直接说「联系开发者本人」，我帮你转给他。'
-    );
+    return matchedFaqs[0]?.answer || pickFallbackScript(intent, message);
   }
+}
+
+/**
+ * AI 不可用（未配置 / 超时 / 报错）且知识库没命中时的兜底话术。
+ * 按意图分组，让访客至少拿到一句「对得上话题」的回复，而不是千篇一律的「没找到答案」。
+ */
+export const FALLBACK_SCRIPTS: Record<string, string[]> = {
+  pricing: [
+    '报价这块要看具体范围才好给数，你方便说说大致需求吗？比如要做的是网站、小程序还是后台系统，有哪些主要功能、期望什么时候上线。信息全一些我这边能给你一个靠谱的区间；要直接聊细节的话，说「转人工」我帮你接过去。',
+    '价格取决于功能范围、设计要求和交付周期这几项。你先描述一下项目大概长什么样、有没有参考产品、预算区间大概在哪，我帮你把需求梳理成可报价的清单。',
+  ],
+  collaboration: [
+    '合作流程大致是：先聊需求 → 出方案和报价 → 确认后签约排期 → 分阶段开发验收 → 交付并提供维护支持。你现在处在哪一步？我可以针对性说细一点。',
+    '一般是需求沟通、方案报价、排期开发、验收交付这几步。你要是已经有明确需求，直接说清楚范围和时间，我帮你走下一步；不确定的话我们可以先从需求梳理开始。',
+  ],
+  tech_stack: [
+    '技术选型要看项目类型，前端、后端、小程序各有常用的方案。你说说要做的东西和大致规模，我给你一个具体的选型建议和取舍理由。',
+    '这块我需要知道你的场景才好回答：是新项目还是要接手已有系统？有没有必须兼容的技术栈或部署环境？说清楚了我给你几个可选方案对比。',
+  ],
+  portfolio: [
+    '案例这块有些是签了保密的，不方便直接放出来。你说说你所在的行业和想做的产品类型，我挑能公开的、跟你场景最接近的介绍给你。',
+    '可以介绍一些做过的项目类型和解决的问题。你先说说关注哪方面——是技术难度、交付速度还是某个具体行业，我按这个方向讲。',
+  ],
+  hiring: [
+    '招聘或长期合作的事我这边可以先记下。你方便说说岗位方向、工作方式（远程还是坐班）、大致周期和预算吗？留个联系方式，后续会有人跟你详聊。',
+    '这类合作建议直接和人对接。你留一下称呼、联系方式和大致需求，我记录下来转过去；也可以直接说「转人工」，我帮你接过去。',
+  ],
+  general: [
+    '不好意思，这个问题我一下子没找到现成的答案。你可以再补充一点信息，比如需求范围、预算、期望时间，我再帮你看看；或者直接说「转人工」，我帮你转给客服。',
+    '这个我暂时答不上来，怕说错反而误导你。你换个说法再问一次，或者补充点背景，我再试试；要是急的话说「转人工」，我直接帮你转接。',
+    '抱歉，这块超出我现在掌握的信息了。你说说具体想解决什么问题，我看看能不能帮你换个角度回答；也可以说「转人工」找客服确认。',
+  ],
+};
+
+/**
+ * 按意图挑一条兜底话术。同一意图下有多个变体时按 seed 稳定选取——
+ * 同一个问题每次得到同样的回答（可测试），不同问题之间又不会千篇一律。
+ */
+export function pickFallbackScript(intent: string, seed = ''): string {
+  const scripts = FALLBACK_SCRIPTS[intent] || FALLBACK_SCRIPTS.general;
+  if (scripts.length === 1) return scripts[0];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) % 100_000;
+  return scripts[hash % scripts.length];
 }
 
 export function formatAiError(error: any): string {
