@@ -9,6 +9,30 @@
 ![SSE](https://img.shields.io/badge/realtime-SSE-2457c5)
 ![Local FAQ](https://img.shields.io/badge/default-local%20FAQ-f59e0b)
 
+## 界面速览
+
+### 客服工作台 · 接待大厅抢单 + AI 诊断
+
+![客服工作台](./docs/screenshots/workstation-chat-effect-desktop.png)
+
+> 左侧「接待大厅」是未被认领的会话，对全体客服可见，**发出第一条消息即接管**——不需要单独的抢单接口，判定与写入在同一个原子操作里完成。右侧会话详情里带 AI 诊断：最近意图、情绪、是否需要人工、命中的知识库条目及其得分——客服接手前就知道 AI 之前判断了什么。
+
+### 嵌入式 widget · 一行 script 挂到任意页面
+
+![嵌入效果](./docs/screenshots/demo-widget-chat-effect-desktop.png)
+
+> widget 构建为**单个 IIFE 文件**，用 Shadow DOM 隔离样式，不依赖宿主页面的框架版本。配置从 script 标签读取，`apiBase` 默认取脚本自身的 origin——方便用同域反向代理隐藏真实 server 域名。
+
+<details>
+<summary>更多截图（演示站首页 / 客服登录）</summary>
+
+![演示站](./docs/screenshots/demo-home-desktop.png)
+
+![客服登录](./docs/screenshots/workstation-login-desktop.png)
+
+</details>
+
+
 ## 快速开始（推荐）
 
 ```bash
@@ -54,6 +78,20 @@ apps/demo              演示站（widget 嵌入演示，仅消费产物与公�
 - 会话详情与会话 SSE 做可选鉴权：带客服 token 的非归属者（且非管理员）返回 403；不带 token 的访客（widget）正常放行。
 - 客服身份只来自已验证 token，请求体里的身份字段不再被信任。
 - 生产部署请设置环境变量 `AUTH_SECRET`（JWT 签名密钥）。
+
+### 访客会话凭证
+
+`GET /api/sessions/:sessionId` 与它的 SSE **需要访客令牌**。
+
+原因：`sessionId` 是浏览器端生成的（`widget/src/visitorId.ts` 里的校验和自己就写明「只用于检测本地存储被改动/损坏，并非防伪造的安全签名」），服务端对它零校验。如果不鉴权，知道 sessionId 就能读到完整对话——而 sessionId 会出现在 URL、访问日志、前端埋点里，「难猜」不等于「不可获得」。
+
+- 服务端在**每次对话响应**里下发 `visitorToken`（绑定该 sessionId，TTL 7 天，每次对话顺带续期）
+- 访客侧读取时出示：REST 走 `x-visitor-token` 请求头，SSE 走 `?vt=` 查询串（`EventSource` 无法自定义请求头，与客服的 `?ticket=` 同理）
+- 令牌里带 `kind: 'visitor'` 并强制校验——**客服 token 与 SSE 票据不能冒充访客令牌，反之亦然**
+- 客服携带自己的 token 访问则走原有的归属判定，不受影响
+- 存量灰度：`ALLOW_ANON_SESSION_READ=true` 可临时放行不带令牌的请求，线上 widget 全部升级后应关闭
+
+> 不用 Cookie 是因为 widget 嵌在第三方页面里，跨站 Cookie 需要 `SameSite=None` 且正被各浏览器默认拦截。代价是同源 XSS 能读到 localStorage 里的令牌——但该令牌只能读这一个会话，而能执行 XSS 的脚本本来就在同一页面上下文里。
 
 ### 接待大厅与抢单
 
