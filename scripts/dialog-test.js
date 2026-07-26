@@ -65,7 +65,7 @@ async function fetchSession() {
   await sleep(50);
 
   console.log('[Step 3] 客服接入并回复');
-  await agentSay('您好，我是开发者本人，已接手您的咨询');
+  await agentSay('您好，我是人工客服，已接手您的咨询');
   await sleep(50);
 
   console.log('[Step 4] 访客继续提问 (开发者接入后 AI 应静默)');

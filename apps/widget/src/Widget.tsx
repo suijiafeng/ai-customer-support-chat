@@ -321,7 +321,7 @@ export default function Widget({ apiBase, title, siteKey, tenantId }: WidgetProp
                     <div className="col">
                       {m.from !== 'customer' && m.from !== 'system' && (
                         <div className="meta">
-                          {m.from === 'ai' ? '智能助手' : m.agentName || '开发者本人'}
+                          {m.from === 'ai' ? '智能助手' : m.agentName || '人工客服'}
                         </div>
                       )}
                       <div className="bubble">

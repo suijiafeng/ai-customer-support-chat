@@ -22,7 +22,7 @@ const MessageRow = memo(function MessageRow({ m, customerName }: { m: UiMessage;
   }
   const who = m.from === 'customer'
     ? (customerName || '访客')
-    : m.from === 'ai' ? '智能助手' : (m.agentName || '开发者本人');
+    : m.from === 'ai' ? '智能助手' : (m.agentName || '人工客服');
   const time = fmtTime(m.createdAt);
   return (
     <div className={`row ${m.from}`}>

@@ -117,7 +117,7 @@ export class SessionsController {
   @Post(':sessionId/resolve')
   resolveSession(@Param('sessionId') sessionId: string, @Body() body: any, @Req() req: any) {
     const session = this.sessions.get(sessionId);
-    const resolution = String(body?.resolution || '开发者本人已标记解决').trim().slice(0, 120);
+    const resolution = String(body?.resolution || '人工客服已标记解决').trim().slice(0, 120);
     if (!session) throw new NotFoundException({ error: 'session not found' });
     const agent = req.agent as AuthenticatedAgent;
     if (agent.role !== 'admin' && session.assignedAgentId !== agent.id) {

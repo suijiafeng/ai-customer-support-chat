@@ -148,7 +148,7 @@ export class ChatService {
         intent: 'agent_conversation',
         sentiment: detectSentiment(message),
         needHuman: false,
-        reason: '开发者本人已接入，暂停 AI 自动回复',
+        reason: '人工客服已接入，暂停 AI 自动回复',
         inquiry: this.knowledge.findInquiry(message),
         ticket: activeTicket,
         sources: [],

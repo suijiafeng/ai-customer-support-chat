@@ -47,7 +47,7 @@ function guessIntent(query) {
   if (/合作|流程|周期|工期|排期|改稿|合同|nda|保密/.test(q)) return 'collaboration';
   if (/技术|技术栈|react|vue|next|性能|seo|兼容/.test(q)) return 'tech_stack';
   if (/档期|有空|什么时候开始/.test(q)) return 'availability';
-  if (/联系|转人工|找真人|开发者本人/.test(q)) return 'human_handoff';
+  if (/联系|转人工|找真人|人工客服/.test(q)) return 'human_handoff';
   if (/项目进展|咨询进展|项目编号|咨询编号|状态/.test(q)) return 'inquiry_status';
   return 'general';
 }

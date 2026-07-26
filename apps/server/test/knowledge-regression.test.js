@@ -10,7 +10,7 @@ const CASES = [
   { query: '项目怎么报价', expectId: 'pricing' },
   { query: '我想先了解合作流程', expectId: 'collaboration_process' },
   { query: '最近有空档吗', expectId: 'availability' },
-  { query: '如何联系开发者本人', expectId: 'human_handoff' },
+  { query: '如何联系人工客服', expectId: 'human_handoff' },
   { query: '支持哪些付款方式', expectId: 'payment_method' },
   { query: '项目源代码归谁所有', expectId: 'code_ownership' },
   { query: '你会不会 vue3 和 next', expectIntent: 'tech_stack' },

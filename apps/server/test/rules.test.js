@@ -64,9 +64,9 @@ test('findInquiryByMessage returns matching project data', () => {
 });
 
 test('shouldHandoff only escalates explicit requests to contact the developer', () => {
-  assert.deepEqual(shouldHandoff('联系开发者本人', 'human_handoff', [], 'neutral', null), {
+  assert.deepEqual(shouldHandoff('联系人工客服', 'human_handoff', [], 'neutral', null), {
     needHuman: true,
-    reason: '访客明确要求联系开发者本人',
+    reason: '访客明确要求联系人工客服',
   });
   assert.deepEqual(shouldHandoff('项目 Z9999 进度怎么样', 'inquiry_status', [], 'neutral', null), {
     needHuman: false,
@@ -133,7 +133,7 @@ test('matchSmallTalk 同一消息回复稳定可复现', () => {
 
 test('matchSmallTalk 不误伤正常业务问题', () => {
   assert.equal(matchSmallTalk('你好，项目怎么报价'), null);
-  assert.equal(matchSmallTalk('我想联系开发者本人'), null);
+  assert.equal(matchSmallTalk('我想联系人工客服'), null);
   assert.equal(matchSmallTalk('帮我查一下项目 P1001'), null);
   assert.equal(matchSmallTalk('最近有档期吗'), null);
   assert.equal(matchSmallTalk('1234567890123'), null);

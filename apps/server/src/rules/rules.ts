@@ -178,7 +178,7 @@ export function shouldHandoff(
   aiAvailable = false
 ): HandoffDecision {
   if (intent === 'human_handoff') {
-    return { needHuman: true, reason: '访客明确要求联系开发者本人' };
+    return { needHuman: true, reason: '访客明确要求联系人工客服' };
   }
   if (intent === 'out_of_scope') {
     return { needHuman: false, reason: '问题超出知识库边界，给出范围说明并引导回业务咨询' };
